@@ -10,17 +10,17 @@ class BaseActionStub(BaseAction):
     COMMANDS_CHAIN = []
     STATE = {}
 
-    def as_state(self):
+    def as_schema(self):
         return self.STATE
 
-    def _build_commands_chain(self, old_state, new_state):
+    def _build_commands_chain(self, old_schema, new_schema):
         return self.COMMANDS_CHAIN
 
 
 class TestBaseAction:
     @pytest.fixture(autouse=True)
     def setup(self):
-        self.new_state = {'new': 'state'}
+        self.new_state = {'new': 'schema'}
         command_attrs = {'forward.return_value': True, 'backward.return_value': True}
         BaseActionStub.COMMANDS_CHAIN = [
             Mock(spec=BaseCommand, **command_attrs),
@@ -31,7 +31,7 @@ class TestBaseAction:
         BaseActionStub.STATE = self.new_state
         self.db = Mock()
         self.collection = Mock()
-        self.old_state = {'old': 'state'}
+        self.old_state = {'old': 'schema'}
 
         self.obj = BaseActionStub('base_collection', 'test', 123, test_param=789)
 
@@ -43,7 +43,7 @@ class TestBaseAction:
     def test_prepare__should_store_old_state(self):
         self.obj.prepare(self.old_state)
 
-        assert self.obj.old_state == self.old_state
+        assert self.obj.old_schema == self.old_state
 
     def test_run_forward__on_all_command_successful__should_return_empty_list(self):
         res = self.obj.run_forward(self.db, self.collection)
@@ -130,7 +130,7 @@ class TestBaseAction:
 
     def test_run_forward__on_start_from_is_passed__should_run_command_chain_from_this_index(self):
         start_from = 2
-        new_state = {'test': 'state'}
+        new_state = {'test': 'schema'}
 
         self.obj.prepare(self.old_state)
         res = self.obj.run_forward(self.db, self.collection, start_from=start_from)
@@ -235,7 +235,7 @@ class TestBaseAction:
 
     def test_run_backward__on_start_from_is_passed__should_run_command_chain_from_this_index(self):
         start_from = 2
-        new_state = {'test': 'state'}
+        new_state = {'test': 'schema'}
 
         self.obj.prepare(self.old_state)
         res = self.obj.run_backward(self.db, self.collection, start_from=start_from)

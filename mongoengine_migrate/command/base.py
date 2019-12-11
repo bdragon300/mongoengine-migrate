@@ -11,7 +11,7 @@ class BaseCommand(metaclass=ABCMeta):
     It's supposed that Command object is stateless
     """
     @abstractmethod
-    def forward(self, db, col, old_state, new_state):
+    def forward(self, db, col, old_schema, new_schema):
         """
         Make forward changes.
 
@@ -19,13 +19,13 @@ class BaseCommand(metaclass=ABCMeta):
         failed otherwise
         :param db: pymongo.Database object
         :param col: pymongo.Collection object
-        :param old_state: older migration state
-        :param new_state: new state
+        :param old_schema: older migration schema
+        :param new_schema: new schema
         :return: True on success
         """
 
     @abstractmethod
-    def backward(self, db, col, old_state, new_state):
+    def backward(self, db, col, old_schema, new_schema):
         """
         Revert changes
 
@@ -33,7 +33,7 @@ class BaseCommand(metaclass=ABCMeta):
         failed otherwise
         :param db: pymongo.Database object
         :param col: pymongo.Collection object
-        :param old_state: older migration state
-        :param new_state: new state, which we are reverting
+        :param old_schema: older migration schema
+        :param new_schema: new schema, which we are reverting
         :return: True on success
         """

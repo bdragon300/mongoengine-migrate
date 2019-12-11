@@ -12,7 +12,7 @@ class BaseAction:
     Every action accepts collection name, field name and its new
     parameters if any.
 
-    Action also is serialized into state dict which is written to db
+    Action also is serialized into schema dict which is written to db
     along with migration metadata and used to downgrade migration.
     """
     def __init__(self, collection_name, *args, **kwargs):
@@ -20,13 +20,13 @@ class BaseAction:
         self._init_args = args
         self._init_kwargs = kwargs
 
-    def prepare(self, old_state):
+    def prepare(self, old_schema):
         """
         Prepare action before data migrate
-        :param old_state: previous (old) migration state
+        :param old_schema: previous (old) migration schema
         :return:
         """
-        self.old_state = old_state
+        self.old_schema = old_schema
 
     def run_forward(self, db, collection, start_from=0, ignore_failed=False) -> list:
         """
@@ -41,8 +41,8 @@ class BaseAction:
           and `ignore_failed` parameter is True. On success the function
          returns empty list
         """
-        new_state = self.as_state()
-        chain = self._build_commands_chain(self.old_state, new_state)  # type: list
+        new_schema = self.as_schema()
+        chain = self._build_commands_chain(self.old_schema, new_schema)  # type: list
         if start_from >= len(chain) or start_from < 0:
             raise ValueError(f'Command index {start_from} is out of range')
 
@@ -61,8 +61,8 @@ class BaseAction:
           and `ignore_failed` parameter is True. On success the function
          returns empty list
         """
-        new_state = self.as_state()
-        chain = self._build_commands_chain(self.old_state, new_state)  # type: list
+        new_schema = self.as_schema()
+        chain = self._build_commands_chain(self.old_schema, new_schema)  # type: list
         if start_from is not None:
             if start_from >= len(chain) or start_from < 0:
                 raise ValueError(f'Command index {start_from} is out of range')
@@ -74,20 +74,20 @@ class BaseAction:
         """Cleanup callback executed after command chain run"""
 
     @abstractmethod
-    def as_state(self):
-        """Return action as state"""
+    def as_schema(self):
+        """Return action as schema"""
 
     @abstractmethod
-    def _build_commands_chain(self, old_state, new_state):
+    def _build_commands_chain(self, old_schema, new_schema):
         """
         Build commands chain to be executed during migration based on
-        difference of current state and previous state
-        :param old_state: older migration state
+        difference of current schema and previous schema
+        :param old_schema: older migration schema
         :return: list with Command objects
         """
 
     def _run_chain(self, chain, db, collection, method_name, ignore_failed=False) -> list:
-        new_state = self.as_state()
+        new_schema = self.as_schema()
         errors = []
         counter = 0
         for cmd in chain:
@@ -95,7 +95,7 @@ class BaseAction:
                 # Command may return False/None or raise the exception
                 # Both cases means that command was failed
                 method = getattr(cmd, method_name)
-                command_result = method(db, collection, self.old_state, new_state)
+                command_result = method(db, collection, self.old_schema, new_schema)
                 if not command_result:
                     if ignore_failed:
                         errors.append((counter, command_result))

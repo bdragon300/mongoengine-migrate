@@ -10,7 +10,7 @@ class BaseActionStub(BaseAction):
     COMMANDS_CHAIN = []
     STATE = {}
 
-    def as_schema(self):
+    def as_schema_patch(self):
         return self.STATE
 
     def _build_commands_chain(self, old_schema, new_schema):
@@ -43,7 +43,7 @@ class TestBaseAction:
     def test_prepare__should_store_old_state(self):
         self.obj.prepare(self.old_state)
 
-        assert self.obj.old_schema == self.old_state
+        assert self.obj.current_schema == self.old_state
 
     def test_run_forward__on_all_command_successful__should_return_empty_list(self):
         res = self.obj.run_forward(self.db, self.collection)

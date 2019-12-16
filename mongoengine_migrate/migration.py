@@ -11,8 +11,18 @@ class Migration(Slotinit):
       dependent by
     * applied -- is migration was applied or not. Taken from database
     """
-    __slots__ = ('name', 'dependencies', 'applied')
+    __slots__ = ('name', 'dependencies', 'applied', 'module')
     defaults = {'applied': False}
+
+    def get_forward_actions(self):
+        # FIXME: type checking, attribute checking
+        # FIXME: tests
+        return self.module.forward
+
+    def get_backward_actions(self):
+        # FIXME: type checking, attribute checking
+        # FIXME: tests
+        return self.module.backward
 
 
 class MigrationsGraph:
@@ -64,6 +74,15 @@ class MigrationsGraph:
                 self._parents[partner.name].append(migration)
 
         self._migrations[migration.name] = migration
+
+    def clear(self):  # TODO: tests
+        """
+        Clear graph
+        :return:
+        """
+        self._parents = {}
+        self._children = {}
+        self._migrations = {}
 
     def verify(self):
         """

@@ -22,7 +22,7 @@ class Migration(Slotinit):
     def get_backward_actions(self):
         # FIXME: type checking, attribute checking
         # FIXME: tests
-        return self.module.backward
+        return reversed(self.module.forward)
 
 
 class MigrationsGraph:
@@ -63,7 +63,7 @@ class MigrationsGraph:
         self._parents[migration.name] = []
         self._children[migration.name] = []
 
-        for partner in self._migrations:
+        for partner in self._migrations.values():
             if partner.name == migration.name:
                 continue
             if partner.name in migration.dependencies:
@@ -153,11 +153,12 @@ class MigrationsGraph:
         """
         # FIXME: may yield nodes not related to target migration if branchy graph
         # FIXME: if migration was applied after its dependencies unapplied then it is an error
+        # FIXME: should have stable migrations order
         if _node_counters is None:
             _node_counters = {}
         if from_node is None:
             return ()
-        _node_counters.setdefault(from_node.name, len(self._parents[from_node.name]))
+        _node_counters.setdefault(from_node.name, len(self._parents[from_node.name]) or 1)
         _node_counters[from_node.name] -= 1
 
         if _node_counters[from_node.name] > 0:
@@ -201,7 +202,7 @@ class MigrationsGraph:
             _node_counters = {}
         if from_node is None:
             return ()
-        _node_counters.setdefault(from_node.name, len(self._parents[from_node.name]))
+        _node_counters.setdefault(from_node.name, len(self._children[from_node.name]) or 1)
         _node_counters[from_node.name] -= 1
 
         if _node_counters[from_node.name] > 0:

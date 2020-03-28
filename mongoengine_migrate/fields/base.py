@@ -35,12 +35,13 @@ class BaseFieldType(metaclass=FieldTypeMeta):
     @classmethod
     @abstractmethod
     def schema_skel(cls):
+        """Returns {attr_name: default_value}"""
         pass
 
     @classmethod
     def field_to_schema(cls, field_obj):
         schema_skel = cls.schema_skel()
-        return {f: getattr(field_obj, f, val) for f, val in schema_skel.keys()}
+        return {f: getattr(field_obj, f, val) for f, val in schema_skel.items()}
 
     # @abstractmethod
     # def convert_from_type(self, from_type):

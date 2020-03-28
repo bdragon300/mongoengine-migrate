@@ -3,4 +3,8 @@ class MigrationError(Exception):
 
 
 class ActionError(MigrationError):
-    """Generic action error occured during migration"""
+    """Generic error occured during migration actions executing"""
+
+
+class SchemaError(MigrationError):
+    """Generic error in db schema"""

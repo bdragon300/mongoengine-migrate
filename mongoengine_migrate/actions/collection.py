@@ -16,7 +16,7 @@ class CreateCollection(BaseCollectionAction):
         if collection_name not in old_schema and collection_name in new_schema:
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
-    def as_schema_patch(self):
+    def as_schema_patch(self, current_schema):
         return [('add', '', [(self.collection_name, collection_schema_skel)])]
 
     def run_forward(self, db, collection):
@@ -37,15 +37,13 @@ class DropCollection(BaseCollectionAction):
         if collection_name in old_schema and collection_name not in new_schema:
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
-    def as_schema_patch(self):
-        if self.current_schema is None:
-            raise ActionError('Action was not initialized with a current schema')
-        if self.collection_name not in self.current_schema:
+    def as_schema_patch(self, current_schema):
+        if self.collection_name not in current_schema:
             raise ActionError(f'Schema does not contain collection {self.collection_name!r}')
-        new_schema = self.current_schema.copy()
+        new_schema = current_schema.copy()
         del new_schema[self.collection_name]
 
-        return diff(self.current_schema, new_schema)
+        return diff(current_schema, new_schema)
 
     def run_forward(self, db, collection):
         """

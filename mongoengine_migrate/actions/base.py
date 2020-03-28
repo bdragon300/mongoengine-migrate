@@ -63,10 +63,11 @@ class BaseAction(metaclass=BaseActionMeta):
         """
 
     @abstractmethod
-    def as_schema_patch(self):
+    def as_schema_patch(self, current_schema):
         """
         Return dict patch in forward direction to be applied to
         a schema dictionary
+        :param current_schema:
         :return:
         """
 
@@ -123,16 +124,17 @@ class BaseFieldAction(BaseAction):
 
     def as_python_expr(self) -> str:
         args_str = ''.join(
-            ', ' + getattr(arg, 'as_python_expr', lambda o: f"'{o}'")()
+            ', ' + getattr(arg, 'as_python_expr', lambda: repr(arg))()
             for arg in self._init_args
         )
         kwargs = {
-            name: getattr(val, 'as_python_expr', lambda o: f"'{o}'")()
+            name: getattr(val, 'as_python_expr', lambda: repr(val))()
             for name, val in self._init_kwargs.items()
         }
-        kwargs_str = ''.join(f", {name}='{val}'" for name, val in kwargs.items())
+        kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())
         return f'{self.__class__.__name__}(' \
-               f'"{self.collection_name}", "{self.field_name}"{args_str}{kwargs_str})'
+               f'{self.collection_name!r}, {self.field_name!r}, {self.field_type_cls.__name__}' \
+               f'{args_str}{kwargs_str})'
 
 
 class BaseCollectionAction(BaseAction):

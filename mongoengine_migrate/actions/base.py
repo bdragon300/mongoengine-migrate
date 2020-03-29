@@ -35,31 +35,30 @@ class BaseAction(metaclass=BaseActionMeta):
         self._init_args = args
         self._init_kwargs = kwargs
 
-    def prepare(self, current_schema):
+    def prepare(self, db, current_schema):
         """
         Prepare action before data migrate
+        :param db: pymongo.Database object
         :param current_schema: db schema which is before migration
         :return:
         """
         self.current_schema = current_schema  # type: dict
+        self.db = db
+        self.collection = db['collection']
 
     def cleanup(self):
         """Cleanup callback executed after command chain run"""
 
     @abstractmethod
-    def run_forward(self, db, collection):
+    def run_forward(self):
         """
         Run command in forward direction
-        :param db: pymongo.Database object
-        :param collection: pymongo.Collection object
         """
 
     @abstractmethod
-    def run_backward(self, db, collection):
+    def run_backward(self):
         """
         Run command in backward direction
-        :param db: pymongo.Database object
-        :param collection: pymongo.Collection object=
         """
 
     @abstractmethod

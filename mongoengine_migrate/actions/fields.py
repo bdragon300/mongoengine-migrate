@@ -21,15 +21,16 @@ class CreateField(BaseFieldAction):
             {self.field_name: self.field_type_cls.schema_skel()}
         )])]
 
-    def run_forward(self, db, collection):
+    def run_forward(self):
         """
         FIXME: default
         So, do nothing
         FIXME: parameters (indexes, acl, etc.)
         """
 
-    def run_backward(self, db, collection):
-        collection.drop()
+    def run_backward(self):
+        #self.collection.drop()
+        pass  # TODO
 
 
 class DropField(BaseFieldAction):

@@ -19,15 +19,15 @@ class CreateCollection(BaseCollectionAction):
     def as_schema_patch(self, current_schema):
         return [('add', '', [(self.collection_name, collection_schema_skel)])]
 
-    def run_forward(self, db, collection):
+    def run_forward(self):
         """
         Mongodb automatically creates collection on the first insert
         So, do nothing
         FIXME: parameters (indexes, acl, etc.)
         """
 
-    def run_backward(self, db, collection):
-        collection.drop()
+    def run_backward(self):
+        self.collection.drop()
 
 
 class DropCollection(BaseCollectionAction):
@@ -45,14 +45,14 @@ class DropCollection(BaseCollectionAction):
 
         return diff(current_schema, new_schema)
 
-    def run_forward(self, db, collection):
+    def run_forward(self):
         """
         Mongodb automatically creates collection on the first insert
         So, do nothing
         """
-        collection.drop()
+        self.collection.drop()
 
-    def run_backward(self, db, collection):
+    def run_backward(self):
         """
         Mongodb automatically creates collection on the first insert
         So, do nothing

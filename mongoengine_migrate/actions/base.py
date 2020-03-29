@@ -71,9 +71,14 @@ class BaseAction(metaclass=BaseActionMeta):
     def to_schema_patch(self, current_schema: dict):
         """
         Return dictdiff patch which this Action is applied to a schema
-        during forward run
+        during forward run.
+
+        This function returns diff to applied in forward direction
+        to get needed changes in schema. Note that this function also
+        is used on downgrade process, where this diff is swapped and
+        applied to schema in reverse order
         :param current_schema:
-        :return:
+        :return: dictdiffer diff
         """
 
     @abstractmethod

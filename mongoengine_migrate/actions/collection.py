@@ -19,23 +19,7 @@ class CreateCollection(BaseCollectionAction):
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
     def to_schema_patch(self, current_schema: dict):
-        """
-        Return dictdiff patch which this Action is applied to a schema
-        during forward run
-
-        The main goal of this Action is to create collection. So this
-        method raises ActionError if this goal could not be reached --
-        if collection with that name is already exists in schema
-        :param current_schema:
-        :return: dictdiffer diff
-        """
-        if self.collection_name in current_schema:
-            raise ActionError(f'Could not create collection {self.collection_name!r} since it '
-                              f'already created')
-        new_schema = current_schema.copy()
-        new_schema[self.collection_name] = collection_schema_skel
-
-        return diff(current_schema, new_schema)
+        return [('add', '', [(self.collection_name, collection_schema_skel)])]
 
     def run_forward(self):
         """
@@ -61,22 +45,7 @@ class DropCollection(BaseCollectionAction):
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
     def to_schema_patch(self, current_schema: dict):
-        """
-        Return dictdiff patch which this Action is applied to a schema
-        during forward run
-
-        The main goal of this Action is to drop collection. So this
-        method does not concern if that collection is already dropped --
-        it just means that the goal is already reached
-        :param current_schema:
-        :return: dictdiffer diff
-        """
-        if self.collection_name not in current_schema:
-            return []
-        new_schema = current_schema.copy()
-        del new_schema[self.collection_name]
-
-        return diff(current_schema, new_schema)
+        return [('remove', '', [(self.collection_name, collection_schema_skel)])]
 
     def run_forward(self):
         """

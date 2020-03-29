@@ -26,27 +26,15 @@ class CreateField(BaseFieldAction):
                        )
 
     def to_schema_patch(self, current_schema: dict):
-        """
-        Return dictdiff patch which this Action is applied to a schema
-        during forward run
-
-        The main goal of this Action is to create field. So this method
-        raises ActionError if this goal could not be reached -- if
-        target collection is not in schema, if this field is already
-        exists.
-        :param current_schema:
-        :return: dictdiffer diff
-        """
         if self.collection_name not in current_schema:
             raise ActionError(f'Cannot create field {self.collection_name}.{self.field_name} '
                               f'since collection {self.collection_name} was not created in schema')
-        if self.field_name in current_schema[self.collection_name]:
-            raise ActionError(f'Cannot create field {self.collection_name}.{self.field_name} '
-                              f'since such field is already exists in schema')
-        new_schema = current_schema.copy()
-        new_schema[self.collection_name][self.field_name] = self.field_type_cls.schema_skel()
 
-        return diff(current_schema, new_schema)
+        return [(
+            'add',
+            self.collection_name,
+            [(self.field_name, self.field_type_cls.schema_skel())]
+        )]
 
     def run_forward(self):
         """
@@ -117,23 +105,15 @@ class DropField(BaseFieldAction):
                        )
 
     def to_schema_patch(self, current_schema: dict):
-        """
-        Return dictdiff patch which this Action is applied to a schema
-        during forward run
+        if self.collection_name not in current_schema:
+            raise ActionError(f'Cannot create field {self.collection_name}.{self.field_name} '
+                              f'since collection {self.collection_name} was not created in schema')
 
-        The main goal of this Action is to drop field. So this method
-        does not concern if that field or even collection is already
-        dropped -- it just means that the goal is already reached
-        :param current_schema:
-        :return: dictdiffer diff
-        """
-        if self.collection_name not in current_schema \
-                or self.field_name not in current_schema[self.collection_name]:
-            return []
-        new_schema = current_schema.copy()
-        del new_schema[self.collection_name][self.field_name]
-
-        return diff(current_schema, new_schema)
+        return [(
+            'remove',
+            self.collection_name,
+            [(self.field_name, self.field_type_cls.schema_skel())]
+        )]
 
     def run_forward(self):
         self.collection.update_many(

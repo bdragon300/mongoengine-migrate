@@ -1,25 +1,52 @@
 from .base import BaseFieldAction
 from mongoengine_migrate.fields.base import schema_fields_mapping
 from mongoengine_migrate.exceptions import SchemaError
+from dictdiffer import diff
+from mongoengine_migrate.exceptions import ActionError
 
 
 class CreateField(BaseFieldAction):
     @classmethod
-    def build_object_if_applicable(cls, collection_name, field_name, old_schema, new_schema):
-        if collection_name in new_schema and field_name in new_schema[collection_name]:
-            field_schema = new_schema[collection_name][field_name]
-            type_key = field_schema['type_key']
+    def build_object_if_applicable(cls,
+                                   collection_name: str,
+                                   field_name: str,
+                                   old_schema: dict,
+                                   new_schema: dict):
+        match = all((collection_name in old_schema,
+                     collection_name in new_schema,
+                     field_name not in old_schema[collection_name],
+                     field_name in new_schema[collection_name]))
+        if match:
+            field_params = new_schema[collection_name][field_name]
+            type_key = field_params['type_key']
             return cls(collection_name=collection_name,
                        field_name=field_name,
                        field_type_cls=schema_fields_mapping[type_key],
-                       **field_schema
+                       **field_params
                        )
 
-    def to_schema_patch(self, current_schema):
-        return [('add', '', [(
-            self.collection_name,
-            {self.field_name: self.field_type_cls.schema_skel()}
-        )])]
+    def to_schema_patch(self, current_schema: dict):
+        """
+        Return dictdiff patch which this Action is applied to a schema
+        during forward run
+
+        The main goal of this Action is to create field. So this method
+        raises ActionError if this goal could not be reached -- if
+        target collection is not in schema, if this field is already
+        exists.
+        :param current_schema:
+        :return: dictdiffer diff
+        """
+        if self.collection_name not in current_schema:
+            raise ActionError(f'Cannot create field {self.collection_name}.{self.field_name} '
+                              f'since collection {self.collection_name} was not created in schema')
+        if self.field_name in current_schema[self.collection_name]:
+            raise ActionError(f'Cannot create field {self.collection_name}.{self.field_name} '
+                              f'since such field is already exists in schema')
+        new_schema = current_schema.copy()
+        new_schema[self.collection_name][self.field_name] = self.field_type_cls.schema_skel()
+
+        return diff(current_schema, new_schema)
 
     def run_forward(self):
         """
@@ -37,6 +64,86 @@ class CreateField(BaseFieldAction):
             {self.field_name: {'$exists': True}}, {'$unset': {self.field_name: ''}}
         )
 
+    # @classmethod
+    # def _fix_field_schema(cls,
+    #                       collection_name: str,
+    #                       field_name: str,
+    #                       field_params: dict,
+    #                       old_schema: dict,
+    #                       new_schema: dict) -> dict:
+    #     #FIXME: move to AlterField
+    #     """
+    #     Search for potential problems which could be happened during
+    #     migration and return fixed field schema. If such problem
+    #     could not be resolved only by changing parameters then it
+    #     raises error.
+    #
+    #     :param collection_name:
+    #     :param field_name:
+    #     :param field_params:
+    #     :param old_schema:
+    #     :param new_schema:
+    #     :raises ActionError: when some problem found
+    #     :return:
+    #     """
+    #     is_required = field_params.get('required')
+    #     default = field_params.get('default')
+    #     if is_required and default is None:
+    #         # TODO: replace following error on interactive mode
+    #         raise ActionError(f'Field {collection_name}.{field_name} could not be created '
+    #                           f'since it defined as required but has not a default value')
+    #
+    #     return field_params
+
 
 class DropField(BaseFieldAction):
-    pass
+    @classmethod
+    def build_object_if_applicable(cls,
+                                   collection_name: str,
+                                   field_name: str,
+                                   old_schema: dict,
+                                   new_schema: dict):
+        match = all((collection_name in old_schema,
+                     collection_name in new_schema,
+                     field_name in old_schema[collection_name],
+                     field_name not in new_schema[collection_name]))
+        if match:
+            field_params = new_schema[collection_name][field_name]
+            type_key = field_params['type_key']
+            return cls(collection_name=collection_name,
+                       field_name=field_name,
+                       field_type_cls=schema_fields_mapping[type_key],
+                       **field_params
+                       )
+
+    def to_schema_patch(self, current_schema: dict):
+        """
+        Return dictdiff patch which this Action is applied to a schema
+        during forward run
+
+        The main goal of this Action is to drop field. So this method
+        does not concern if that field or even collection is already
+        dropped -- it just means that the goal is already reached
+        :param current_schema:
+        :return: dictdiffer diff
+        """
+        if self.collection_name not in current_schema \
+                or self.field_name not in current_schema[self.collection_name]:
+            return []
+        new_schema = current_schema.copy()
+        del new_schema[self.collection_name][self.field_name]
+
+        return diff(current_schema, new_schema)
+
+    def run_forward(self):
+        self.collection.update_many(
+            {self.field_name: {'$exists': True}}, {'$unset': {self.field_name: ''}}
+        )
+
+    def run_backward(self):
+        is_required = self._init_kwargs.get('required') or self._init_kwargs.get('primary_key')
+        default = self._init_kwargs.get('default')
+        if is_required:
+            self.collection.update_many(
+                {self.field_name: {'$exists': False}}, {'$set': {self.field_name: default}}
+            )

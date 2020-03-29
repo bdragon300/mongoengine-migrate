@@ -87,12 +87,17 @@ class BaseAction(metaclass=BaseActionMeta):
 class BaseFieldAction(BaseAction):
     """Base class for action which changes one field"""
 
-    def __init__(self, collection_name, field_name, field_type_cls, *args, **kwargs):
+    def __init__(self,
+                 collection_name: str,
+                 field_name: str,
+                 field_type_cls,
+                 *args,
+                 **kwargs):
         """
         :param collection_name: collection name where we performing a
          change
         :param field_name: field which is changed
-        :param field_type_cls: Mongoengine field target class
+        :param field_type_cls: Target FieldType class
         """
         super().__init__(collection_name, *args, **kwargs)
         self.field_name = field_name
@@ -100,7 +105,11 @@ class BaseFieldAction(BaseAction):
 
     @classmethod
     @abstractmethod
-    def build_object_if_applicable(cls, collection_name, field_name, old_schema, new_schema):
+    def build_object_if_applicable(cls,
+                                   collection_name: str,
+                                   field_name: str,
+                                   old_schema: dict,
+                                   new_schema: dict):
         """
         Factory method which may produce filled in object of concrete
         action if this action can be used to reflect such field change
@@ -149,7 +158,7 @@ class BaseCollectionAction(BaseAction):
     """
     @classmethod
     @abstractmethod
-    def build_object_if_applicable(cls, collection_name, old_schema, new_schema):
+    def build_object_if_applicable(cls, collection_name: str, old_schema: str, new_schema: str):
         pass
 
     def to_python(self) -> str:

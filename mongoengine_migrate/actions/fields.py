@@ -15,7 +15,7 @@ class CreateField(BaseFieldAction):
                        **field_schema
                        )
 
-    def as_schema_patch(self, current_schema):
+    def to_schema_patch(self, current_schema):
         return [('add', '', [(
             self.collection_name,
             {self.field_name: self.field_type_cls.schema_skel()}
@@ -23,14 +23,19 @@ class CreateField(BaseFieldAction):
 
     def run_forward(self):
         """
-        FIXME: default
-        So, do nothing
         FIXME: parameters (indexes, acl, etc.)
         """
+        is_required = self._init_kwargs.get('required') or self._init_kwargs.get('primary_key')
+        default = self._init_kwargs.get('default')
+        if is_required:
+            self.collection.update_many(
+                {self.field_name: {'$exists': False}}, {'$set': {self.field_name: default}}
+            )
 
     def run_backward(self):
-        #self.collection.drop()
-        pass  # TODO
+        self.collection.update_many(
+            {self.field_name: {'$exists': True}}, {'$unset': {self.field_name: ''}}
+        )
 
 
 class DropField(BaseFieldAction):

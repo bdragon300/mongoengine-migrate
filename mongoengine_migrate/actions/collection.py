@@ -8,15 +8,17 @@ collection_schema_skel = {}
 
 
 class CreateCollection(BaseCollectionAction):
-    """
-    Action which creates new collection
+    """Create new collection
+
+    Accepts collection name as parameter such as:
+    `CreateCollection("collection1")`
     """
     @classmethod
     def build_object_if_applicable(cls, collection_name, old_schema, new_schema):
         if collection_name not in old_schema and collection_name in new_schema:
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
-    def as_schema_patch(self, current_schema):
+    def to_schema_patch(self, current_schema):
         return [('add', '', [(self.collection_name, collection_schema_skel)])]
 
     def run_forward(self):
@@ -27,17 +29,22 @@ class CreateCollection(BaseCollectionAction):
         """
 
     def run_backward(self):
+        """Drop collection in backward direction"""
         self.collection.drop()
 
 
 class DropCollection(BaseCollectionAction):
-    """Action which drops existing collection"""
+    """Drop collection
+
+    Accepts collection name as parameter such as:
+    `DropCollection("collection1")`
+    """
     @classmethod
     def build_object_if_applicable(cls, collection_name, old_schema, new_schema):
         if collection_name in old_schema and collection_name not in new_schema:
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
-    def as_schema_patch(self, current_schema):
+    def to_schema_patch(self, current_schema):
         if self.collection_name not in current_schema:
             raise ActionError(f'Schema does not contain collection {self.collection_name!r}')
         new_schema = current_schema.copy()

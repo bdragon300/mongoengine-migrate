@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 import weakref
 
+# Concrete Actions registry
 # {class_name: action_class}
 actions_registry = {}
 
@@ -17,7 +18,7 @@ class BaseActionMeta(ABCMeta):
 
 
 class BaseAction(metaclass=BaseActionMeta):
-    """Base class of migrate actions
+    """Base class for migration actions
 
     Action represents one change within migration such as field
     altering, collection renaming, collection dropping, etc.
@@ -30,63 +31,68 @@ class BaseAction(metaclass=BaseActionMeta):
     diff to a db schema after migration run
     """
     def __init__(self, collection_name, *args, **kwargs):
+        """
+        :param collection_name: Name of collection where the migration
+         will be performed on
+        :param args: Action positional parameters
+        :param kwargs: Action keyword parameters
+        """
         self.collection_name = collection_name
-        self.current_schema = None
         self._init_args = args
         self._init_kwargs = kwargs
 
-    def prepare(self, db, current_schema):
+        self.current_schema = None
+        self.db = None
+        self.collection = None
+
+    def prepare(self, db, current_schema: dict):
         """
-        Prepare action before data migrate
+        Prepare action before Action run (both forward and backward)
         :param db: pymongo.Database object
         :param current_schema: db schema which is before migration
         :return:
         """
-        self.current_schema = current_schema  # type: dict
+        self.current_schema = current_schema
         self.db = db
         self.collection = db['collection']
 
     def cleanup(self):
-        """Cleanup callback executed after command chain run"""
+        """Cleanup after Action run (both forward and backward)"""
 
     @abstractmethod
     def run_forward(self):
-        """
-        Run command in forward direction
-        """
+        """Run command in forward direction"""
 
     @abstractmethod
     def run_backward(self):
-        """
-        Run command in backward direction
-        """
+        """Run command in backward direction"""
 
     @abstractmethod
-    def as_schema_patch(self, current_schema):
+    def to_schema_patch(self, current_schema: dict):
         """
-        Return dict patch in forward direction to be applied to
-        a schema dictionary
+        Return dictdiff patch which this Action is applied to a schema
+        during forward run
         :param current_schema:
         :return:
         """
 
     @abstractmethod
-    def as_python_expr(self) -> str:
+    def to_python(self) -> str:
         """
         Return string of python code which creates current object with
         the same state
         """
-        pass
 
 
 class BaseFieldAction(BaseAction):
     """Base class for action which changes one field"""
+
     def __init__(self, collection_name, field_name, field_type_cls, *args, **kwargs):
         """
         :param collection_name: collection name where we performing a
          change
-        :param field_name: field that is changed
-        :param field_type_cls: FieldType class with target type of field
+        :param field_name: field which is changed
+        :param field_type_cls: Mongoengine field target class
         """
         super().__init__(collection_name, *args, **kwargs)
         self.field_name = field_name
@@ -101,9 +107,9 @@ class BaseFieldAction(BaseAction):
         in schema. Return None if the action is not applicable for such
         change.
 
-        This method is used for guess which action is suitable to
-        reflect schema change. It's called for several times for each
-        field that was modified in mongoengine models.
+        This method in actions is used to guess which action is
+        suitable to reflect schema change. It's called for several
+        times for each field which was modified in mongoengine models.
 
         For example, on field deleting this method defined in
         CreateField action should return None, but those one in
@@ -121,13 +127,13 @@ class BaseFieldAction(BaseAction):
         """
         pass
 
-    def as_python_expr(self) -> str:
+    def to_python(self) -> str:
         args_str = ''.join(
-            ', ' + getattr(arg, 'as_python_expr', lambda: repr(arg))()
+            ', ' + getattr(arg, 'to_python', lambda: repr(arg))()
             for arg in self._init_args
         )
         kwargs = {
-            name: getattr(val, 'as_python_expr', lambda: repr(val))()
+            name: getattr(val, 'to_python', lambda: repr(val))()
             for name, val in self._init_kwargs.items()
         }
         kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())
@@ -138,7 +144,7 @@ class BaseFieldAction(BaseAction):
 
 class BaseCollectionAction(BaseAction):
     """
-    Base class for action which changes collection at whole such as
+    Base class for actions which change a collection at whole such as
     renaming, creating, dropping, etc.
     """
     @classmethod
@@ -146,15 +152,15 @@ class BaseCollectionAction(BaseAction):
     def build_object_if_applicable(cls, collection_name, old_schema, new_schema):
         pass
 
-    def as_python_expr(self) -> str:
+    def to_python(self) -> str:
         args_str = ''.join(
-            ', ' + getattr(arg, 'as_python_expr', lambda o: f"'{o}'")()
+            ', ' + getattr(arg, 'to_python', lambda: repr(arg))()
             for arg in self._init_args
         )
         kwargs = {
-            name: getattr(val, 'as_python_expr', lambda o: f"'{o}'")()
+            name: getattr(val, 'to_python', lambda: repr(val))()
             for name, val in self._init_kwargs.items()
         }
-        kwargs_str = ''.join(f", {name}='{val}'" for name, val in kwargs.items())
+        kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())
         return f'{self.__class__.__name__}(' \
-               f'"{self.collection_name}"{args_str}{kwargs_str})'
+               f'{self.collection_name!r}{args_str}{kwargs_str})'

@@ -137,7 +137,7 @@ class BaseFieldAction(BaseAction):
          apply)
         :param new_schema: schema which will be current after the
          migration will get applied
-        :return:
+        :return: object of self type or None
         """
         pass
 

@@ -59,7 +59,7 @@ class FieldActionFactory(BaseActionFactory):
                                                                    field,
                                                                    old_schema,
                                                                    new_schema)
-                if action_cls is not None:
+                if action_obj is not None:
                     yield action_obj
 
 
@@ -105,10 +105,10 @@ def build_actions_chain(old_schema: dict, new_schema: dict) -> Iterable[BaseActi
                 current_schema = patch(action_obj.to_schema_patch(current_schema), current_schema)
             action_chain.extend(new_actions)
 
-    if old_schema != current_schema:
+    if new_schema != current_schema:
         # TODO: ability to force process without error
         raise ActionError('Could not reach current schema after applying whole Action chain. '
                           'This could be a problem in some Action which does not react to schema'
-                          ' change it should react or produce wrong schema diff')
+                          ' change it should react or produces wrong schema diff')
 
     return action_chain

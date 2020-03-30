@@ -49,7 +49,7 @@ class BaseFieldType(metaclass=FieldTypeMeta):
         pass
 
     @classmethod
-    def build_schema(cls, field_obj: Type[mongoengine.fields.BaseField]) -> dict:
+    def build_schema(cls, field_obj: mongoengine.fields.BaseField) -> dict:
         """
         Return db schema from a given mongoengine field object
         :param field_obj: mongoengine field object

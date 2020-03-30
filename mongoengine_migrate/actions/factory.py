@@ -25,7 +25,7 @@ class BaseActionFactory(metaclass=ABCMeta):
     @abstractmethod
     def get_actions_chain(collection_name: str,
                           old_schema: dict,
-                          new_schema: dict) -> Iterable[Type[BaseAction]]:
+                          new_schema: dict) -> Iterable[BaseAction]:
         """
         Produce Action objects iterable which consists of actions which
         can handle such change of a given collection
@@ -46,7 +46,7 @@ class FieldActionFactory(BaseActionFactory):
     @staticmethod
     def get_actions_chain(collection_name: str,
                           old_schema: dict,
-                          new_schema: dict) -> Iterable[Type[BaseFieldAction]]:
+                          new_schema: dict) -> Iterable[BaseFieldAction]:
         old_collection_schema = old_schema.get(collection_name, {})
         new_collection_schema = new_schema.get(collection_name, {})
         # Take all fields which was created, changed and dropped
@@ -70,7 +70,7 @@ class CollectionActionFactory(BaseActionFactory):
     @staticmethod
     def get_actions_chain(collection_name: str,
                           old_schema: dict,
-                          new_schema: dict) -> Iterable[Type[BaseCollectionAction]]:
+                          new_schema: dict) -> Iterable[BaseCollectionAction]:
         action_chain = (
             action_cls.build_object_if_applicable(collection_name, old_schema, new_schema)
             for action_cls in actions_registry.values()
@@ -79,7 +79,7 @@ class CollectionActionFactory(BaseActionFactory):
         yield from (a for a in action_chain if a is not None)
 
 
-def build_actions_chain(old_schema: dict, new_schema: dict) -> Iterable[Type[BaseAction]]:
+def build_actions_chain(old_schema: dict, new_schema: dict) -> Iterable[BaseAction]:
     """
     Build Action objects chain to handle such schema change. Uses all
     Action factories

@@ -1,8 +1,6 @@
-from .base import BaseFieldAction
-from mongoengine_migrate.fields.base import schema_fields_mapping
-from mongoengine_migrate.exceptions import SchemaError
-from dictdiffer import diff
 from mongoengine_migrate.exceptions import ActionError
+from mongoengine_migrate.fields.base import schema_fields_mapping
+from .base import BaseFieldAction
 
 
 class CreateField(BaseFieldAction):

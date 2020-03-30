@@ -1,5 +1,5 @@
-from abc import ABCMeta, abstractmethod
 import weakref
+from abc import ABCMeta, abstractmethod
 
 # Concrete Actions registry
 # {class_name: action_class}

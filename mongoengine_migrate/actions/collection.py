@@ -1,7 +1,4 @@
 from .base import BaseCollectionAction
-from dictdiffer import diff
-from mongoengine_migrate.exceptions import ActionError
-
 
 # Empty collection schema contents skeleton
 collection_schema_skel = {}

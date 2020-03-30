@@ -82,7 +82,7 @@ class BaseAction(metaclass=BaseActionMeta):
         """
 
     @abstractmethod
-    def to_python(self) -> str:
+    def to_python_expr(self) -> str:
         """
         Return string of python code which creates current object with
         the same state
@@ -141,13 +141,13 @@ class BaseFieldAction(BaseAction):
         """
         pass
 
-    def to_python(self) -> str:
+    def to_python_expr(self) -> str:
         args_str = ''.join(
-            ', ' + getattr(arg, 'to_python', lambda: repr(arg))()
+            ', ' + getattr(arg, 'to_python_expr', lambda: repr(arg))()
             for arg in self._init_args
         )
         kwargs = {
-            name: getattr(val, 'to_python', lambda: repr(val))()
+            name: getattr(val, 'to_python_expr', lambda: repr(val))()
             for name, val in self._init_kwargs.items()
         }
         kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())
@@ -166,13 +166,13 @@ class BaseCollectionAction(BaseAction):
     def build_object_if_applicable(cls, collection_name: str, old_schema: str, new_schema: str):
         pass
 
-    def to_python(self) -> str:
+    def to_python_expr(self) -> str:
         args_str = ''.join(
-            ', ' + getattr(arg, 'to_python', lambda: repr(arg))()
+            ', ' + getattr(arg, 'to_python_expr', lambda: repr(arg))()
             for arg in self._init_args
         )
         kwargs = {
-            name: getattr(val, 'to_python', lambda: repr(val))()
+            name: getattr(val, 'to_python_expr', lambda: repr(val))()
             for name, val in self._init_kwargs.items()
         }
         kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())

@@ -163,7 +163,7 @@ class BaseCollectionAction(BaseAction):
     """
     @classmethod
     @abstractmethod
-    def build_object_if_applicable(cls, collection_name: str, old_schema: str, new_schema: str):
+    def build_object_if_applicable(cls, collection_name: str, old_schema: dict, new_schema: dict):
         pass
 
     def to_python_expr(self) -> str:

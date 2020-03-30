@@ -11,7 +11,7 @@ class CreateCollection(BaseCollectionAction):
     `CreateCollection("collection1")`
     """
     @classmethod
-    def build_object_if_applicable(cls, collection_name: str, old_schema: str, new_schema: str):
+    def build_object_if_applicable(cls, collection_name: str, old_schema: dict, new_schema: dict):
         if collection_name not in old_schema and collection_name in new_schema:
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 

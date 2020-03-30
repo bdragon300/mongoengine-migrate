@@ -27,11 +27,14 @@ class CreateField(BaseFieldAction):
         if self.collection_name not in current_schema:
             raise ActionError(f'Cannot create field {self.collection_name}.{self.field_name} '
                               f'since collection {self.collection_name} was not created in schema')
-
+        field_params = {
+            **self.field_type_cls.schema_skel(),
+            **self._init_kwargs
+        }
         return [(
             'add',
             self.collection_name,
-            [(self.field_name, self.field_type_cls.schema_skel())]
+            [(self.field_name, field_params)]
         )]
 
     def run_forward(self):
@@ -106,11 +109,14 @@ class DropField(BaseFieldAction):
         if self.collection_name not in current_schema:
             raise ActionError(f'Cannot create field {self.collection_name}.{self.field_name} '
                               f'since collection {self.collection_name} was not created in schema')
-
+        field_params = {
+            **self.field_type_cls.schema_skel(),
+            **self._init_kwargs
+        }
         return [(
             'remove',
             self.collection_name,
-            [(self.field_name, self.field_type_cls.schema_skel())]
+            [(self.field_name, field_params)]
         )]
 
     def run_forward(self):

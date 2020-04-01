@@ -89,6 +89,10 @@ def collect_models_schema() -> dict:
 
 
 class MongoengineMigrate:
+    default_collection_name: str = 'mongoengine_migrate'
+    default_directory: str = './migrations'
+    default_models_module = 'models'
+
     def __init__(self,
                  mongo_uri: str,
                  collection_name: str,

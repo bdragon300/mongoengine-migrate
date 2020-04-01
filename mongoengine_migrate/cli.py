@@ -22,7 +22,7 @@ def cli_options(f):
         click.option(
             "-d",
             "--directory",
-            default='./migrations',
+            default=MongoengineMigrate.default_directory,
             envvar="MONGOENGINE_MIGRATE_DIR",
             metavar="DIR",
             help="Directory with migrations",
@@ -31,7 +31,7 @@ def cli_options(f):
         click.option(
             "-m",
             "--models-module",
-            default='models',
+            default=MongoengineMigrate.default_models_module,
             envvar="MONGOENGINE_MIGRATE_MODELS_MODULE",
             metavar="MODULE_NAME",
             help="Python module where mongoengine models are loaded from",
@@ -40,7 +40,7 @@ def cli_options(f):
         click.option(
             "-c",
             "--collection",
-            default='mongoengine_migrate_state',
+            default=MongoengineMigrate.default_collection_name,
             envvar="MONGOENGINE_MIGRATE_COLLECTION",
             metavar="COLLECTION",
             help="Collection where schema and state will be stored",

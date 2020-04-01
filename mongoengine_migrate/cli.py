@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+from typing import Optional
+
 import click
 
 from mongoengine_migrate.loader import MongoengineMigrate, import_module
 
-mongoengine_migrate = None
+mongoengine_migrate: Optional[MongoengineMigrate] = None
 
 
 def cli_options(f):
@@ -72,6 +74,12 @@ def downgrade(migration):
     mongoengine_migrate.downgrade(migration)
 
 
+@click.command(short_help='Migrate db to the given migration. By default is to the last one')
+@click.argument('migration', required=False)
+def migrate(migration):
+    mongoengine_migrate.migrate(migration)
+
+
 @click.command(short_help='Generate migration file based on mongoengine model changes')
 def makemigrations():
     mongoengine_migrate.makemigrations()
@@ -80,6 +88,7 @@ def makemigrations():
 cli.add_command(upgrade)
 cli.add_command(downgrade)
 cli.add_command(makemigrations)
+cli.add_command(migrate)
 
 
 if __name__ == '__main__':

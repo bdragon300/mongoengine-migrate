@@ -12,8 +12,7 @@ from mongoengine.base import _document_registry
 from pymongo import MongoClient
 
 from mongoengine_migrate.actions.factory import build_actions_chain
-from mongoengine_migrate.exceptions import MigrationError
-from mongoengine_migrate.exceptions import SchemaError
+from mongoengine_migrate.exceptions import MigrationError, SchemaError
 from mongoengine_migrate.fields import mongoengine_fields_mapping
 from mongoengine_migrate.graph import Migration, MigrationsGraph
 
@@ -204,7 +203,12 @@ class MongoengineMigrate:
 
         return graph
 
-    def upgrade(self, migration_name: str = None):
+    def upgrade(self, migration_name: str):
+        """
+        Upgrade db to the given migration
+        :param migration_name: target migration name
+        :return:
+        """
         graph = self.build_graph()
         current_schema = self.load_db_schema() or {}
 
@@ -225,7 +229,12 @@ class MongoengineMigrate:
         self.write_db_schema(current_schema)
         self.write_db_migrations_graph(graph)
 
-    def downgrade(self, migration_name: str = None):
+    def downgrade(self, migration_name: str):
+        """
+        Downgrade db to the given migration
+        :param migration_name: target migration name
+        :return:
+        """
         graph = self.build_graph()
         current_schema = self.load_db_schema() or {}
 
@@ -246,6 +255,29 @@ class MongoengineMigrate:
 
         self.write_db_schema(current_schema)
         self.write_db_migrations_graph(graph)
+
+    def migrate(self, migration_name: str = None):
+        """
+        Migrate db in order to reach a given migration. This process
+        may require either upgrading or downgrading
+        :param migration_name: target migration name
+        :return:
+        """
+        graph = self.build_graph()
+        if not graph.last:
+            raise MigrationError('No migrations found')
+
+        if migration_name is None:
+            migration_name = graph.last.name
+
+        if migration_name not in graph.migrations:
+            raise MigrationError(f'Migration {migration_name} not found')
+
+        migration = graph.migrations[migration_name]
+        if migration.applied:
+            self.downgrade(migration_name)
+        else:
+            self.upgrade(migration_name)
 
     def makemigrations(self):
         graph = self.build_graph()

@@ -40,7 +40,7 @@ def cli_options(f):
         click.option(
             "-c",
             "--collection",
-            default='_migrations_data',
+            default='mongoengine_migrate_state',
             envvar="MONGOENGINE_MIGRATE_COLLECTION",
             metavar="COLLECTION",
             help="Collection where schema and state will be stored",

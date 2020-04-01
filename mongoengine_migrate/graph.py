@@ -1,8 +1,11 @@
 from mongoengine_migrate.exceptions import MigrationError
 from mongoengine_migrate.utils import Slotinit
 
+from typing import Dict, List
+
 
 class Migration(Slotinit):
+    # TODO: make it dict-like, not list-like
     """Object represents one migration
 
     Contains information which is set in migration:
@@ -29,10 +32,10 @@ class MigrationsGraph:
     def __init__(self):
         # Following two variables contains the same migrations digraph
         # but from different points of view
-        self._parents = {}  # {child_name: [parent_obj...]}
-        self._children = {}  # {parent_name: [child_obj...]}
+        self._parents: Dict[str, List[Migration]] = {}  # {child_name: [parent_obj...]}
+        self._children: Dict[str, List[Migration]] = {}  # {parent_name: [child_obj...]}
 
-        self._migrations = {}  # {migration_name: migration_obj}
+        self._migrations: Dict[str, Migration] = {}  # {migration_name: migration_obj}
 
     @property
     def initial(self):
@@ -93,6 +96,7 @@ class MigrationsGraph:
         :raises MigrationError: if problem in graph was found
         :return:
         """
+        # FIXME: This function is not used anywhere
         initials = []
         last_children = []
 
@@ -227,7 +231,7 @@ class MigrationsGraph:
     def __reversed__(self):
         return iter(self.walk_up(self.last, applied_only=False))
 
-    def __contains__(self, migration):
+    def __contains__(self, migration: Migration):
         return migration in self._migrations.values()
 
     def __eq__(self, other):

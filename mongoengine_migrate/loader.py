@@ -92,8 +92,8 @@ def collect_models_schema() -> dict:
 class MongoengineMigrate:
     def __init__(self,
                  mongo_uri: str,
-                 collection_name: str = '_migrations_data',
-                 migrations_dir: str = './migrations',
+                 collection_name: str,
+                 migrations_dir: str,
                  **kwargs):
         self.mongo_uri = mongo_uri
         self.migrations_collection_name = collection_name
@@ -173,7 +173,7 @@ class MongoengineMigrate:
         """
         # FIXME: do not load to current namespace
         if not directory.exists():
-            raise MigrationError(f'Directory {directory} does not exist')
+            raise MigrationError(f"Directory '{directory}' does not exist")
 
         for module_file in directory.glob("*.py"):
             if module_file.name.startswith("__"):

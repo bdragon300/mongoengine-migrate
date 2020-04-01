@@ -1,5 +1,4 @@
 from mongoengine_migrate.exceptions import ActionError
-from mongoengine_migrate.fields.base import schema_fields_mapping
 from .base import BaseFieldAction
 
 
@@ -19,7 +18,6 @@ class CreateField(BaseFieldAction):
             type_key = field_params['type_key']
             return cls(collection_name=collection_name,
                        field_name=field_name,
-                       field_type_cls=schema_fields_mapping[type_key],
                        **field_params
                        )
 
@@ -101,7 +99,6 @@ class DropField(BaseFieldAction):
             type_key = field_params['type_key']
             return cls(collection_name=collection_name,
                        field_name=field_name,
-                       field_type_cls=schema_fields_mapping[type_key],
                        **field_params
                        )
 

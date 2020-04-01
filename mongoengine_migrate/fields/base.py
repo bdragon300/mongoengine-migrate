@@ -30,11 +30,6 @@ class FieldTypeMeta(ABCMeta):
         klass = super(FieldTypeMeta, mcs).__new__(mcs, name, bases, attrs)
         mongoengine_fields_mapping[me_cls] = klass
 
-        type_key = attrs.get('type_key')
-        if type_key is None and not is_baseclass:
-            raise ValueError(f'type_key attribute is not set in {name}')
-        schema_fields_mapping[type_key] = klass
-
         return klass
 
 
@@ -46,7 +41,6 @@ class CommonFieldType(metaclass=FieldTypeMeta):
     Special FieldTypes should be derived from this class
     """
     mongoengine_field_cls: Type[mongoengine.fields.BaseField] = None
-    type_key: str = None
 
     @classmethod
     def schema_skel(cls) -> dict:

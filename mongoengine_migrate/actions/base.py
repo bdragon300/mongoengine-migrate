@@ -1,5 +1,6 @@
 import weakref
 from abc import ABCMeta, abstractmethod
+from mongoengine_migrate.fields.base import schema_fields_mapping, CommonFieldType
 
 # Concrete Actions registry
 # {class_name: action_class}
@@ -95,18 +96,19 @@ class BaseFieldAction(BaseAction):
     def __init__(self,
                  collection_name: str,
                  field_name: str,
-                 field_type_cls,
                  *args,
                  **kwargs):
         """
         :param collection_name: collection name where we performing a
          change
         :param field_name: field which is changed
-        :param field_type_cls: Target FieldType class
         """
         super().__init__(collection_name, *args, **kwargs)
         self.field_name = field_name
-        self.field_type_cls = field_type_cls
+
+    @property
+    def field_type_cls(self):
+        return schema_fields_mapping.get(self._init_kwargs.get('type_key'), CommonFieldType)
 
     @classmethod
     @abstractmethod
@@ -152,8 +154,7 @@ class BaseFieldAction(BaseAction):
         }
         kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())
         return f'{self.__class__.__name__}(' \
-               f'{self.collection_name!r}, {self.field_name!r}, {self.field_type_cls.__name__}' \
-               f'{args_str}{kwargs_str})'
+               f'{self.collection_name!r}, {self.field_name!r}{args_str}{kwargs_str})'
 
 
 class BaseCollectionAction(BaseAction):

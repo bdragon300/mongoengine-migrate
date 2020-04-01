@@ -3,32 +3,29 @@ from mongoengine import (
     IntField,
 )
 
-from .base import BaseFieldType
+from .base import CommonFieldType
 
 
-class StringFieldType(BaseFieldType):
+class StringFieldType(CommonFieldType):
     mongoengine_field_cls = StringField
     type_key = 'string'
 
     @classmethod
     def schema_skel(cls):
-        fields = {'db_field', 'required', 'unique', 'unique_with', 'primary_key', 'choices',
-                  'null', 'sparse', 'max_length', 'min_length', 'regex', 'default'}
-        res = {f: None for f in fields}
-        res['type_key'] = cls.type_key
-
-        return res
+        params = {'max_length', 'min_length', 'regex'}
+        skel = super(cls).schema_skel()
+        skel.update({f: None for f in params})
+        return skel
 
 
-class IntFieldType(BaseFieldType):
+class IntFieldType(CommonFieldType):
     mongoengine_field_cls = IntField
     type_key = 'int'
 
     @classmethod
     def schema_skel(cls):
-        fields = {'db_field', 'required', 'unique', 'unique_with', 'primary_key', 'choices',
-                  'null', 'sparse', 'max_value', 'max_value', 'default'}
-        res = {f: None for f in fields}
-        res['type_key'] = cls.type_key
+        params = {'max_value', 'max_value'}
+        skel = super(cls).schema_skel()
+        skel.update({f: None for f in params})
+        return skel
 
-        return res

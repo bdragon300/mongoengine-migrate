@@ -15,7 +15,7 @@ schema_fields_mapping = {}
 
 class FieldTypeMeta(ABCMeta):
     def __new__(mcs, name, bases, attrs):
-        is_baseclass = name == 'BaseFieldType'
+        is_baseclass = name == 'CommonFieldType'  # FIXME: check smth another
         me_cls_attr = 'mongoengine_field_cls'
         me_cls = attrs.get(me_cls_attr)
         if me_cls is None:
@@ -38,22 +38,37 @@ class FieldTypeMeta(ABCMeta):
         return klass
 
 
-class BaseFieldType(metaclass=FieldTypeMeta):
+class CommonFieldType(metaclass=FieldTypeMeta):
+    """FieldType used as default for mongoengine fields which does
+    not have special FieldType since this class implements behavior for
+    mongoengine.fields.BaseField
+
+    Special FieldTypes should be derived from this class
+    """
     mongoengine_field_cls: Type[mongoengine.fields.BaseField] = None
     type_key: str = None
 
     @classmethod
-    @abstractmethod
     def schema_skel(cls) -> dict:
-        """Return db schema skeleton dict for concrete field type"""
-        pass
+        """
+        Return db schema skeleton dict for concrete field type
+        """
+        # 'type_key' should contain mongoengine field class name
+        params = {'db_field', 'required', 'default', 'unique', 'unique_with', 'primary_key',
+                  'choices', 'null', 'sparse', 'type_key'}
+        return {f: None for f in params}
 
     @classmethod
     def build_schema(cls, field_obj: mongoengine.fields.BaseField) -> dict:
         """
         Return db schema from a given mongoengine field object
+
+        As for 'type_key' item it fills mongoengine field class name
         :param field_obj: mongoengine field object
         :return: schema dict
         """
         schema_skel = cls.schema_skel()
-        return {f: getattr(field_obj, f, val) for f, val in schema_skel.items()}
+        schema = {f: getattr(field_obj, f, val) for f, val in schema_skel.items()}
+        schema['type_key'] = field_obj.__class__.__name__
+
+        return schema

@@ -212,6 +212,9 @@ class MongoengineMigrate:
         graph = self.build_graph()
         current_schema = self.load_db_schema() or {}
 
+        if migration_name not in graph.migrations:
+            raise MigrationError(f'Migration {migration_name} not found')
+
         # TODO: transaction
         # TODO: error handling
         for migration in graph.walk_down(graph.initial, unapplied_only=True):
@@ -237,6 +240,9 @@ class MongoengineMigrate:
         """
         graph = self.build_graph()
         current_schema = self.load_db_schema() or {}
+
+        if migration_name not in graph.migrations:
+            raise MigrationError(f'Migration {migration_name} not found')
 
         # TODO: transaction
         # TODO: error handling

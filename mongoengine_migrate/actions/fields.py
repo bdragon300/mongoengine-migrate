@@ -15,7 +15,6 @@ class CreateField(BaseFieldAction):
                      field_name in new_schema[collection_name]))
         if match:
             field_params = new_schema[collection_name][field_name]
-            type_key = field_params['type_key']
             return cls(collection_name=collection_name,
                        field_name=field_name,
                        **field_params
@@ -96,7 +95,6 @@ class DropField(BaseFieldAction):
                      field_name not in new_schema[collection_name]))
         if match:
             field_params = new_schema[collection_name][field_name]
-            type_key = field_params['type_key']
             return cls(collection_name=collection_name,
                        field_name=field_name,
                        **field_params

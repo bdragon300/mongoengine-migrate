@@ -5,12 +5,8 @@ from typing import Type
 import mongoengine.fields
 
 # Mongoengine field type mapping to appropriate FieldType class
-# {mongoengine_field_cls: field_type_cls}
+# {mongoengine_field_name: field_type_cls}
 mongoengine_fields_mapping = {}
-
-# Schema "type_key" mapping to appropriate FieldType class
-# {type_key_str: field_type_cls}
-schema_fields_mapping = {}
 
 
 class FieldTypeMeta(ABCMeta):
@@ -28,7 +24,8 @@ class FieldTypeMeta(ABCMeta):
         attrs['_meta'] = weakref.proxy(mcs)
 
         klass = super(FieldTypeMeta, mcs).__new__(mcs, name, bases, attrs)
-        mongoengine_fields_mapping[me_cls] = klass
+        if not is_baseclass:
+            mongoengine_fields_mapping[me_cls.__name__] = klass
 
         return klass
 

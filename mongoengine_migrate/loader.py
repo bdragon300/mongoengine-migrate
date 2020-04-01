@@ -80,7 +80,7 @@ def collect_models_schema() -> dict:
         # Collect schema for every field
         for field_name, field_obj in model_cls._fields.items():
             field_cls = field_obj.__class__
-            field_type_cls = mongoengine_fields_mapping.get(field_cls)
+            field_type_cls = mongoengine_fields_mapping.get(field_cls.__name__)
             if field_type_cls:
                 schema[collection_name][field_name] = field_type_cls().build_schema(field_obj)
             # TODO: warning about field type not implemented

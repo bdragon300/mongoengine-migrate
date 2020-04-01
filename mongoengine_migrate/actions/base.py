@@ -1,6 +1,6 @@
 import weakref
 from abc import ABCMeta, abstractmethod
-from mongoengine_migrate.fields.base import schema_fields_mapping, CommonFieldType
+from mongoengine_migrate.fields.base import mongoengine_fields_mapping, CommonFieldType
 
 # Concrete Actions registry
 # {class_name: action_class}
@@ -108,7 +108,7 @@ class BaseFieldAction(BaseAction):
 
     @property
     def field_type_cls(self):
-        return schema_fields_mapping.get(self._init_kwargs.get('type_key'), CommonFieldType)
+        return mongoengine_fields_mapping.get(self._init_kwargs.get('type_key'), CommonFieldType)
 
     @classmethod
     @abstractmethod
@@ -152,9 +152,9 @@ class BaseFieldAction(BaseAction):
             name: getattr(val, 'to_python_expr', lambda: repr(val))()
             for name, val in self._init_kwargs.items()
         }
-        kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())
-        return f'{self.__class__.__name__}(' \
-               f'{self.collection_name!r}, {self.field_name!r}{args_str}{kwargs_str})'
+        kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())  # TODO: sort kwargs
+        return f'{self.__class__.__name__}({self.collection_name!r}, {self.field_name!r}' \
+               f'{args_str}{kwargs_str})'
 
 
 class BaseCollectionAction(BaseAction):
@@ -176,6 +176,5 @@ class BaseCollectionAction(BaseAction):
             name: getattr(val, 'to_python_expr', lambda: repr(val))()
             for name, val in self._init_kwargs.items()
         }
-        kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())
-        return f'{self.__class__.__name__}(' \
-               f'{self.collection_name!r}{args_str}{kwargs_str})'
+        kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())  # TODO: sort kwargs
+        return f'{self.__class__.__name__}({self.collection_name!r}{args_str}{kwargs_str})'

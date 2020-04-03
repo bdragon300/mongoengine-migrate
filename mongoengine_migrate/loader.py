@@ -13,7 +13,7 @@ from pymongo import MongoClient
 
 from mongoengine_migrate.actions.factory import build_actions_chain
 from mongoengine_migrate.exceptions import MigrationError, SchemaError
-from mongoengine_migrate.fields import mongoengine_fields_mapping
+from mongoengine_migrate.fields import mongoengine_fields_mapping, CommonFieldType
 from mongoengine_migrate.graph import Migration, MigrationsGraph
 
 
@@ -72,6 +72,7 @@ def collect_models_schema() -> dict:
 
     # Retrieve models from mongoengine global document registry
     for model_cls in _document_registry.values():
+        # FIXME: only document, not embedded
         collection_name = model_cls._get_collection_name()
         if collection_name in schema:
             raise SchemaError(f'Models with the same collection names {collection_name!r} found')
@@ -80,9 +81,9 @@ def collect_models_schema() -> dict:
         # Collect schema for every field
         for field_name, field_obj in model_cls._fields.items():
             field_cls = field_obj.__class__
-            field_type_cls = mongoengine_fields_mapping.get(field_cls.__name__)
+            field_type_cls = mongoengine_fields_mapping.get(field_cls.__name__, CommonFieldType)
             if field_type_cls:
-                schema[collection_name][field_name] = field_type_cls().build_schema(field_obj)
+                schema[collection_name][field_name] = field_type_cls.build_schema(field_obj)
             # TODO: warning about field type not implemented
 
     return schema

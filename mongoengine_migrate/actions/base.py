@@ -90,6 +90,7 @@ class BaseAction(metaclass=BaseActionMeta):
         """
 
 
+# TODO: add to prepare() checking if db_field param has not dots
 class BaseFieldAction(BaseAction):
     """Base class for action which changes one field"""
 

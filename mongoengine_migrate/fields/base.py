@@ -50,12 +50,13 @@ class CommonFieldType(metaclass=FieldTypeMeta):
     mongoengine_field_classes: Iterable[Type[mongoengine.fields.BaseField]] = None
 
     def __init__(self,
-                 field_obj: Optional[mongoengine.fields.BaseField] = None,
-                 collection: Collection = None,
-                 field_schema: Optional[dict] = None):
-        self.field_obj = field_obj
+                 collection: Collection,
+                 field_schema: dict):
         self.field_schema = field_schema
         self.collection = collection
+        self.db_field = field_schema.get('db_field')
+        if self.db_field is None:
+            raise SchemaError(f"Missed 'db_field' key in schema of collection {collection.name}")
 
     @classmethod
     def schema_skel(cls) -> dict:
@@ -67,7 +68,6 @@ class CommonFieldType(metaclass=FieldTypeMeta):
                   'choices', 'null', 'sparse', 'type_key'}
         return {f: None for f in params}
 
-    # TODO: remove field_obj param in favor of constructor param
     @classmethod
     def build_schema(cls, field_obj: mongoengine.fields.BaseField) -> dict:
         """
@@ -109,8 +109,9 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         """
         self.collection.update_many(
             {diff.old: {'$exists': True}},
-            {'$rename': {diff.old: diff.diff}}
+            {'$rename': {diff.old: diff.new}}
         )
+        self.db_field = diff.new
 
     def change_required(self, diff: AlterDiff):
         """
@@ -121,16 +122,12 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         """
         if diff.old is False and diff.new is True:
             default = diff.default or self.field_schema.get('default')
-            db_field = self.field_schema.get('db_field')
-            if not db_field:
-                raise SchemaError(f'Empty db_field in schema of {self.collection.name}',
-                                  self.field_schema)
             if default is None:
-                raise MigrationError(f'Cannot set field {self.collection.name}.{db_field} '
+                raise MigrationError(f'Cannot mark field {self.collection.name}.{self.db_field} '
                                      f'as required because default value is not set')
             self.collection.update_many(
-                {db_field: {'$exists': False}},
-                {'$set': {db_field: default}}
+                {self.db_field: {'$exists': False}},
+                {'$set': {self.db_field: default}}
             )
 
     def change_unique(self, diff: AlterDiff):
@@ -163,25 +160,21 @@ class CommonFieldType(metaclass=FieldTypeMeta):
             # next(iter) is useful for sets
             choices = [k for k, _ in choices]
 
-        db_field = self.field_schema.get('db_field')
-        if not db_field:
-            raise SchemaError(f'Empty db_field in schema of {self.collection.name}',
-                              self.field_schema)
         if diff.policy == 'error':
-            wrong_count = self.collection.find({db_field: {'$nin': choices}}).retrieved
+            wrong_count = self.collection.find({self.db_field: {'$nin': choices}}).retrieved
             if wrong_count:
                 raise MigrationError(f'Cannot migrate choices for '
-                                     f'{self.collection.name}.{db_field} because '
-                                     f'{wrong_count} documents found which are not in choices')
+                                     f'{self.collection.name}.{self.db_field} because '
+                                     f'{wrong_count} documents with field values not in choices')
         if diff.policy == 'replace':
             default = diff.default or self.field_schema.get('default')
             if default not in choices:
                 raise MigrationError(f'Cannot set new choices for '
-                                     f'{self.collection.name}.{db_field} because default value'
+                                     f'{self.collection.name}.{self.db_field} because default value'
                                      f'{default} not listed in choices')
             self.collection.update_many(
-                {db_field: {'$nin': choices}},
-                {'$set': {db_field: default}}
+                {self.db_field: {'$nin': choices}},
+                {'$set': {self.db_field: default}}
             )
 
     def change_null(self, diff: AlterDiff):
@@ -229,6 +222,8 @@ class CommonFieldType(metaclass=FieldTypeMeta):
 
         old_field_cls = find_field_class(diff.old, old_fieldtype)
         new_field_cls = find_field_class(diff.new, new_fieldtype)
+        if new_field_cls is mongoengine.fields.BaseField:
+            raise MigrationError(f'Cannot migrate field type because cannot find {diff.new} class')
 
         new_fieldtype.convert_from(old_field_cls, new_field_cls)
 

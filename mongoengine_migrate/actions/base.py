@@ -40,7 +40,7 @@ class BaseAction(metaclass=BaseActionMeta):
         """
         self.collection_name = collection_name
         self._init_args = args
-        self._init_kwargs = kwargs
+        self._init_kwargs = kwargs  # TODO: rename to field_params or smth
 
         self.current_schema = None
         self.db = None

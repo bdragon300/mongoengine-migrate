@@ -101,8 +101,8 @@ class DropField(BaseFieldAction):
 
 
 class AlterDiff:
-    policy_choices = ('ignore', 'error', 'replace')
-    default_policy = 'error'
+    policy_choices = ('ignore', 'modify', 'replace')
+    default_policy = 'modify'
 
     def __init__(self,
                  old_value: Any,
@@ -256,6 +256,7 @@ class AlterField(BaseFieldAction):
         :raises ActionError: when some problem found
         :return:
         """
+        # TODO: Check all defaults in diffs against choices, required, etc.
         new_changes = {k: v.new for k, v in field_params.items()}
 
         # Field becomes required or left as required without changes

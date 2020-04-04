@@ -1,6 +1,5 @@
 import weakref
-from abc import ABCMeta
-from typing import Type, Iterable, List, Tuple, Optional
+from typing import Type, Iterable, List, Tuple
 
 import mongoengine.fields
 from pymongo.collection import Collection
@@ -13,20 +12,16 @@ from mongoengine_migrate.exceptions import SchemaError, MigrationError
 mongoengine_fields_mapping = {}
 
 
-class FieldTypeMeta(ABCMeta):
+class FieldTypeMeta(type):
     def __new__(mcs, name, bases, attrs):
-        sentinel = object()
+        is_baseclass = name == 'CommonFieldType'
         me_classes_attr = 'mongoengine_field_cls'
-        me_classes = attrs.get(me_classes_attr, sentinel)
-        if me_classes is sentinel:
-            me_classes = [getattr(b, me_classes_attr)
-                          for b in bases
-                          if hasattr(b, me_classes_attr)]
-            if me_classes:
-                me_classes = me_classes[-1]
+        # Mongoengine field classes should be defined explicitly to
+        # get to the global mapping
+        me_classes = attrs.get(me_classes_attr)
 
         assert isinstance(me_classes, (List, Tuple)) or me_classes is None, \
-            f'{me_classes_attr} must be list with class names'
+            f'{me_classes_attr} must be mongoengine field classes list'
 
         attrs['_meta'] = weakref.proxy(mcs)
 
@@ -36,6 +31,9 @@ class FieldTypeMeta(ABCMeta):
             assert not (mapping.keys() & mongoengine_fields_mapping.keys()), \
                 f'FieldType classes has duplicated mongoengine class defined in {me_classes_attr}'
             mongoengine_fields_mapping.update(mapping)
+        elif is_baseclass:
+            # Base FieldType class as fallback variant
+            mongoengine_fields_mapping[None] = klass
 
         return klass
 
@@ -63,7 +61,7 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         """
         Return db schema skeleton dict for concrete field type
         """
-        # 'type_key' should contain mongoengine field class name
+        # TODO: move skel to class variable
         params = {'db_field', 'required', 'default', 'unique', 'unique_with', 'primary_key',
                   'choices', 'null', 'sparse', 'type_key'}
         return {f: None for f in params}
@@ -95,6 +93,7 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         :param diff: AlterDiff object
         :return:
         """
+        # TODO: make change_x methods return three functions for different policies
         method_name = f'change_{name}'
         if hasattr(self, method_name):
             return getattr(self, method_name)(diff)
@@ -121,13 +120,12 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         :return:
         """
         if diff.old is False and diff.new is True:
-            default = diff.default or self.field_schema.get('default')
-            if default is None:
+            if diff.default is None:
                 raise MigrationError(f'Cannot mark field {self.collection.name}.{self.db_field} '
                                      f'as required because default value is not set')
             self.collection.update_many(
                 {self.db_field: {'$exists': False}},
-                {'$set': {self.db_field: default}}
+                {'$set': {self.db_field: diff.default}}
             )
 
     def change_unique(self, diff: AlterDiff):
@@ -160,21 +158,20 @@ class CommonFieldType(metaclass=FieldTypeMeta):
             # next(iter) is useful for sets
             choices = [k for k, _ in choices]
 
-        if diff.policy == 'error':
+        if diff.policy == 'modify':
             wrong_count = self.collection.find({self.db_field: {'$nin': choices}}).retrieved
             if wrong_count:
                 raise MigrationError(f'Cannot migrate choices for '
                                      f'{self.collection.name}.{self.db_field} because '
                                      f'{wrong_count} documents with field values not in choices')
         if diff.policy == 'replace':
-            default = diff.default or self.field_schema.get('default')
-            if default not in choices:
+            if diff.default not in choices:
                 raise MigrationError(f'Cannot set new choices for '
                                      f'{self.collection.name}.{self.db_field} because default value'
-                                     f'{default} not listed in choices')
+                                     f'{diff.default} does not listed in choices')
             self.collection.update_many(
                 {self.db_field: {'$nin': choices}},
-                {'$set': {self.db_field: default}}
+                {'$set': {self.db_field: diff.default}}
             )
 
     def change_null(self, diff: AlterDiff):
@@ -230,4 +227,26 @@ class CommonFieldType(metaclass=FieldTypeMeta):
     def convert_from(self,
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
-        raise NotImplementedError  # TODO: probably it's needed to place smth here
+        """
+        Method which should convert fields in db from one type to
+        another. This method is called only if such change was requested
+        in a migration
+
+        This is a base type convertion method which does nothing. It
+        should get overrided in derived classes.
+
+        There are sent mongoengine field types in parameters, old
+        and new.
+
+        Old field can be either actual field type which used before.
+        But in case if that field was a user defined class and does
+        not exist already, the BaseField will be sent.
+
+        New field will always have target mongoengine field type
+        :param from_field_cls: mongoengine field class which was used
+         before or BaseField
+        :param to_field_cls: mongoengine field class which will be used
+         further
+        :return:
+        """
+        pass

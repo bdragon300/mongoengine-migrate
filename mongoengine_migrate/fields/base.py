@@ -250,3 +250,16 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         :return:
         """
         pass
+
+    def _convertion_command(self, convert_cmd: str):
+        """
+        Launch field convertion pipeline with a given mongo convertion
+        command. For example: '$toInt', '$toString', etc.
+        :param convert_cmd:
+        :return:
+        """
+        self.collection.aggregate([
+            {'$match': {self.db_field: {"$ne": None}}},  # Field is not null
+            {'$addFields': {self.db_field: {convert_cmd: f'${self.db_field}'}}},
+            {'$out': self.collection.name}
+        ])

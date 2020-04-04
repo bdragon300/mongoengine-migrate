@@ -11,6 +11,7 @@ import re
 
 
 class NumberFieldType(CommonFieldType):
+    """Base class for number field types"""
     @classmethod
     def schema_skel(cls) -> dict:
         params = {'min_value', 'max_value'}
@@ -134,11 +135,7 @@ class StringFieldType(CommonFieldType):
     def convert_from(self,
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
-        self.collection.aggregate([
-            {'$match': {self.db_field: {"$ne": None}}},  # Field is not null
-            {'$addFields': {self.db_field: {'$toString': f'${self.db_field}'}}},
-            {'$out': self.collection.name}
-        ])
+        self._convertion_command('$toString')
 
 
 class IntFieldType(NumberFieldType):
@@ -147,9 +144,5 @@ class IntFieldType(NumberFieldType):
     def convert_from(self,
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
-        self.collection.aggregate([
-            {'$match': {self.db_field: {"$ne": None}}},  # Field is not null
-            {'$addFields': {self.db_field: {'$toInt': f'${self.db_field}'}}},
-            {'$out': self.collection.name}
-        ])
+        self._convertion_command('$toInt')
 

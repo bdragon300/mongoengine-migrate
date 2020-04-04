@@ -85,6 +85,7 @@ def collect_models_schema() -> dict:
             if field_type_cls:
                 schema[collection_name][field_name] = field_type_cls.build_schema(field_obj)
             # TODO: warning about field type not implemented
+            # TODO: validate default against all field restrictions such as min_length, regex, etc.
 
     return schema
 

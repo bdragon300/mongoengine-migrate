@@ -4,7 +4,7 @@ from typing import Type, Iterable, List, Tuple
 import mongoengine.fields
 from pymongo.collection import Collection
 
-from mongoengine_migrate.actions.fields import AlterDiff
+from mongoengine_migrate.actions.diff import AlterDiff
 from mongoengine_migrate.exceptions import SchemaError, MigrationError
 
 # Mongoengine field type mapping to appropriate FieldType class
@@ -15,7 +15,7 @@ mongoengine_fields_mapping = {}
 class FieldTypeMeta(type):
     def __new__(mcs, name, bases, attrs):
         is_baseclass = name == 'CommonFieldType'
-        me_classes_attr = 'mongoengine_field_cls'
+        me_classes_attr = 'mongoengine_field_classes'
         # Mongoengine field classes should be defined explicitly to
         # get to the global mapping
         me_classes = attrs.get(me_classes_attr)
@@ -34,7 +34,6 @@ class FieldTypeMeta(type):
         elif is_baseclass:
             # Base FieldType class as fallback variant
             mongoengine_fields_mapping[None] = klass
-
         return klass
 
 
@@ -97,6 +96,7 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         method_name = f'change_{name}'
         if hasattr(self, method_name):
             return getattr(self, method_name)(diff)
+        # FIXME: change self.field_schema with diff
 
     # TODO: make arguments checking and that old != new
     # TODO: consider renaming before other ones
@@ -119,6 +119,7 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         :param diff:
         :return:
         """
+        # FIXME: consider diff.policy
         if diff.old is False and diff.new is True:
             if diff.default is None:
                 raise MigrationError(f'Cannot mark field {self.collection.name}.{self.db_field} '
@@ -222,6 +223,7 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         if new_field_cls is mongoengine.fields.BaseField:
             raise MigrationError(f'Cannot migrate field type because cannot find {diff.new} class')
 
+        # TODO: use diff.policy
         new_fieldtype.convert_from(old_field_cls, new_field_cls)
 
     def convert_from(self,
@@ -258,6 +260,8 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         :param convert_cmd:
         :return:
         """
+        # TODO: implement also for mongo 3.x
+        # TODO: use $convert with onError and onNull
         self.collection.aggregate([
             {'$match': {self.db_field: {"$ne": None}}},  # Field is not null
             {'$addFields': {self.db_field: {convert_cmd: f'${self.db_field}'}}},

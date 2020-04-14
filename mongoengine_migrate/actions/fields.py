@@ -13,10 +13,10 @@ class CreateField(BaseFieldAction):
                                    field_name: str,
                                    old_schema: dict,
                                    new_schema: dict):
-        match = all((collection_name in old_schema,
-                     collection_name in new_schema,
-                     field_name not in old_schema[collection_name],
-                     field_name in new_schema[collection_name]))
+        match = collection_name in old_schema \
+                and collection_name in new_schema \
+                and field_name not in old_schema[collection_name] \
+                and field_name in new_schema[collection_name]
         if match:
             field_params = new_schema[collection_name][field_name]
             return cls(collection_name=collection_name,
@@ -62,10 +62,10 @@ class DropField(BaseFieldAction):
                                    field_name: str,
                                    old_schema: dict,
                                    new_schema: dict):
-        match = all((collection_name in old_schema,
-                     collection_name in new_schema,
-                     field_name in old_schema[collection_name],
-                     field_name not in new_schema[collection_name]))
+        match = collection_name in old_schema \
+                and collection_name in new_schema \
+                and field_name in old_schema[collection_name] \
+                and field_name not in new_schema[collection_name]
         if match:
             field_params = new_schema[collection_name][field_name]
             return cls(collection_name=collection_name,
@@ -118,13 +118,11 @@ class AlterField(BaseFieldAction):
                                    old_schema: dict,
                                    new_schema: dict):
         # Check that field still here, but its schema is differ
-        match = all((
-            collection_name in old_schema,
-            collection_name in new_schema,
-            field_name in old_schema[collection_name],
-            field_name in new_schema[collection_name],
-            old_schema[collection_name][field_name] != new_schema[collection_name][field_name]
-        ))
+        match = collection_name in old_schema \
+                and collection_name in new_schema \
+                and field_name in old_schema[collection_name] \
+                and field_name in new_schema[collection_name] \
+                and old_schema[collection_name][field_name] != new_schema[collection_name][field_name]
         if match:
             new_params = new_schema[collection_name][field_name]
             old_params = old_schema[collection_name][field_name]
@@ -151,8 +149,9 @@ class AlterField(BaseFieldAction):
                               f'since collection {self.collection_name} was not created in schema')
         # TODO raise если param не в skel нового типа при изменении type_key
         # TODO а что делать если параметр появляется или изчезает, но не указан в kwargs
-        return [('change', f'{self.collection_name}.{self.field_name}.{k}', v.diff)
-                for k, v in self._init_kwargs.items()]
+        p = [('change', f'{self.collection_name}.{self.field_name}.{k}', v.diff)
+             for k, v in self._init_kwargs.items()]
+        return p
 
     def run_forward(self):
         self._run_migration(self._init_kwargs)

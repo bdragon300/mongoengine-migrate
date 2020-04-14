@@ -58,7 +58,9 @@ class CommonFieldType(metaclass=FieldTypeMeta):
     @classmethod
     def schema_skel(cls) -> dict:
         """
-        Return db schema skeleton dict for concrete field type
+        Return db schema skeleton dict for concrete field type. This
+        dict must include all keys in schema with default value (usually
+        None)
         """
         # TODO: move skel to class variable
         params = {'db_field', 'required', 'default', 'unique', 'unique_with', 'primary_key',
@@ -92,7 +94,9 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         :param diff: AlterDiff object
         :return:
         """
+        # FIXME: process UNSET value in diff
         # TODO: make change_x methods return three functions for different policies
+        # FIXME: exclude 'param' from search to avoid endless recursion
         method_name = f'change_{name}'
         if hasattr(self, method_name):
             return getattr(self, method_name)(diff)
@@ -215,15 +219,16 @@ class CommonFieldType(metaclass=FieldTypeMeta):
             # Cannot find anything. Return default
             return mongoengine.fields.BaseField
 
-        old_fieldtype = mongoengine_fields_mapping.get(diff.old, CommonFieldType)
-        new_fieldtype = mongoengine_fields_mapping.get(diff.new, CommonFieldType)
+        old_fieldtype_cls = mongoengine_fields_mapping.get(diff.old, CommonFieldType)
+        new_fieldtype_cls = mongoengine_fields_mapping.get(diff.new, CommonFieldType)
 
-        old_field_cls = find_field_class(diff.old, old_fieldtype)
-        new_field_cls = find_field_class(diff.new, new_fieldtype)
+        old_field_cls = find_field_class(diff.old, old_fieldtype_cls)
+        new_field_cls = find_field_class(diff.new, new_fieldtype_cls)
         if new_field_cls is mongoengine.fields.BaseField:
             raise MigrationError(f'Cannot migrate field type because cannot find {diff.new} class')
 
         # TODO: use diff.policy
+        new_fieldtype = new_fieldtype_cls(self.collection, self.field_schema)
         new_fieldtype.convert_from(old_field_cls, new_field_cls)
 
     def convert_from(self,

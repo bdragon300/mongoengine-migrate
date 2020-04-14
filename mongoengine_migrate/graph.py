@@ -3,6 +3,7 @@ from mongoengine_migrate.utils import Slotinit
 
 from typing import Dict, List
 
+# TODO: __all__ to all modules
 
 class Migration(Slotinit):
     # TODO: make it dict-like, not list-like

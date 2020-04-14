@@ -229,6 +229,7 @@ class MongoengineMigrate:
                 action_object.run_forward()
                 action_object.cleanup()
                 # TODO: move the following to the place before cleanup
+                # TODO: handle patch errors (if schema is corrupted)
                 current_schema = patch(action_object.to_schema_patch(current_schema),
                                        current_schema)
 
@@ -262,6 +263,7 @@ class MongoengineMigrate:
                 action_object.run_backward()
                 action_object.cleanup()
                 # TODO: move the following to the place before cleanup
+                # TODO: handle patch errors (if schema is corrupted)
                 reverse_patch = list(swap(action_object.to_schema_patch(current_schema)))
                 current_schema = patch(reverse_patch, current_schema)
 

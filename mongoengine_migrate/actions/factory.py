@@ -102,6 +102,7 @@ def build_actions_chain(old_schema: dict, new_schema: dict) -> Iterable[BaseActi
 
             # Apply actions changes to a temporary schema
             for action_obj in new_actions:
+                # TODO: handle patch errors (if schema is corrupted)
                 current_schema = patch(action_obj.to_schema_patch(current_schema), current_schema)
             action_chain.extend(new_actions)
 

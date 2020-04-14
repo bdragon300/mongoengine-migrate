@@ -3,7 +3,7 @@ from typing import Mapping
 from mongoengine_migrate.exceptions import ActionError
 from .base import BaseFieldAction
 from mongoengine_migrate.fields.base import mongoengine_fields_mapping
-from .diff import AlterDiff
+from .diff import AlterDiff, UNSET
 
 
 class CreateField(BaseFieldAction):
@@ -129,9 +129,9 @@ class AlterField(BaseFieldAction):
             # Get only those schema keys which have changed
             # If keys are not equal between schemas then consider all
             # of them
-            field_params = {k: AlterDiff(old_params.get(k), new_params.get(k))
+            field_params = {k: AlterDiff(old_params.get(k, UNSET), new_params.get(k, UNSET))
                             for k in new_params.keys() | old_params.keys()
-                            if old_params.get(k) != new_params.get(k)}
+                            if old_params.get(k, object()) != new_params.get(k, object())}
             field_params = cls._fix_field_params(collection_name,
                                                  field_name,
                                                  field_params,
@@ -149,8 +149,17 @@ class AlterField(BaseFieldAction):
                               f'since collection {self.collection_name} was not created in schema')
         # TODO raise если param не в skel нового типа при изменении type_key
         # TODO а что делать если параметр появляется или изчезает, но не указан в kwargs
-        p = [('change', f'{self.collection_name}.{self.field_name}.{k}', v.diff)
-             for k, v in self._init_kwargs.items()]
+        p = []
+        for param, diff in self._init_kwargs.items():
+            if diff.old == UNSET or diff.new == UNSET:
+                if diff.old == UNSET:
+                    p.append(
+                        ('add', f'{self.collection_name}.{self.field_name}', [(param, diff.new)])
+                    )
+                if diff.new == UNSET:
+                    p.append(('remove', f'{self.collection_name}.{self.field_name}', [(param, ())]))
+            else:
+                p.append(('change', f'{self.collection_name}.{self.field_name}.{param}', diff.diff))
         return p
 
     def run_forward(self):
@@ -164,25 +173,35 @@ class AlterField(BaseFieldAction):
         # Take field type from schema. If that field was user-defined
         # and does not exist anymore then we use CommonFieldType as
         # fallback variant
-        field_type_cls = mongoengine_fields_mapping(self.current_schema.get('type_key'))
-        field_type = field_type_cls(self.collection, self.current_schema)
+        field_schema = self.current_schema.get(self.collection_name, {}).get(self.field_name, {})
+        field_type = self._get_field_type_cls(field_schema.get('type_key'))
 
         # Change field type if requested. Then trying to obtain new
         # FieldType class and process the rest
         if 'type_key' in field_params:
-            field_type.change_param('type_key', field_params['type_key'].new)
-
-            field_type_cls = mongoengine_fields_mapping(field_params['type_key'].new)
-            field_type = field_type_cls(
-                self.collection,
-                self.current_schema.get(self.field_name, {})
-            )
+            try:  # FIXME: remove try
+                field_type.change_param('type_key', field_params['type_key'])
+            except:
+                pass
+            field_type = self._get_field_type_cls(field_params['type_key'].new)
 
         for name, diff in field_params.items():
             if name == 'type_key':
                 continue
+            print(name, diff)
+            try:  # FIXME: remove try
+                field_type.change_param(name, diff)
+            except:
+                pass
 
-            field_type.change_param(name, diff)
+    def _get_field_type_cls(self, type_name: str):
+        # TODO: raise if "not type_name"
+        field_type_cls = mongoengine_fields_mapping.get(type_name)
+        field_type = field_type_cls(
+            self.collection,
+            self.current_schema.get(self.collection_name, {}).get(self.field_name, {})
+        )
+        return field_type
 
     @classmethod
     def _fix_field_params(cls,
@@ -206,6 +225,7 @@ class AlterField(BaseFieldAction):
         :return:
         """
         # TODO: Check all defaults in diffs against choices, required, etc.
+        # TODO: check nones for type_key, etc.
         new_changes = {k: v.new for k, v in field_params.items()}
 
         # Field becomes required or left as required without changes

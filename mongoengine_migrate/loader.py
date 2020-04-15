@@ -9,6 +9,7 @@ from bson import CodecOptions
 from dictdiffer import patch, swap
 from jinja2 import Environment
 from mongoengine.base import _document_registry
+from mongoengine.fields import EmbeddedDocument
 from pymongo import MongoClient
 
 from mongoengine_migrate.actions.factory import build_actions_chain
@@ -72,7 +73,9 @@ def collect_models_schema() -> dict:
 
     # Retrieve models from mongoengine global document registry
     for model_cls in _document_registry.values():
-        # FIXME: only document, not embedded
+        if issubclass(model_cls, EmbeddedDocument):
+            continue  # FIXME: remove when EmbeddedDocuments will be implemented
+
         collection_name = model_cls._get_collection_name()
         if collection_name in schema:
             raise SchemaError(f'Models with the same collection names {collection_name!r} found')

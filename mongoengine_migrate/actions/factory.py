@@ -55,11 +55,10 @@ class FieldActionFactory(BaseActionFactory):
         registry = [a for a in actions_registry.values() if a.factory_exclusive] + \
                    [a for a in actions_registry.values() if not a.factory_exclusive]
 
-        for field in fields:
-            for action_cls in registry:
+        for action_cls in registry:
+            for field in fields:
                 if not issubclass(action_cls, BaseFieldAction):
                     continue
-
                 action_obj = action_cls.build_object_if_applicable(collection_name,
                                                                    field,
                                                                    old_schema,
@@ -126,6 +125,8 @@ def build_actions_chain(old_schema: dict, new_schema: dict) -> Iterable[BaseActi
             action_chain.extend(new_actions)
 
     if new_schema != current_schema:
+        from dictdiffer import diff
+        print(list(diff(current_schema, new_schema)))
         # TODO: ability to force process without error
         raise ActionError('Could not reach current schema after applying whole Action chain. '
                           'This could be a problem in some Action which does not react to schema'

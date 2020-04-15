@@ -31,6 +31,15 @@ class BaseAction(metaclass=BaseActionMeta):
     Action also can be serialized into dict diff in order to make
     diff to a db schema after migration run
     """
+
+    # Actions with set `factory_exclusive` are tested by a actions
+    # factory firstly. If such Actions are applicable then they
+    # patch tested schema and the rest actions are tested
+    # with patched schema.
+    # This flag is suitable for rename actions when the other actions
+    # should detect changes of field/collection with new name.
+    factory_exclusive = False
+
     def __init__(self, collection_name, *args, **kwargs):
         """
         :param collection_name: Name of collection where the migration

@@ -49,18 +49,27 @@ class FieldActionFactory(BaseActionFactory):
                           new_schema: dict) -> Iterable[BaseFieldAction]:
         old_collection_schema = old_schema.get(collection_name, {})
         new_collection_schema = new_schema.get(collection_name, {})
-        # Take all fields which was created, changed and dropped
+        # Take all fields to detect if they created, changed or dropped
         fields = old_collection_schema.keys() | new_collection_schema.keys()
+        chain = []
+        registry = [a for a in actions_registry.values() if a.factory_exclusive] + \
+                   [a for a in actions_registry.values() if not a.factory_exclusive]
+
         for field in fields:
-            for action_cls in actions_registry.values():
+            for action_cls in registry:
                 if not issubclass(action_cls, BaseFieldAction):
                     continue
+
                 action_obj = action_cls.build_object_if_applicable(collection_name,
                                                                    field,
                                                                    old_schema,
                                                                    new_schema)
                 if action_obj is not None:
-                    yield action_obj
+                    if action_obj.factory_exclusive:
+                        old_schema = patch(action_obj.to_schema_patch(old_schema), old_schema)
+                    chain.append(action_obj)
+
+        return chain
 
 
 class CollectionActionFactory(BaseActionFactory):
@@ -71,12 +80,22 @@ class CollectionActionFactory(BaseActionFactory):
     def get_actions_chain(collection_name: str,
                           old_schema: dict,
                           new_schema: dict) -> Iterable[BaseCollectionAction]:
-        action_chain = (
-            action_cls.build_object_if_applicable(collection_name, old_schema, new_schema)
-            for action_cls in actions_registry.values()
-            if issubclass(action_cls, BaseCollectionAction)
-        )
-        yield from (a for a in action_chain if a is not None)
+        registry = [a for a in actions_registry.values() if a.factory_exclusive] + \
+                   [a for a in actions_registry.values() if not a.factory_exclusive]
+        chain = []
+
+        for action_cls in registry:
+            if not issubclass(action_cls, BaseCollectionAction):
+                continue
+            action_obj = action_cls.build_object_if_applicable(collection_name,
+                                                               old_schema,
+                                                               new_schema)
+            if action_obj is not None:
+                if action_obj.factory_exclusive:
+                    old_schema = patch(action_obj.to_schema_patch(old_schema), old_schema)
+                chain.append(action_obj)
+
+        return chain
 
 
 def build_actions_chain(old_schema: dict, new_schema: dict) -> Iterable[BaseAction]:

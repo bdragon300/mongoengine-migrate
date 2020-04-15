@@ -67,11 +67,10 @@ class DropField(BaseFieldAction):
                 and field_name in old_schema[collection_name] \
                 and field_name not in new_schema[collection_name]
         if match:
-            field_params = new_schema[collection_name][field_name]
+            field_params = old_schema[collection_name][field_name]
             return cls(collection_name=collection_name,
                        field_name=field_name,
-                       **field_params
-                       )
+                       **field_params)
 
     def to_schema_patch(self, current_schema: dict):
         if self.collection_name not in current_schema:
@@ -246,6 +245,7 @@ class AlterField(BaseFieldAction):
 
 
 class RenameField(BaseFieldAction):
+    factory_exclusive = True
     similarity_threshold = 70
 
     def __init__(self, *args, **kwargs):
@@ -273,25 +273,25 @@ class RenameField(BaseFieldAction):
 
         old_field_schema = old_schema[collection_name][field_name]
         candidates = []
-        for field_name, field_schema in new_schema[collection_name]:
+        for name, schema in new_schema[collection_name].items():
             # Skip fields which was not renamed
             # Changing 'db_field' parameter is altering, not renaming
-            if field_name not in old_schema[collection_name]:
+            if name in old_schema[collection_name]:
                 continue
 
-            db_field = field_schema.get('db_field')
-            if db_field == field_name:
-                candidates = [(field_name, field_schema)]
+            db_field = schema.get('db_field')
+            if db_field == name:
+                candidates = [(name, schema)]
                 break
 
             # Take only common keys to estimate similarity
             # 'type_key' may get changed which means that change of one
             # key leads to many changes in schema. These changes
             # should not be considered as valueable
-            keys = old_field_schema.keys() & field_schema.keys() - {'db_field'}
-            percent = sum(old_field_schema[k] == field_schema[k] for k in keys) / len(keys)
+            keys = old_field_schema.keys() & schema.keys() - {'db_field'}
+            percent = sum(old_field_schema[k] == schema[k] for k in keys) / len(keys)
             if percent >= cls.similarity_threshold:
-                candidates.append((field_name, field_schema))
+                candidates.append((name, schema))
 
         if len(candidates) == 1:
             return cls(collection_name=collection_name,
@@ -304,22 +304,18 @@ class RenameField(BaseFieldAction):
                               f'since the collection {self.collection_name} is not in schema')
         if self.field_name not in current_schema[self.collection_name]:
             raise ActionError(f'Cannot rename field {self.collection_name}.{self.field_name} '
-                              f'since the field {self.collection_name} is not in collection schema')
+                              f'since the field is not in collection schema')
 
         item = current_schema[self.collection_name][self.field_name]
         return [
-            ('remove', f'{self.collection_name}', [(self.field_name, ())]),
-            ('add', f'{self.collection_name}', [(self.field_name, item)])
+            ('remove', f'{self.collection_name}', [(self.field_name, item)]),
+            ('add', f'{self.collection_name}', [(self._init_kwargs['new_name'], item)])
         ]
 
     def run_forward(self):
-        db_field = self.current_schema['db_field']
-        self.collection.aggregate([
-            {'$rename': {db_field: self._init_kwargs['new_name']}}
-        ])
+        """This migration action is related to mongoengine only, so do nothing"""
+        pass
 
     def run_backward(self):
-        db_field = self.current_schema['db_field']
-        self.collection.aggregate([
-            {'$rename': {self._init_kwargs['new_name']: db_field}}
-        ])
+        """This migration action is related to mongoengine only, so do nothing"""
+        pass

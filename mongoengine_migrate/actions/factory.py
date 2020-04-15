@@ -52,6 +52,7 @@ class FieldActionFactory(BaseActionFactory):
         # Take all fields to detect if they created, changed or dropped
         fields = old_collection_schema.keys() | new_collection_schema.keys()
         chain = []
+        # Exclusive actions first
         registry = [a for a in actions_registry.values() if a.factory_exclusive] + \
                    [a for a in actions_registry.values() if not a.factory_exclusive]
 
@@ -79,6 +80,7 @@ class CollectionActionFactory(BaseActionFactory):
     def get_actions_chain(collection_name: str,
                           old_schema: dict,
                           new_schema: dict) -> Iterable[BaseCollectionAction]:
+        # Exclusive actions first
         registry = [a for a in actions_registry.values() if a.factory_exclusive] + \
                    [a for a in actions_registry.values() if not a.factory_exclusive]
         chain = []
@@ -108,7 +110,10 @@ def build_actions_chain(old_schema: dict, new_schema: dict) -> Iterable[BaseActi
     """
     action_chain = []
 
-    all_collections = old_schema.keys() | new_schema.keys()
+    # Existed or dropped collections should be iterated before created
+    # ones in order to avoid triggering CreateCollection action before
+    # RenameCollection action
+    all_collections = list(old_schema.keys()) + list(new_schema.keys() - old_schema.keys())
     current_schema = old_schema.copy()
     for collection_name in all_collections:
         for factory in (CollectionActionFactory, FieldActionFactory):

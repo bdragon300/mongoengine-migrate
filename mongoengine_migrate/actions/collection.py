@@ -126,7 +126,9 @@ class RenameCollection(BaseCollectionAction):
         ]
 
     def run_forward(self):
-        self.collection.rename(self._init_kwargs['new_name'])
+        if self.collection.name in self.collection.database.list_collection_names():
+            self.collection.rename(self._init_kwargs['new_name'])
 
     def run_backward(self):
-        self.collection.rename(self.collection_name)
+        if self.collection.name in self.collection.database.list_collection_names():
+            self.collection.rename(self.collection_name)

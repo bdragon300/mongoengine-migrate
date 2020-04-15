@@ -27,7 +27,7 @@ class CreateField(BaseFieldAction):
     def to_schema_patch(self, current_schema: dict):
         if self.collection_name not in current_schema:
             raise ActionError(f'Cannot create field {self.collection_name}.{self.field_name} '
-                              f'since collection {self.collection_name} was not created in schema')
+                              f'since the collection {self.collection_name} is not in schema')
         field_params = {
             **self.field_type_cls.schema_skel(),
             **self._init_kwargs
@@ -75,8 +75,8 @@ class DropField(BaseFieldAction):
 
     def to_schema_patch(self, current_schema: dict):
         if self.collection_name not in current_schema:
-            raise ActionError(f'Cannot create field {self.collection_name}.{self.field_name} '
-                              f'since collection {self.collection_name} was not created in schema')
+            raise ActionError(f'Cannot drop field {self.collection_name}.{self.field_name} '
+                              f'since the collection {self.collection_name} is not in schema')
         field_params = {
             **self.field_type_cls.schema_skel(),
             **self._init_kwargs
@@ -145,8 +145,8 @@ class AlterField(BaseFieldAction):
     # TODO: drop current_schema, use self.current_schema instead
     def to_schema_patch(self, current_schema: dict):
         if self.collection_name not in current_schema:
-            raise ActionError(f'Cannot create field {self.collection_name}.{self.field_name} '
-                              f'since collection {self.collection_name} was not created in schema')
+            raise ActionError(f'Cannot alter field {self.collection_name}.{self.field_name} '
+                              f'since the collection {self.collection_name} is not in schema')
         # TODO raise если param не в skel нового типа при изменении type_key
         # TODO а что делать если параметр появляется или изчезает, но не указан в kwargs
         p = []
@@ -243,3 +243,83 @@ class AlterField(BaseFieldAction):
                               f'created since it defined as required but has not a default value')
 
         return field_params
+
+
+class RenameField(BaseFieldAction):
+    similarity_threshold = 70
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'new_name' not in kwargs:
+            raise ActionError("'new_name' keyword parameter is not specified")
+
+    @classmethod
+    def build_object_if_applicable(cls,
+                                   collection_name: str,
+                                   field_name: str,
+                                   old_schema: dict,
+                                   new_schema: dict):
+        # Check if field exists under different name in schema
+        # Field also can have small schema changes in the same time
+        # So we try to get similarity percentage and if it more than
+        # threshold then we're consider such change as rename/alter.
+        # Otherwise it is drop/create
+        match = collection_name in old_schema \
+                and collection_name in new_schema \
+                and field_name in old_schema[collection_name] \
+                and field_name not in new_schema[collection_name]
+        if not match:
+            return
+
+        old_field_schema = old_schema[collection_name][field_name]
+        candidates = []
+        for field_name, field_schema in new_schema[collection_name]:
+            # Skip fields which was not renamed
+            # Changing 'db_field' parameter is altering, not renaming
+            if field_name not in old_schema[collection_name]:
+                continue
+
+            db_field = field_schema.get('db_field')
+            if db_field == field_name:
+                candidates = [(field_name, field_schema)]
+                break
+
+            # Take only common keys to estimate similarity
+            # 'type_key' may get changed which means that change of one
+            # key leads to many changes in schema. These changes
+            # should not be considered as valueable
+            keys = old_field_schema.keys() & field_schema.keys() - {'db_field'}
+            percent = sum(old_field_schema[k] == field_schema[k] for k in keys) / len(keys)
+            if percent >= cls.similarity_threshold:
+                candidates.append((field_name, field_schema))
+
+        if len(candidates) == 1:
+            return cls(collection_name=collection_name,
+                       field_name=field_name,
+                       new_name=candidates[0][0])
+
+    def to_schema_patch(self, current_schema: dict):
+        if self.collection_name not in current_schema:
+            raise ActionError(f'Cannot rename field {self.collection_name}.{self.field_name} '
+                              f'since the collection {self.collection_name} is not in schema')
+        if self.field_name not in current_schema[self.collection_name]:
+            raise ActionError(f'Cannot rename field {self.collection_name}.{self.field_name} '
+                              f'since the field {self.collection_name} is not in collection schema')
+
+        item = current_schema[self.collection_name][self.field_name]
+        return [
+            ('remove', f'{self.collection_name}', [(self.field_name, ())]),
+            ('add', f'{self.collection_name}', [(self.field_name, item)])
+        ]
+
+    def run_forward(self):
+        db_field = self.current_schema['db_field']
+        self.collection.aggregate([
+            {'$rename': {db_field: self._init_kwargs['new_name']}}
+        ])
+
+    def run_backward(self):
+        db_field = self.current_schema['db_field']
+        self.collection.aggregate([
+            {'$rename': {self._init_kwargs['new_name']: db_field}}
+        ])

@@ -187,7 +187,7 @@ class AlterField(BaseFieldAction):
         for name, diff in field_params.items():
             if name == 'type_key':
                 continue
-            print(name, diff)
+
             try:  # FIXME: remove try
                 field_type.change_param(name, diff)
             except:
@@ -279,6 +279,7 @@ class RenameField(BaseFieldAction):
             if name in old_schema[collection_name]:
                 continue
 
+            # Model field renamed, but db field is the same
             db_field = schema.get('db_field')
             if db_field == name:
                 candidates = [(name, schema)]
@@ -289,7 +290,7 @@ class RenameField(BaseFieldAction):
             # key leads to many changes in schema. These changes
             # should not be considered as valueable
             keys = old_field_schema.keys() & schema.keys() - {'db_field'}
-            percent = sum(old_field_schema[k] == schema[k] for k in keys) / len(keys)
+            percent = sum(old_field_schema[k] == schema[k] for k in keys) / len(keys) * 100
             if percent >= cls.similarity_threshold:
                 candidates.append((name, schema))
 

@@ -302,20 +302,24 @@ class RenameField(BaseFieldAction):
         if self.collection_name not in current_schema:
             raise ActionError(f'Cannot rename field {self.collection_name}.{self.field_name} '
                               f'since the collection {self.collection_name} is not in schema')
-        if self.field_name not in current_schema[self.collection_name]:
-            raise ActionError(f'Cannot rename field {self.collection_name}.{self.field_name} '
-                              f'since the field is not in collection schema')
-
-        item = current_schema[self.collection_name][self.field_name]
+        new_name = self._init_kwargs['new_name']
+        item = current_schema[self.collection_name].get(
+            self.field_name,
+            current_schema[self.collection_name].get(new_name)
+        )
         return [
             ('remove', f'{self.collection_name}', [(self.field_name, item)]),
-            ('add', f'{self.collection_name}', [(self._init_kwargs['new_name'], item)])
+            ('add', f'{self.collection_name}', [(new_name, item)])
         ]
 
     def run_forward(self):
-        """This migration action is related to mongoengine only, so do nothing"""
+        """Renaming mongoengine model field is not lead to db change
+        `db_field` modification is handled by AlterField action
+        """
         pass
 
     def run_backward(self):
-        """This migration action is related to mongoengine only, so do nothing"""
+        """Renaming mongoengine model field is not lead to db change
+        `db_field` modification is handled by AlterField action
+        """
         pass

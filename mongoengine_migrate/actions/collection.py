@@ -1,4 +1,6 @@
 from .base import BaseCollectionAction
+from mongoengine_migrate.exceptions import ActionError
+
 
 # Empty collection schema contents skeleton
 collection_schema_skel = {}
@@ -57,3 +59,74 @@ class DropCollection(BaseCollectionAction):
         So, do nothing
         FIXME: parameters (indexes, acl, etc.)
         """
+
+
+class RenameCollection(BaseCollectionAction):
+    factory_exclusive = True
+    similarity_threshold = 70
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'new_name' not in kwargs:
+            raise ActionError("'new_name' keyword parameter is not specified")
+
+    @classmethod
+    def build_object_if_applicable(cls, collection_name: str, old_schema: dict, new_schema: dict):
+        # Check if field exists under different name in schema
+        # Field also can have small schema changes in the same time
+        # So we try to get similarity percentage and if it more than
+        # threshold then we're consider such change as rename/alter.
+        # Otherwise it is drop/create
+        match = collection_name in old_schema and collection_name not in new_schema
+        if not match:
+            return
+
+        old_col_schema = old_schema[collection_name]
+        candidates = []
+        matches = 0
+        compares = 0
+        for name, schema in new_schema.items():
+            # Skip collections which was not renamed
+            if name in old_schema:
+                continue
+
+            # Exact match, collection was just renamed
+            if old_col_schema == schema:
+                candidates = [(name, schema)]
+                break
+
+            # Try to find collection by its schema similarity
+            # Compares are counted as every field schema comparing
+            fields = old_col_schema.keys() | schema.keys()
+            for field_name in fields:
+                old_field_schema = old_col_schema.get(field_name, {})
+                field_schema = schema.get(field_name, {})
+                common_keys = old_field_schema.keys() & field_schema.keys()
+                compares += len(common_keys)
+                matches += sum(
+                    old_field_schema[k] == field_schema[k]
+                    for k in common_keys
+                )
+
+            if (matches / compares * 100) >= cls.similarity_threshold:
+                candidates.append((name, schema))
+
+        if len(candidates) == 1:
+            return cls(collection_name=collection_name, new_name=candidates[0][0])
+
+    def to_schema_patch(self, current_schema: dict):
+        new_name = self._init_kwargs['new_name']
+        item = current_schema.get(
+            self.collection_name,
+            current_schema.get(new_name)
+        )
+        return [
+            ('remove', '', [(self.collection_name, item)]),
+            ('add', '', [(new_name, item)])
+        ]
+
+    def run_forward(self):
+        self.collection.rename(self._init_kwargs['new_name'])
+
+    def run_backward(self):
+        self.collection.rename(self.collection_name)

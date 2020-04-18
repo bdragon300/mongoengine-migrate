@@ -1,3 +1,4 @@
+import inspect
 import weakref
 from typing import Type, Iterable, List, Tuple
 
@@ -6,6 +7,7 @@ from pymongo.collection import Collection
 
 from mongoengine_migrate.actions.diff import AlterDiff
 from mongoengine_migrate.exceptions import SchemaError, MigrationError
+from .convertion_matrix import CONVERTION_MATRIX
 
 # Mongoengine field type mapping to appropriate FieldType class
 # {mongoengine_field_name: field_type_cls}
@@ -229,21 +231,18 @@ class CommonFieldType(metaclass=FieldTypeMeta):
 
         # TODO: use diff.policy
         new_fieldtype = new_fieldtype_cls(self.collection, self.field_schema)
-        new_fieldtype.convert_from(old_field_cls, new_field_cls)
+        new_fieldtype.convert_type(old_field_cls, new_field_cls)
 
-    def convert_from(self,
+    def convert_type(self,
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
         """
-        Method which should convert fields in db from one type to
-        another. This method is called only if such change was requested
-        in a migration
+        Convert field type from another to a current one. This method
+        is called only if such change was requested in a migration.
 
-        This is a base type convertion method which does nothing. It
-        should get overrided in derived classes.
-
-        There are sent mongoengine field types in parameters, old
-        and new.
+        We use convertion matrix here. It contains mapping between
+        old and new types and appropriate converter function which
+        is called to perform such convertion.
 
         Old field can be either actual field type which used before.
         But in case if that field was a user defined class and does
@@ -256,19 +255,48 @@ class CommonFieldType(metaclass=FieldTypeMeta):
          further
         :return:
         """
-        pass
 
-    def _convertion_command(self, convert_cmd: str):
+        type_converters = CONVERTION_MATRIX.get(from_field_cls) or \
+            CONVERTION_MATRIX.get(self._closest_parent(from_field_cls, CONVERTION_MATRIX.keys()))
+
+        if type_converters is None:
+            raise MigrationError(f'Type converter not found for convertion '
+                                 f'{from_field_cls!r} -> {to_field_cls!r}')
+
+        # Convertion between the same field type usually does not
+        # require any actions
+        if from_field_cls not in type_converters:
+            type_converters[from_field_cls] = type_converters.nothing
+
+        type_converter = type_converters.get(to_field_cls) or \
+            type_converters.get(self._closest_parent(to_field_cls, type_converters))
+
+        if type_converter is None:
+            raise MigrationError(f'Type converter not found for '
+                                 f'{from_field_cls!r} -> {to_field_cls!r}')
+
+        type_converter(self.collection, self.db_field, from_field_cls, to_field_cls)
+
+    @staticmethod
+    def _closest_parent(target: Type, classes: Iterable[Type]) -> Type:
         """
-        Launch field convertion pipeline with a given mongo convertion
-        command. For example: '$toInt', '$toString', etc.
-        :param convert_cmd:
-        :return:
+        Find which class in given list is the closest parent to
+        a target class.
+        :param target: class which we are comparing of
+        :param classes:
+        :return: the closest parent or None if not found
         """
-        # TODO: implement also for mongo 3.x
-        # TODO: use $convert with onError and onNull
-        self.collection.aggregate([
-            {'$match': {self.db_field: {"$ne": None}}},  # Field is not null
-            {'$addFields': {self.db_field: {convert_cmd: f'${self.db_field}'}}},
-            {'$out': self.collection.name}
-        ])
+        target_mro = inspect.getmro(target)
+        res = None
+        min_distance = float('inf')
+        for parent in classes:
+            found = [x for x in enumerate(target_mro) if x[1] == parent]
+            if found:
+                distance, klass = found[0]
+                if distance == 0:  # Skip if klass is target
+                    continue
+                if distance < min_distance:
+                    res = klass
+                    min_distance = distance
+
+        return res

@@ -1,28 +1,30 @@
-from typing import Any
+from typing import Any, Optional
 
 
 class AlterDiff:
-    # TODO: rename policy to error_policy
     # TODO: error_policy parameter:  'remove_field'
-    policy_choices = ('ignore', 'modify', 'replace')
-    default_policy = 'modify'
+    error_policy_choices = ('ignore', 'modify', 'replace')
+    default_error_policy = 'modify'
 
     def __init__(self,
                  old_value: Any,
                  new_value: Any,
-                 policy: str = None,
+                 error_policy: Optional[str] = None,
                  default: Any = None):
         self.old = old_value
         self.new = new_value
         self.diff = (old_value, new_value)
-        self.policy = policy if policy in self.policy_choices else self.default_policy
+        if error_policy in self.error_policy_choices:
+            self.error_policy = error_policy
+        else:
+            self.error_policy = self.default_error_policy
         self.default = default
 
     def swap(self):
         """Return swapped instance of the current one
         Swapped instance has changed new and old items from each other
         """
-        return AlterDiff(self.new, self.old, self.policy, self.default)
+        return AlterDiff(self.new, self.old, self.error_policy, self.default)
 
     def to_python_expr(self) -> str:
         """Callback used in Action self-print method to get python
@@ -31,8 +33,8 @@ class AlterDiff:
 
     def _get_params_expr(self) -> list:
         expr = [repr(self.old), repr(self.new)]
-        if self.policy != self.default_policy:
-            expr.append(f'policy={self.policy!r}')
+        if self.error_policy != self.default_error_policy:
+            expr.append(f'error_policy={self.error_policy!r}')
 
         if self.default is not None:
             expr.append(f'default={self.default!r}')
@@ -45,7 +47,7 @@ class AlterDiff:
 
         return all((
             self.diff == other.diff,
-            self.policy == other.policy,
+            self.error_policy == other.error_policy,
             self.default == other.default
         ))
 

@@ -128,7 +128,7 @@ CONVERTION_MATRIX = {
         fields.DictField: converters.nothing,
         # fields.GeoJsonBaseField: converters.dict_to_geojson,
     },
-    (fields.ReferenceField, fields.LazyReferenceField, fields.ObjectId): {
+    (fields.ReferenceField, fields.LazyReferenceField, fields.ObjectIdField): {
         fields.StringField: converters.to_string,
         fields.BooleanField: converters.to_bool,
         fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
@@ -138,9 +138,17 @@ CONVERTION_MATRIX = {
         fields.LazyReferenceField: converters.nothing,
         fields.ObjectIdField: converters.nothing
     },
-    fields.CachedReferenceField: {},  # TODO
+    fields.CachedReferenceField: {
+        fields.CachedReferenceField: converters.nothing
+        # TODO
+    },
     fields.BinaryField: {
         fields.BooleanField: converters.to_bool,
+        fields.BinaryField: converters.nothing
         # TODO: image field, file field
     },
+    # Leave field as is if field type is unknown
+    fields.BaseField: {
+        fields.BaseField: converters.nothing
+    }
 }

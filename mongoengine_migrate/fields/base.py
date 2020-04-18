@@ -165,13 +165,13 @@ class CommonFieldType(metaclass=FieldTypeMeta):
             # next(iter) is useful for sets
             choices = [k for k, _ in choices]
 
-        if diff.policy == 'modify':
+        if diff.error_policy == 'modify':
             wrong_count = self.collection.find({self.db_field: {'$nin': choices}}).retrieved
             if wrong_count:
                 raise MigrationError(f'Cannot migrate choices for '
                                      f'{self.collection.name}.{self.db_field} because '
                                      f'{wrong_count} documents with field values not in choices')
-        if diff.policy == 'replace':
+        if diff.error_policy == 'replace':
             if diff.default not in choices:
                 raise MigrationError(f'Cannot set new choices for '
                                      f'{self.collection.name}.{self.db_field} because default value'
@@ -202,7 +202,7 @@ class CommonFieldType(metaclass=FieldTypeMeta):
             # Search in given FieldType
             if field_type.mongoengine_field_classes is not None:
                 me_field_cls = [c for c in field_type.mongoengine_field_classes
-                                if c.__name__ == class_name]
+                                if c.__name__ == class_name]  # FIXME: search also for user-defined fields derived from standard ones
                 if me_field_cls:
                     return me_field_cls[-1]
 

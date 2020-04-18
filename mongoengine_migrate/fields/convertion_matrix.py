@@ -44,7 +44,7 @@ from mongoengine import fields
 # FileField
 # ImageField
 #
-
+# TODO: description required
 
 COMMON_CONVERTERS = {
     fields.StringField: converters.to_string,

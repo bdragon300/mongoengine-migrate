@@ -12,9 +12,9 @@ def nothing(*args, **kwargs):
 
 
 def deny(collection: Collection, db_field: str, from_cls: Type[BaseField], to_cls: Type[BaseField]):
-    raise ActionError(f"Unable to convert field {collection.name}.{db_field} "
-                      f"from {from_cls.__name__!r} to {to_cls.__name__!r}. You can use another "
-                      f"altering policy for 'type_key' to override this")
+    raise MigrationError(f"Unable to convert field {collection.name}.{db_field} "
+                         f"from {from_cls.__name__!r} to {to_cls.__name__!r}. You can use "
+                         f"error_policy for 'type_key' diff to override this")
 
 
 def item_to_list(collection: Collection,

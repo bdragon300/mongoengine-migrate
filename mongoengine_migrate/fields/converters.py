@@ -1,9 +1,10 @@
-from ..actions.diff import AlterDiff
 import re
-from mongoengine.fields import BaseField, URLField
-from pymongo.collection import Collection
-from mongoengine_migrate.exceptions import ActionError, MigrationError
 from typing import Type
+
+from mongoengine.fields import BaseField
+from pymongo.collection import Collection
+
+from mongoengine_migrate.exceptions import ActionError, MigrationError
 
 
 def nothing(*args, **kwargs):

@@ -3,7 +3,7 @@ from mongoengine import fields
 
 # StringField
 # URLField
-# EmailField
+# EmailField  -- implement
 # IntField
 # LongField
 # FloatField
@@ -65,7 +65,6 @@ CONVERTION_MATRIX = {
         **COMMON_CONVERTERS,
         fields.StringField: converters.nothing,
         fields.URLField: converters.to_url_string,
-        fields.EmailField: converters.to_email_string,
         fields.ObjectIdField: converters.to_object_id,
         fields.ReferenceField: converters.to_object_id,
         # fields.CachedReferenceField: converters.to_object_id,  -- dict???
@@ -96,41 +95,41 @@ CONVERTION_MATRIX = {
         fields.DateTimeField: converters.nothing,
     },
     fields.EmbeddedDocumentField: {
-        fields.BooleanField: converters.cast_to_bool,
+        fields.BooleanField: converters.to_bool,
         fields.EmbeddedDocumentField: converters.nothing,
         fields.DictField: converters.nothing,  # Also for MapField
         fields.ReferenceField: converters.deny,  # TODO: implement convert reference-like fields from/to embedded-like
         fields.ListField: converters.item_to_list,
         fields.EmbeddedDocumentListField: converters.item_to_list,
-        fields.GeoJsonBaseField: converters.dict_to_geojson,
+        # fields.GeoJsonBaseField: converters.dict_to_geojson,
     },
     fields.ListField: {
-        fields.BooleanField: converters.cast_to_bool,
+        fields.BooleanField: converters.to_bool,
         fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
         fields.ListField: converters.nothing,
         fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded documents
         fields.DictField: converters.extract_from_list,
-        fields.GeoJsonBaseField: converters.list_to_geojson
+        # fields.GeoJsonBaseField: converters.list_to_geojson
     },
     fields.EmbeddedDocumentListField: {
-        fields.BooleanField: converters.cast_to_bool,
+        fields.BooleanField: converters.to_bool,
         fields.EmbeddedDocumentField: converters.nothing,
         fields.ListField: converters.nothing,
         fields.EmbeddedDocumentListField: converters.nothing,
         fields.DictField: converters.extract_from_list,
-        fields.GeoJsonBaseField: converters.list_to_geojson
+        # fields.GeoJsonBaseField: converters.list_to_geojson
     },
     fields.DictField: {
-        fields.BooleanField: converters.cast_to_bool,
+        fields.BooleanField: converters.to_bool,
         fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
         fields.ListField: converters.item_to_list,
         fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded documents
         fields.DictField: converters.nothing,
-        fields.GeoJsonBaseField: converters.dict_to_geojson,
+        # fields.GeoJsonBaseField: converters.dict_to_geojson,
     },
     (fields.ReferenceField, fields.LazyReferenceField, fields.ObjectId): {
         fields.StringField: converters.to_string,
-        fields.BooleanField: converters.cast_to_bool,
+        fields.BooleanField: converters.to_bool,
         fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
         fields.ListField: converters.item_to_list,
         fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded documents
@@ -140,7 +139,7 @@ CONVERTION_MATRIX = {
     },
     fields.CachedReferenceField: {},  # TODO
     fields.BinaryField: {
-        fields.BooleanField: converters.cast_to_bool,
+        fields.BooleanField: converters.to_bool,
         # TODO: image field, file field
     },
 }

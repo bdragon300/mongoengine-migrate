@@ -130,7 +130,7 @@ for klass, converters_mapping in CONVERTION_MATRIX.items():
     CONVERTION_MATRIX[klass][fields.BaseField] = converters.nothing
 
     # Add boolean converter for all fields
-    CONVERTION_MATRIX[klass][fields.BooleanField] = converters_mapping.to_bool
+    CONVERTION_MATRIX[klass][fields.BooleanField] = converters.to_bool
 
     # Add convertion between class and its parent/child class
     CONVERTION_MATRIX[klass][klass] = converters.nothing

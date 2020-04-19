@@ -60,44 +60,33 @@ COMMON_CONVERTERS = {
     fields.EmbeddedDocumentListField: converters.deny,
 }
 
+OBJECTID_CONVERTERS = {
+    fields.StringField: converters.to_string,
+    fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
+    fields.ListField: converters.item_to_list,
+    fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded documents
+    fields.ReferenceField: converters.nothing,
+    fields.LazyReferenceField: converters.nothing,
+    fields.ObjectIdField: converters.nothing
+}
+
 
 CONVERTION_MATRIX = {
     fields.StringField: {
         **COMMON_CONVERTERS,
-        fields.StringField: converters.nothing,
         fields.URLField: converters.to_url_string,
         fields.ObjectIdField: converters.to_object_id,
         fields.ReferenceField: converters.to_object_id,
         # fields.CachedReferenceField: converters.to_object_id,  -- dict???
         fields.LazyReferenceField: converters.to_object_id,
     },
-    fields.IntField: {
-        **COMMON_CONVERTERS,
-        fields.IntField: converters.nothing,
-    },
-    fields.LongField: {
-        **COMMON_CONVERTERS,
-        fields.LongField: converters.nothing,
-    },
-    fields.FloatField: {
-        **COMMON_CONVERTERS,
-        fields.FloatField: converters.nothing,
-    },
-    fields.DecimalField: {
-        **COMMON_CONVERTERS,
-        fields.DecimalField: converters.nothing,
-    },
-    fields.BooleanField: {
-        **COMMON_CONVERTERS,
-        fields.BooleanField: converters.nothing,
-    },
-    fields.DateTimeField: {
-        **COMMON_CONVERTERS,
-        fields.DateTimeField: converters.nothing,
-    },
+    fields.IntField: COMMON_CONVERTERS.copy(),
+    fields.LongField: COMMON_CONVERTERS.copy(),
+    fields.FloatField: COMMON_CONVERTERS.copy(),
+    fields.DecimalField: COMMON_CONVERTERS.copy(),
+    fields.BooleanField: COMMON_CONVERTERS.copy(),
+    fields.DateTimeField: COMMON_CONVERTERS.copy(),
     fields.EmbeddedDocumentField: {
-        fields.BooleanField: converters.to_bool,
-        fields.EmbeddedDocumentField: converters.nothing,
         fields.DictField: converters.nothing,  # Also for MapField
         fields.ReferenceField: converters.deny,  # TODO: implement convert reference-like fields from/to embedded-like
         fields.ListField: converters.item_to_list,
@@ -105,50 +94,43 @@ CONVERTION_MATRIX = {
         # fields.GeoJsonBaseField: converters.dict_to_geojson,
     },
     fields.ListField: {
-        fields.BooleanField: converters.to_bool,
         fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
-        fields.ListField: converters.nothing,
         fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded documents
         fields.DictField: converters.extract_from_list,
         # fields.GeoJsonBaseField: converters.list_to_geojson
     },
     fields.EmbeddedDocumentListField: {
-        fields.BooleanField: converters.to_bool,
         fields.EmbeddedDocumentField: converters.nothing,
         fields.ListField: converters.nothing,
-        fields.EmbeddedDocumentListField: converters.nothing,
         fields.DictField: converters.extract_from_list,
         # fields.GeoJsonBaseField: converters.list_to_geojson
     },
     fields.DictField: {
-        fields.BooleanField: converters.to_bool,
         fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
         fields.ListField: converters.item_to_list,
         fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded documents
-        fields.DictField: converters.nothing,
         # fields.GeoJsonBaseField: converters.dict_to_geojson,
     },
-    (fields.ReferenceField, fields.LazyReferenceField, fields.ObjectIdField): {
-        fields.StringField: converters.to_string,
-        fields.BooleanField: converters.to_bool,
-        fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
-        fields.ListField: converters.item_to_list,
-        fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded documents
-        fields.ReferenceField: converters.nothing,
-        fields.LazyReferenceField: converters.nothing,
-        fields.ObjectIdField: converters.nothing
-    },
+    fields.ReferenceField: OBJECTID_CONVERTERS.copy(),
+    fields.LazyReferenceField: OBJECTID_CONVERTERS.copy(),
+    fields.ObjectIdField: OBJECTID_CONVERTERS.copy(),
     fields.CachedReferenceField: {
-        fields.CachedReferenceField: converters.nothing
         # TODO
     },
     fields.BinaryField: {
-        fields.BooleanField: converters.to_bool,
-        fields.BinaryField: converters.nothing
         # TODO: image field, file field
     },
     # Leave field as is if field type is unknown
-    fields.BaseField: {
-        fields.BaseField: converters.nothing
-    }
+    fields.BaseField: {}
 }
+
+
+for klass, converters_mapping in CONVERTION_MATRIX.items():
+    # Add fallback converter for unknown fields
+    CONVERTION_MATRIX[klass][fields.BaseField] = converters.nothing
+
+    # Add boolean converter for all fields
+    CONVERTION_MATRIX[klass][fields.BooleanField] = converters_mapping.to_bool
+
+    # Add convertion between class and its parent/child class
+    CONVERTION_MATRIX[klass][klass] = converters.nothing

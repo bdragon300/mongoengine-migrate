@@ -263,16 +263,11 @@ class CommonFieldType(metaclass=FieldTypeMeta):
             raise MigrationError(f'Type converter not found for convertion '
                                  f'{from_field_cls!r} -> {to_field_cls!r}')
 
-        # Convertion between the same field type usually does not
-        # require any actions
-        if from_field_cls not in type_converters:
-            type_converters[from_field_cls] = type_converters.nothing
-
         type_converter = type_converters.get(to_field_cls) or \
             type_converters.get(self._closest_parent(to_field_cls, type_converters))
 
         if type_converter is None:
-            raise MigrationError(f'Type converter not found for '
+            raise MigrationError(f'Type converter not found for convertion '
                                  f'{from_field_cls!r} -> {to_field_cls!r}')
 
         type_converter(self.collection, self.db_field, from_field_cls, to_field_cls)

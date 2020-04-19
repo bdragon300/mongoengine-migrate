@@ -46,7 +46,12 @@ class CommonFieldType(metaclass=FieldTypeMeta):
 
     Special FieldTypes should be derived from this class
     """
+    # TODO: doc
     mongoengine_field_classes: Iterable[Type[mongoengine.fields.BaseField]] = None
+
+    # TODO: doc
+    schema_skel_keys: Iterable[str] = {'db_field', 'required', 'default', 'unique', 'unique_with',
+                                       'primary_key', 'choices', 'null', 'sparse', 'type_key'}
 
     def __init__(self,
                  collection: Collection,
@@ -59,15 +64,12 @@ class CommonFieldType(metaclass=FieldTypeMeta):
 
     @classmethod
     def schema_skel(cls) -> dict:
-        """
-        Return db schema skeleton dict for concrete field type. This
-        dict must include all keys in schema with default value (usually
-        None)
-        """
-        # TODO: move skel to class variable
-        params = {'db_field', 'required', 'default', 'unique', 'unique_with', 'primary_key',
-                  'choices', 'null', 'sparse', 'type_key'}
-        return {f: None for f in params}
+        """Return db schema skeleton dict for concrete field type"""
+        keys = []
+        for klass in reversed(inspect.getmro(cls)):
+            keys.extend(getattr(klass, 'schema_skel_keys', []))
+
+        return {f: None for f in keys}
 
     @classmethod
     def build_schema(cls, field_obj: mongoengine.fields.BaseField) -> dict:

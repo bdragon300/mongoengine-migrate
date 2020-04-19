@@ -74,7 +74,7 @@ OBJECTID_CONVERTERS = {
 CONVERTION_MATRIX = {
     fields.StringField: {
         **COMMON_CONVERTERS,
-        fields.URLField: converters.to_url_string,
+        fields.URLField: converters.to_string,
         fields.ObjectIdField: converters.to_object_id,
         fields.ReferenceField: converters.to_object_id,
         # fields.CachedReferenceField: converters.to_object_id,  -- dict???

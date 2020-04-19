@@ -46,39 +46,6 @@ def to_string(collection: Collection,
     __mongo_convert(collection, db_field, 'string')
 
 
-def to_url_string(collection: Collection,
-                  db_field: str,
-                  from_cls: Type[BaseField],
-                  to_cls: Type[BaseField]):
-    __mongo_convert(collection, db_field, 'string')
-
-    # Check if some records contains non-url values in db_field
-    url_schemes = ["http", "https", "ftp", "ftps"]
-    scheme_regex = rf'(?:({"|".join(url_schemes)}))://'
-    url_regex = re.compile(
-        r"^" + scheme_regex +
-        # domain...
-        r"(?:(?:[A-Z0-9](?:[A-Z0-9-_]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}(?<!-)\.?)|"
-        r"localhost|"  # localhost...
-        r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|"  # ...or ipv4
-        r"\[?[A-F0-9]*:[A-F0-9:]+\]?)"  # ...or ipv6
-        r"(?::\d+)?"  # optional port
-        r"(?:/?|[/?]\S+)$",
-        re.IGNORECASE
-    )
-    bad_records = collection.find(
-        {"$and": [{db_field: url_regex}, {db_field: {"$ne": None}}]},
-        limit=3
-    )
-    if bad_records.retrieved:
-        examples = (
-            f'{{_id: {x.get("_id", "unknown")},...{db_field}: {x.get(db_field, "unknown")}}}'
-            for x in bad_records
-        )
-        raise MigrationError(f"Some of records in {collection.name}.{db_field} contain non-url"
-                             f"values. First several examples {','.join(examples)}")
-
-
 def to_int(collection: Collection,
            db_field: str,
            from_cls: Type[BaseField],

@@ -167,7 +167,7 @@ class CommonFieldType(metaclass=FieldTypeMeta):
             # next(iter) is useful for sets
             choices = [k for k, _ in choices]
 
-        if diff.error_policy == 'modify':
+        if diff.error_policy == 'raise':
             wrong_count = self.collection.find({self.db_field: {'$nin': choices}}).retrieved
             if wrong_count:
                 raise MigrationError(f'Cannot migrate choices for '

@@ -3,8 +3,8 @@ from typing import Any, Optional
 
 class AlterDiff:
     # TODO: error_policy parameter:  'remove_field'
-    error_policy_choices = ('ignore', 'modify', 'replace')
-    default_error_policy = 'modify'
+    error_policy_choices = ('ignore', 'raise', 'replace')
+    default_error_policy = 'raise'
 
     def __init__(self,
                  old_value: Any,

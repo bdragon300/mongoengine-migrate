@@ -48,8 +48,8 @@ from mongoengine import fields
 
 COMMON_CONVERTERS = {
     fields.StringField: converters.to_string,
-    fields.URLField: converters.deny,
-    fields.EmailField: converters.deny,
+    fields.URLField: converters.to_string,
+    fields.EmailField: converters.to_string,
     fields.IntField: converters.to_int,
     fields.LongField: converters.to_long,
     fields.FloatField: converters.to_double,
@@ -74,7 +74,6 @@ OBJECTID_CONVERTERS = {
 CONVERTION_MATRIX = {
     fields.StringField: {
         **COMMON_CONVERTERS,
-        fields.URLField: converters.to_string,
         fields.ObjectIdField: converters.to_object_id,
         fields.ReferenceField: converters.to_object_id,
         # fields.CachedReferenceField: converters.to_object_id,  -- dict???

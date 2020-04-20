@@ -1,11 +1,11 @@
 import inspect
 import weakref
-from typing import Type, Iterable, List, Tuple
+from typing import Type, Iterable, List, Tuple, Collection
 
 import mongoengine.fields
-from pymongo.collection import Collection
+from pymongo.collection import Collection as MongoCollection
 
-from mongoengine_migrate.actions.diff import AlterDiff
+from mongoengine_migrate.actions.diff import AlterDiff, UNSET
 from mongoengine_migrate.exceptions import SchemaError, MigrationError
 from .convertion_matrix import CONVERTION_MATRIX
 
@@ -54,7 +54,7 @@ class CommonFieldType(metaclass=FieldTypeMeta):
                                        'primary_key', 'choices', 'null', 'sparse', 'type_key'}
 
     def __init__(self,
-                 collection: Collection,
+                 collection: MongoCollection,
                  field_schema: dict):
         self.field_schema = field_schema
         self.collection = collection
@@ -114,6 +114,10 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         :param diff:
         :return:
         """
+        self._check_diff(diff, False, False, str)
+        if not diff.new or not diff.old:
+            raise MigrationError("db_field must be a non-empty string")
+
         self.collection.update_many(
             {diff.old: {'$exists': True}},
             {'$rename': {diff.old: diff.new}}
@@ -127,8 +131,9 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         :param diff:
         :return:
         """
+        self._check_diff(diff, False, False, bool)
         # FIXME: consider diff.policy
-        if diff.old is False and diff.new is True:
+        if diff.old is not True and diff.new is True:
             if diff.default is None:
                 raise MigrationError(f'Cannot mark field {self.collection.name}.{self.db_field} '
                                      f'as required because default value is not set')
@@ -151,6 +156,7 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         :param diff:
         :return:
         """
+        self._check_diff(diff, False, False, bool)
         self.change_required(diff),
         # self.change_unique([], []) or []  # TODO
 
@@ -162,6 +168,7 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         :param diff:
         :return:
         """
+        self._check_diff(diff, False, True, Collection)
         choices = diff.new
         if isinstance(next(iter(choices)), (list, tuple)):
             # next(iter) is useful for sets
@@ -195,6 +202,8 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         :param diff:
         :return:
         """
+        self._check_diff(diff, False, False, str)
+
         def find_field_class(class_name: str,
                              field_type: CommonFieldType) -> Type[mongoengine.fields.BaseField]:
             """
@@ -272,6 +281,7 @@ class CommonFieldType(metaclass=FieldTypeMeta):
             raise MigrationError(f'Type converter not found for convertion '
                                  f'{from_field_cls!r} -> {to_field_cls!r}')
 
+        # FIXME: remove from_field_cls, to_field_cls. Also from current function
         type_converter(self.collection, self.db_field, from_field_cls, to_field_cls)
 
     @staticmethod
@@ -297,3 +307,21 @@ class CommonFieldType(metaclass=FieldTypeMeta):
                     min_distance = distance
 
         return res
+
+    def _check_diff(self, diff: AlterDiff, can_be_unset=True, can_be_none=True, check_type=None):
+        if diff.new == diff.old:
+            raise MigrationError(f'Diff of field {self.db_field} has the equal old and new values')
+
+        if not can_be_unset:
+            if diff.new == UNSET or diff.old == UNSET:
+                raise MigrationError(f'{self.db_field} field cannot be UNSET')
+
+        if check_type is not None:
+            if diff.old not in (UNSET, None) and not isinstance(diff.old, check_type) \
+                    or diff.new not in (UNSET, None) and not isinstance(diff.new, check_type):
+                raise MigrationError(f'Field {self.db_field}, diff {diff!s} values must be of type '
+                                     f'{check_type!r}')
+
+        if not can_be_none:
+            if diff.old is None or diff.new is None:
+                raise MigrationError(f'{self.db_field} could not be None')

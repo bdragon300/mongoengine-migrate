@@ -17,6 +17,13 @@ def deny(collection: Collection, db_field: str, from_cls: Type[BaseField], to_cl
                          f"error_policy for 'type_key' diff to override this")
 
 
+def drop_field(collection: Collection,
+               db_field: str,
+               from_cls: Type[BaseField],
+               to_cls: Type[BaseField]):
+    collection.update_many({db_field: {'$exists': True}}, {'$unset': {db_field: ''}})
+
+
 def item_to_list(collection: Collection,
                  db_field: str,
                  from_cls: Type[BaseField],
@@ -95,6 +102,45 @@ def to_object_id(collection: Collection,
     __mongo_convert(collection, db_field, 'objectId')
 
 
+def to_uuid(collection: Collection,
+            db_field: str,
+            from_cls: Type[BaseField],
+            to_cls: Type[BaseField]):
+    # Convert fields which value has type other than binData
+    collection.aggregate([
+        {'$match': {
+            db_field: {'$ne': None}, # Field exists and not null
+            '$expr': {'$not': [{'$type': f'${db_field}'}, 'binData']}
+        }},
+        {'$addFields': {
+            '$convert': {
+                'input': f'${db_field}',
+                'to': 'string'
+            }
+        }},
+        {'$out': collection.name}
+    ])
+
+    # Verify strings. There are only binData and string values now in db
+    bad_records = collection.find(
+        {db_field: {
+            '$not': re.compile(r'\A[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}\Z')},
+            '$ne': None,
+            '$type': "string"
+        },
+        limit=3
+    )
+    if bad_records.retrieved:
+        examples = (
+            f'{{_id: {x.get("_id", "unknown")},...{db_field}: ' \
+            f'{x.get(db_field, "unknown")}}}'
+            for x in bad_records
+        )
+        raise MigrationError(f"Some of records in {collection.name}.{db_field} "
+                             f"contain values which are not UUID. This cannot be converted. "
+                             f"First several examples {','.join(examples)}")
+
+
 def __mongo_convert(collection: Collection, db_field: str, target_type: str):
     """
     Launch field convertion pipeline with a given mongo convertion
@@ -107,7 +153,8 @@ def __mongo_convert(collection: Collection, db_field: str, target_type: str):
     # TODO: implement also for mongo 3.x
     # TODO: use $convert with onError and onNull
     collection.aggregate([
-        {'$match': {db_field: {"$ne": None}}},  # Field is not null
+        # Field exists and not null
+        {'$match': {db_field: {"$ne": None}}},
         {'$addFields': {
             '$convert': {
                 'input': f'${db_field}',

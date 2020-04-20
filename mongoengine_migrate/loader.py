@@ -84,6 +84,7 @@ def collect_models_schema() -> dict:
         # Collect schema for every field
         for field_name, field_obj in model_cls._fields.items():
             field_cls = field_obj.__class__
+            # FIXME: find the closest parent along with exact class match
             field_type_cls = mongoengine_fields_mapping.get(field_cls.__name__, CommonFieldType)
             if field_type_cls:
                 schema[collection_name][field_name] = field_type_cls.build_schema(field_obj)

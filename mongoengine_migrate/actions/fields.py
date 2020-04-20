@@ -195,6 +195,7 @@ class AlterField(BaseFieldAction):
 
     def _get_field_type_cls(self, type_name: str):
         # TODO: raise if "not type_name"
+        # FIXME: find the closest parent along with exact class match
         field_type_cls = mongoengine_fields_mapping.get(type_name)
         field_type = field_type_cls(
             self.collection,

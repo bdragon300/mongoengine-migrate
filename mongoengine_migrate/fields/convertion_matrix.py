@@ -10,7 +10,7 @@ from mongoengine import fields
 # DecimalField
 # BooleanField
 # DateTimeField
-# DateField -- implement
+# DateField
 # ComplexDateTimeField -- implement
 # EmbeddedDocumentField
 # GenericEmbeddedDocumentField -- ???
@@ -48,8 +48,6 @@ from mongoengine import fields
 
 COMMON_CONVERTERS = {
     fields.StringField: converters.to_string,
-    fields.URLField: converters.to_string,
-    fields.EmailField: converters.to_string,
     fields.IntField: converters.to_int,
     fields.LongField: converters.to_long,
     fields.FloatField: converters.to_double,
@@ -78,6 +76,7 @@ CONVERTION_MATRIX = {
         fields.ReferenceField: converters.to_object_id,
         # fields.CachedReferenceField: converters.to_object_id,  -- dict???
         fields.LazyReferenceField: converters.to_object_id,
+        fields.UUIDField: converters.to_uuid
     },
     fields.IntField: COMMON_CONVERTERS.copy(),
     fields.LongField: COMMON_CONVERTERS.copy(),
@@ -85,12 +84,18 @@ CONVERTION_MATRIX = {
     fields.DecimalField: COMMON_CONVERTERS.copy(),
     fields.BooleanField: COMMON_CONVERTERS.copy(),
     fields.DateTimeField: COMMON_CONVERTERS.copy(),
+    fields.DateField: COMMON_CONVERTERS.copy(),
     fields.EmbeddedDocumentField: {
         fields.DictField: converters.nothing,  # Also for MapField
         fields.ReferenceField: converters.deny,  # TODO: implement convert reference-like fields from/to embedded-like
         fields.ListField: converters.item_to_list,
         fields.EmbeddedDocumentListField: converters.item_to_list,
         # fields.GeoJsonBaseField: converters.dict_to_geojson,
+    },
+    # DynamicField can contain any type, so no convertation is requried
+    fields.DynamicField: {
+        fields.BaseField: converters.nothing,
+        fields.UUIDField: converters.to_uuid
     },
     fields.ListField: {
         fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
@@ -117,7 +122,12 @@ CONVERTION_MATRIX = {
         # TODO
     },
     fields.BinaryField: {
+        fields.UUIDField: converters.to_uuid
         # TODO: image field, file field
+    },
+    # Sequence field just points to another counter field, so do nothing
+    fields.SequenceField: {
+        fields.BaseField: converters.nothing
     },
     # Leave field as is if field type is unknown
     fields.BaseField: {}
@@ -130,6 +140,9 @@ for klass, converters_mapping in CONVERTION_MATRIX.items():
 
     # Add boolean converter for all fields
     CONVERTION_MATRIX[klass][fields.BooleanField] = converters.to_bool
+
+    # Drop field during convertion to SequenceField
+    CONVERTION_MATRIX[klass][fields.SequenceField] = converters.drop_field
 
     # Add convertion between class and its parent/child class
     CONVERTION_MATRIX[klass][klass] = converters.nothing

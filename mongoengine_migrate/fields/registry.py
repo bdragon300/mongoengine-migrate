@@ -1,5 +1,10 @@
-from . import converters
+import inspect
+from typing import Dict, Type, Optional, NamedTuple
+
 from mongoengine import fields
+
+from . import converters
+
 
 # StringField
 # URLField
@@ -44,8 +49,59 @@ from mongoengine import fields
 # FileField
 # ImageField
 #
-# TODO: description required
 
+
+# TODO: description
+class TypeKeyRegistryItem(NamedTuple):
+    field_cls: Type[fields.BaseField]
+    field_type_cls: Optional[Type['CommonFieldType']]  # Any is CommonFieldType
+
+
+type_key_registry: Dict[str, TypeKeyRegistryItem] = {}
+
+
+def add_type_key(field_cls: Type[fields.BaseField]):
+    """
+    Add mongoengine field to type_key registry
+    :param field_cls: mongoengine field class
+    :return:
+    """
+    assert (
+        inspect.isclass(field_cls) and issubclass(field_cls, fields.BaseField),
+        f'{field_cls!r} is not derived from BaseField'
+    )
+
+    type_key_registry[field_cls.__name__] = TypeKeyRegistryItem(field_cls=field_cls,
+                                                                field_type_cls=None)
+
+
+def add_field_type(field_cls: Type[fields.BaseField], field_type_cls):
+    """
+    # TODO: fix func doc here
+    Add field type to registry of appropriate mongoengine field class
+    :param field_cls:
+    :param field_type_cls:
+    :return:
+    """
+    if field_cls not in type_key_registry:
+        raise ValueError(f'Could not find {field_cls!r} or one of its base classes '
+                         f'in type_key registry')
+
+    # TODO: comment what going on here
+    for fname, (fcls, ftypecls) in type_key_registry.items():
+        if ftypecls is None or issubclass(field_cls, fcls):
+            type_key_registry[fname].field_type_cls = field_type_cls
+
+
+# Fill out the type key registry with mongoengine fields
+for name, member in inspect.getmembers(fields):
+    if not inspect.isclass(member) or not issubclass(member, fields.BaseField):
+        continue
+
+    add_type_key(member)
+
+
+# TODO: description required
 COMMON_CONVERTERS = {
     fields.StringField: converters.to_string,
     fields.IntField: converters.to_int,

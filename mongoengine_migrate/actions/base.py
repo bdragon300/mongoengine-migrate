@@ -1,6 +1,7 @@
 import weakref
 from abc import ABCMeta, abstractmethod
-from mongoengine_migrate.fields.base import mongoengine_fields_mapping, CommonFieldType
+
+from mongoengine_migrate.fields.registry import type_key_registry
 
 # Concrete Actions registry
 # {class_name: action_class}
@@ -118,7 +119,7 @@ class BaseFieldAction(BaseAction):
 
     @property
     def field_type_cls(self):
-        return mongoengine_fields_mapping.get(self._init_kwargs.get('type_key'), CommonFieldType)
+        return type_key_registry[self._init_kwargs.get('type_key')].field_type_cls
 
     @classmethod
     @abstractmethod

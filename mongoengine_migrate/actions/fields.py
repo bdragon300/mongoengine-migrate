@@ -1,8 +1,8 @@
 from typing import Mapping
 
-from mongoengine_migrate.exceptions import ActionError
+from mongoengine_migrate.exceptions import ActionError, MigrationError
+from mongoengine_migrate.fields.registry import type_key_registry
 from .base import BaseFieldAction
-from mongoengine_migrate.fields.base import mongoengine_fields_mapping
 from .diff import AlterDiff, UNSET
 
 
@@ -195,8 +195,11 @@ class AlterField(BaseFieldAction):
 
     def _get_field_type_cls(self, type_name: str):
         # TODO: raise if "not type_name"
-        # FIXME: find the closest parent along with exact class match
-        field_type_cls = mongoengine_fields_mapping.get(type_name)
+        if type_name not in type_key_registry:
+            raise MigrationError(f'Could not find field {type_name!r} or one of its base classes '
+                                 f'in type_key registry')
+
+        field_type_cls = type_key_registry[type_name].field_type_cls
         field_type = field_type_cls(
             self.collection,
             self.current_schema.get(self.collection_name, {}).get(self.field_name, {})

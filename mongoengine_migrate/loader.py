@@ -14,8 +14,9 @@ from pymongo import MongoClient
 
 from mongoengine_migrate.actions.factory import build_actions_chain
 from mongoengine_migrate.exceptions import MigrationError, SchemaError
-from mongoengine_migrate.fields import mongoengine_fields_mapping, CommonFieldType
+from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.graph import Migration, MigrationsGraph
+from mongoengine_migrate.utils import get_closest_parent
 
 
 def symbol_wrap(value: str, width: int = 80, wrap_by: str = ',', wrapstring: str = '\n'):
@@ -81,13 +82,27 @@ def collect_models_schema() -> dict:
             raise SchemaError(f'Models with the same collection names {collection_name!r} found')
         schema[collection_name] = {}
 
+        # {field_cls: TypeKeyRegistryItem}
+        field_mapping_registry = {x.field_cls: x for x in type_key_registry.values()}
+
         # Collect schema for every field
         for field_name, field_obj in model_cls._fields.items():
             field_cls = field_obj.__class__
-            # FIXME: find the closest parent along with exact class match
-            field_type_cls = mongoengine_fields_mapping.get(field_cls.__name__, CommonFieldType)
-            if field_type_cls:
-                schema[collection_name][field_name] = field_type_cls.build_schema(field_obj)
+
+            if field_cls in field_mapping_registry:
+                registry_field_cls = field_cls
+            else:
+                registry_field_cls = get_closest_parent(
+                    field_cls,
+                    field_mapping_registry.keys()
+                )
+
+            if registry_field_cls is None:
+                raise SchemaError(f'Could not find {field_cls!r} or one of its base classes '
+                                  f'in type_key registry')
+
+            field_type_cls = field_mapping_registry[registry_field_cls].field_type_cls
+            schema[collection_name][field_name] = field_type_cls.build_schema(field_obj)
             # TODO: warning about field type not implemented
             # TODO: validate default against all field restrictions such as min_length, regex, etc.
 

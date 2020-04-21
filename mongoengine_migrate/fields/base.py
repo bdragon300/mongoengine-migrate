@@ -3,24 +3,18 @@ import weakref
 from typing import Type, Iterable, List, Tuple, Collection
 
 import mongoengine.fields
-from mongoengine_migrate.utils import get_closest_parent
 from pymongo.collection import Collection as MongoCollection
 
 from mongoengine_migrate.actions.diff import AlterDiff, UNSET
 from mongoengine_migrate.exceptions import SchemaError, MigrationError
-from .convertion_matrix import CONVERTION_MATRIX
-
-# Mongoengine field type mapping to appropriate FieldType class
-# {mongoengine_field_name: field_type_cls}
-mongoengine_fields_mapping = {}
+from mongoengine_migrate.fields.registry import type_key_registry, add_field_type
+from mongoengine_migrate.utils import get_closest_parent
+from .registry import CONVERTION_MATRIX
 
 
 class FieldTypeMeta(type):
     def __new__(mcs, name, bases, attrs):
-        is_baseclass = name == 'CommonFieldType'
         me_classes_attr = 'mongoengine_field_classes'
-        # Mongoengine field classes should be defined explicitly to
-        # get to the global mapping
         me_classes = attrs.get(me_classes_attr)
 
         assert isinstance(me_classes, (List, Tuple)) or me_classes is None, \
@@ -30,16 +24,13 @@ class FieldTypeMeta(type):
 
         klass = super(FieldTypeMeta, mcs).__new__(mcs, name, bases, attrs)
         if me_classes:
-            mapping = {c.__name__: klass for c in me_classes}
-            assert not (mapping.keys() & mongoengine_fields_mapping.keys()), \
-                f'FieldType classes has duplicated mongoengine class defined in {me_classes_attr}'
-            mongoengine_fields_mapping.update(mapping)
-        elif is_baseclass:
-            # Base FieldType class as fallback variant
-            mongoengine_fields_mapping[None] = klass
+            for me_class in me_classes:
+                add_field_type(me_class, klass)
+
         return klass
 
 
+# FIXME: rename FieldType to smth another
 class CommonFieldType(metaclass=FieldTypeMeta):
     """FieldType used as default for mongoengine fields which does
     not have special FieldType since this class implements behavior for
@@ -48,7 +39,9 @@ class CommonFieldType(metaclass=FieldTypeMeta):
     Special FieldTypes should be derived from this class
     """
     # TODO: doc
-    mongoengine_field_classes: Iterable[Type[mongoengine.fields.BaseField]] = None
+    mongoengine_field_classes: Iterable[Type[mongoengine.fields.BaseField]] = [
+        mongoengine.fields.BaseField
+    ]
 
     # TODO: doc
     schema_skel_keys: Iterable[str] = {'db_field', 'required', 'default', 'unique', 'unique_with',
@@ -77,13 +70,26 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         """
         Return db schema from a given mongoengine field object
 
-        As for 'type_key' item it fills mongoengine field class name
+        'type_key' schema item will get filled with the closest
+        mongoengine field class from the type key registry
         :param field_obj: mongoengine field object
         :return: schema dict
         """
         schema_skel = cls.schema_skel()
         schema = {f: getattr(field_obj, f, val) for f, val in schema_skel.items()}
-        schema['type_key'] = field_obj.__class__.__name__
+        field_class = field_obj.__class__
+        if field_class.__name__ in type_key_registry:
+            schema['type_key'] = field_class.__name__
+        else:
+            registry_field_cls = get_closest_parent(
+                field_class,
+                (x.field_cls for x in type_key_registry.values())
+            )
+            if registry_field_cls is None:
+                raise SchemaError(f'Could not find {field_class!r} or one of its base classes '
+                                  f'in type_key registry')
+
+            schema['type_key'] = registry_field_cls.__name__
 
         return schema
 
@@ -204,46 +210,20 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         :return:
         """
         self._check_diff(diff, False, False, str)
+        if not diff.old or not diff.new:
+            raise MigrationError(f"'type_key' has empty values: {diff!r}")
 
-        def find_field_class(class_name: str,
-                             field_type: CommonFieldType) -> Type[mongoengine.fields.BaseField]:
-            """
-            Find mongoengine field class by its name
-            Return None if not class was not found
-            """
-            # Search in given FieldType
-            if field_type.mongoengine_field_classes is not None:
-                me_field_cls = [c for c in field_type.mongoengine_field_classes
-                                if c.__name__ == class_name]  # FIXME: search also for user-defined fields derived from standard ones
-                if me_field_cls:
-                    return me_field_cls[-1]
-
-            # Search in mongoengine itself
-            klass = getattr(mongoengine.fields, class_name, None)
-            if klass is not None:
-                return klass
-
-            # Search in documents retrieved from global registry
-            from mongoengine.base import _document_registry
-            for model_cls in _document_registry.values():
-                for field_obj in model_cls._fields.values():
-                    if field_obj.__class__.__name__ == class_name:
-                        return field_obj.__class__
-
-            # Cannot find anything. Return default
-            return mongoengine.fields.BaseField
-
-        old_fieldtype_cls = mongoengine_fields_mapping.get(diff.old, CommonFieldType)
-        new_fieldtype_cls = mongoengine_fields_mapping.get(diff.new, CommonFieldType)
-
-        old_field_cls = find_field_class(diff.old, old_fieldtype_cls)
-        new_field_cls = find_field_class(diff.new, new_fieldtype_cls)
-        if new_field_cls is mongoengine.fields.BaseField:
-            raise MigrationError(f'Cannot migrate field type because cannot find {diff.new} class')
+        field_classes = []
+        for val in (diff.new, diff.old):
+            if val not in type_key_registry:
+                raise MigrationError(f'Could not find {val!r} or one of its base classes '
+                                     f'in type_key registry')
+            field_classes.append(type_key_registry[val].field_cls)
 
         # TODO: use diff.policy
+        new_fieldtype_cls = type_key_registry[diff.new].field_type_cls
         new_fieldtype = new_fieldtype_cls(self.collection, self.field_schema)
-        new_fieldtype.convert_type(old_field_cls, new_field_cls)
+        new_fieldtype.convert_type(*field_classes)
 
     def convert_type(self,
                      from_field_cls: Type[mongoengine.fields.BaseField],

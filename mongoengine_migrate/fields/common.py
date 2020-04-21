@@ -183,7 +183,7 @@ class URLFieldType(StringFieldType):
     def convert_type(self,
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
-        to_string(self.collection, self.db_field, from_field_cls, to_field_cls)
+        to_string(self.collection, self.db_field)
 
         url_regex = re.compile(
             r"\A[A-Z]{3,}://[A-Z0-9\-._~:/?#\[\]@!$&'()*+,;%=]\Z",
@@ -293,7 +293,7 @@ class EmailFieldType(StringFieldType):
     def convert_type(self,
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
-        to_string(self.collection, self.db_field, from_field_cls, to_field_cls)
+        to_string(self.collection, self.db_field)
 
         # Find records with ip domains and raise error if found
         whitelist_regex = '|'.join(
@@ -324,9 +324,9 @@ class DecimalFieldType(NumberFieldType):
             return
 
         if diff.new is True:
-            to_string(self.collection, self.db_field, None, None)
+            to_string(self.collection, self.db_field)
         else:
-            to_decimal(self.collection, self.db_field, None, None)
+            to_decimal(self.collection, self.db_field)
 
         # TODO: implement 'replace'
 
@@ -342,9 +342,9 @@ class DecimalFieldType(NumberFieldType):
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
         if self.field_schema.get('force_string', True):
-            to_string(self.collection, self.db_field, from_field_cls, to_field_cls)
+            to_string(self.collection, self.db_field)
         else:
-            to_decimal(self.collection, self.db_field, from_field_cls, to_field_cls)
+            to_decimal(self.collection, self.db_field)
 
 
 class ComplexDateTimeFieldType(StringFieldType):

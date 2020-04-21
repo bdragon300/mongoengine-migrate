@@ -17,17 +17,11 @@ def deny(collection: Collection, db_field: str, from_cls: Type[BaseField], to_cl
                          f"error_policy for 'type_key' diff to override this")
 
 
-def drop_field(collection: Collection,
-               db_field: str,
-               from_cls: Type[BaseField],
-               to_cls: Type[BaseField]):
+def drop_field(collection: Collection, db_field: str):
     collection.update_many({db_field: {'$exists': True}}, {'$unset': {db_field: ''}})
 
 
-def item_to_list(collection: Collection,
-                 db_field: str,
-                 from_cls: Type[BaseField],
-                 to_cls: Type[BaseField]):
+def item_to_list(collection: Collection, db_field: str):
     collection.aggregate([
         {'$match': {db_field: {"$exists": True}}},
         {'$addFields': {db_field: [f"${db_field}"]}},
@@ -35,10 +29,7 @@ def item_to_list(collection: Collection,
     ])
 
 
-def extract_from_list(collection: Collection,
-                      db_field: str,
-                      from_cls: Type[BaseField],
-                      to_cls: Type[BaseField]):
+def extract_from_list(collection: Collection, db_field: str):
     collection.aggregate([
         {'$match': {db_field: {"$ne": None}}},
         {'$addFields': {db_field: {"$arrayElemAt": [f"${db_field}", 0]}}},
@@ -46,67 +37,40 @@ def extract_from_list(collection: Collection,
     ])
 
 
-def to_string(collection: Collection,
-              db_field: str,
-              from_cls: Type[BaseField],
-              to_cls: Type[BaseField]):
+def to_string(collection: Collection, db_field: str):
     __mongo_convert(collection, db_field, 'string')
 
 
-def to_int(collection: Collection,
-           db_field: str,
-           from_cls: Type[BaseField],
-           to_cls: Type[BaseField]):
+def to_int(collection: Collection, db_field: str):
     __mongo_convert(collection, db_field, 'int')
 
 
-def to_long(collection: Collection,
-            db_field: str,
-            from_cls: Type[BaseField],
-            to_cls: Type[BaseField]):
+def to_long(collection: Collection, db_field: str):
     __mongo_convert(collection, db_field, 'long')
 
 
-def to_double(collection: Collection,
-              db_field: str,
-              from_cls: Type[BaseField],
-              to_cls: Type[BaseField]):
+def to_double(collection: Collection, db_field: str):
     __mongo_convert(collection, db_field, 'double')
 
 
-def to_decimal(collection: Collection,
-               db_field: str,
-               from_cls: Type[BaseField],
-               to_cls: Type[BaseField]):
+def to_decimal(collection: Collection, db_field: str):
     __mongo_convert(collection, db_field, 'decimal')
 
 
-def to_date(collection: Collection,
-            db_field: str,
-            from_cls: Type[BaseField],
-            to_cls: Type[BaseField]):
+def to_date(collection: Collection, db_field: str):
     __mongo_convert(collection, db_field, 'date')
 
 
-def to_bool(collection: Collection,
-            db_field: str,
-            from_cls: Type[BaseField],
-            to_cls: Type[BaseField]):
+def to_bool(collection: Collection, db_field: str):
     __mongo_convert(collection, db_field, 'bool')
 
 
-def to_object_id(collection: Collection,
-                 db_field: str,
-                 from_cls: Type[BaseField],
-                 to_cls: Type[BaseField]):
+def to_object_id(collection: Collection, db_field: str):
     __mongo_convert(collection, db_field, 'objectId')
 
 
-def to_uuid(collection: Collection,
-            db_field: str,
-            from_cls: Type[BaseField],
-            to_cls: Type[BaseField]):
-    # Convert fields which value has type other than binData
+def to_uuid(collection: Collection, db_field: str):
+    # Convert fields to string where value has type other than binData
     collection.aggregate([
         {'$match': {
             db_field: {'$ne': None}, # Field exists and not null

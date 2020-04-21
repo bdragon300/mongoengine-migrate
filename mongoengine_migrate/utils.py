@@ -1,3 +1,7 @@
+import inspect
+from typing import Type, Iterable
+
+
 class Slotinit(object):
     """
     Set class __slots__ in constructor kwargs
@@ -40,3 +44,27 @@ class Slotinit(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+
+def get_closest_parent(target: Type, classes: Iterable[Type]) -> Type:
+    """
+    Find which class in given list is the closest parent to
+    a target class.
+    :param target: class which we are comparing of
+    :param classes:
+    :return: the closest parent or None if not found
+    """
+    target_mro = inspect.getmro(target)
+    res = None
+    min_distance = float('inf')
+    for parent in classes:
+        found = [x for x in enumerate(target_mro) if x[1] == parent]
+        if found:
+            distance, klass = found[0]
+            if distance == 0:  # Skip if klass is target
+                continue
+            if distance < min_distance:
+                res = klass
+                min_distance = distance
+
+    return res

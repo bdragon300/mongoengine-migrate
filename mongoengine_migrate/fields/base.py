@@ -3,6 +3,7 @@ import weakref
 from typing import Type, Iterable, List, Tuple, Collection
 
 import mongoengine.fields
+from mongoengine_migrate.utils import get_closest_parent
 from pymongo.collection import Collection as MongoCollection
 
 from mongoengine_migrate.actions.diff import AlterDiff, UNSET
@@ -268,14 +269,14 @@ class CommonFieldType(metaclass=FieldTypeMeta):
         """
 
         type_converters = CONVERTION_MATRIX.get(from_field_cls) or \
-            CONVERTION_MATRIX.get(self._closest_parent(from_field_cls, CONVERTION_MATRIX.keys()))
+            CONVERTION_MATRIX.get(get_closest_parent(from_field_cls, CONVERTION_MATRIX.keys()))
 
         if type_converters is None:
             raise MigrationError(f'Type converter not found for convertion '
                                  f'{from_field_cls!r} -> {to_field_cls!r}')
 
         type_converter = type_converters.get(to_field_cls) or \
-            type_converters.get(self._closest_parent(to_field_cls, type_converters))
+            type_converters.get(get_closest_parent(to_field_cls, type_converters))
 
         if type_converter is None:
             raise MigrationError(f'Type converter not found for convertion '
@@ -283,30 +284,6 @@ class CommonFieldType(metaclass=FieldTypeMeta):
 
         # FIXME: remove from_field_cls, to_field_cls. Also from current function
         type_converter(self.collection, self.db_field, from_field_cls, to_field_cls)
-
-    @staticmethod
-    def _closest_parent(target: Type, classes: Iterable[Type]) -> Type:
-        """
-        Find which class in given list is the closest parent to
-        a target class.
-        :param target: class which we are comparing of
-        :param classes:
-        :return: the closest parent or None if not found
-        """
-        target_mro = inspect.getmro(target)
-        res = None
-        min_distance = float('inf')
-        for parent in classes:
-            found = [x for x in enumerate(target_mro) if x[1] == parent]
-            if found:
-                distance, klass = found[0]
-                if distance == 0:  # Skip if klass is target
-                    continue
-                if distance < min_distance:
-                    res = klass
-                    min_distance = distance
-
-        return res
 
     def _check_diff(self, diff: AlterDiff, can_be_unset=True, can_be_none=True, check_type=None):
         if diff.new == diff.old:

@@ -7,12 +7,12 @@ from pymongo.collection import Collection as MongoCollection
 
 from mongoengine_migrate.actions.diff import AlterDiff, UNSET
 from mongoengine_migrate.exceptions import SchemaError, MigrationError
-from mongoengine_migrate.fields.registry import type_key_registry, add_field_type
+from mongoengine_migrate.fields.registry import type_key_registry, add_field_handler
 from mongoengine_migrate.utils import get_closest_parent
 from .registry import CONVERTION_MATRIX
 
 
-class FieldTypeMeta(type):
+class FieldHandlerMeta(type):
     def __new__(mcs, name, bases, attrs):
         me_classes_attr = 'mongoengine_field_classes'
         me_classes = attrs.get(me_classes_attr)
@@ -22,23 +22,23 @@ class FieldTypeMeta(type):
 
         attrs['_meta'] = weakref.proxy(mcs)
 
-        klass = super(FieldTypeMeta, mcs).__new__(mcs, name, bases, attrs)
+        klass = super(FieldHandlerMeta, mcs).__new__(mcs, name, bases, attrs)
         if me_classes:
             for me_class in me_classes:
-                add_field_type(me_class, klass)
+                add_field_handler(me_class, klass)
 
         return klass
 
 
-# FIXME: rename FieldType to smth another
-class CommonFieldType(metaclass=FieldTypeMeta):
-    """FieldType used as default for mongoengine fields which does
-    not have special FieldType since this class implements behavior for
-    mongoengine.fields.BaseField
+class CommonFieldHandler(metaclass=FieldHandlerMeta):
+    """FieldHandler used as default for mongoengine fields which does
+    not have special FieldHandler since this class implements behavior
+    for mongoengine.fields.BaseField
 
-    Special FieldTypes should be derived from this class
+    Special FieldHandler should be derived from this class
     """
     # TODO: doc
+    # TODO: rename
     mongoengine_field_classes: Iterable[Type[mongoengine.fields.BaseField]] = [
         mongoengine.fields.BaseField
     ]
@@ -221,9 +221,9 @@ class CommonFieldType(metaclass=FieldTypeMeta):
             field_classes.append(type_key_registry[val].field_cls)
 
         # TODO: use diff.policy
-        new_fieldtype_cls = type_key_registry[diff.new].field_type_cls
-        new_fieldtype = new_fieldtype_cls(self.collection, self.field_schema)
-        new_fieldtype.convert_type(*field_classes)
+        new_handler_cls = type_key_registry[diff.new].field_handler_cls
+        new_handler = new_handler_cls(self.collection, self.field_schema)
+        new_handler.convert_type(*field_classes)
 
     def convert_type(self,
                      from_field_cls: Type[mongoengine.fields.BaseField],

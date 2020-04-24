@@ -54,7 +54,7 @@ from . import converters
 # TODO: description
 class TypeKeyRegistryItem(NamedTuple):
     field_cls: Type[fields.BaseField]
-    field_type_cls: Optional[Type['CommonFieldType']]  # Any is CommonFieldType
+    field_handler_cls: Optional[Type['CommonFieldHandler']]
 
 
 type_key_registry: Dict[str, TypeKeyRegistryItem] = {}
@@ -72,15 +72,15 @@ def add_type_key(field_cls: Type[fields.BaseField]):
     )
 
     type_key_registry[field_cls.__name__] = TypeKeyRegistryItem(field_cls=field_cls,
-                                                                field_type_cls=None)
+                                                                field_handler_cls=None)
 
 
-def add_field_type(field_cls: Type[fields.BaseField], field_type_cls):
+def add_field_handler(field_cls: Type[fields.BaseField], handler_cls):
     """
     # TODO: fix func doc here
-    Add field type to registry of appropriate mongoengine field class
+    Add field handler to registry of appropriate mongoengine field class
     :param field_cls:
-    :param field_type_cls:
+    :param handler_cls:
     :return:
     """
     if field_cls not in type_key_registry:
@@ -90,7 +90,7 @@ def add_field_type(field_cls: Type[fields.BaseField], field_type_cls):
     # TODO: comment what going on here
     for fname, (fcls, ftypecls) in type_key_registry.items():
         if ftypecls is None or issubclass(field_cls, fcls):
-            type_key_registry[fname].field_type_cls = field_type_cls
+            type_key_registry[fname].field_handler_cls = handler_cls
 
 
 # Fill out the type key registry with mongoengine fields

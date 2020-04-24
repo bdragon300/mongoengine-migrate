@@ -101,8 +101,8 @@ def collect_models_schema() -> dict:
                 raise SchemaError(f'Could not find {field_cls!r} or one of its base classes '
                                   f'in type_key registry')
 
-            field_type_cls = field_mapping_registry[registry_field_cls].field_type_cls
-            schema[collection_name][field_name] = field_type_cls.build_schema(field_obj)
+            handler_cls = field_mapping_registry[registry_field_cls].field_handler_cls
+            schema[collection_name][field_name] = handler_cls.build_schema(field_obj)
             # TODO: warning about field type not implemented
             # TODO: validate default against all field restrictions such as min_length, regex, etc.
 

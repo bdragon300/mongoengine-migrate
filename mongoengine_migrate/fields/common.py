@@ -4,12 +4,12 @@ from typing import List, Dict, Any, Type, Collection
 import mongoengine.fields
 
 from mongoengine_migrate.exceptions import MigrationError
-from .base import CommonFieldType
+from .base import CommonFieldHandler
 from ..actions.diff import AlterDiff, UNSET
 from .converters import to_string, to_decimal
 
 
-class NumberFieldType(CommonFieldType):
+class NumberFieldHandler(CommonFieldHandler):
     mongoengine_field_classes = [
         mongoengine.fields.IntField,
         mongoengine.fields.LongField,
@@ -58,7 +58,7 @@ class NumberFieldType(CommonFieldType):
         #     )
 
 
-class StringFieldType(CommonFieldType):
+class StringFieldHandler(CommonFieldHandler):
     mongoengine_field_classes = [
         mongoengine.fields.StringField,
     ]
@@ -149,7 +149,7 @@ class StringFieldType(CommonFieldType):
         #                                 {'$set': {self.db_field: diff.new}})
 
 
-class URLFieldType(StringFieldType):
+class URLFieldType(StringFieldHandler):
     mongoengine_field_classes = [
         mongoengine.fields.URLField,
     ]
@@ -207,7 +207,7 @@ class URLFieldType(StringFieldType):
                                  f"{','.join(examples)}")
 
 
-class EmailFieldType(StringFieldType):
+class EmailFieldType(StringFieldHandler):
     mongoengine_field_classes = [
         mongoengine.fields.EmailField  # TODO: implement checks
     ]
@@ -313,7 +313,7 @@ class EmailFieldType(StringFieldType):
                                  f'{wrong_count} documents contain bad email addresses')
 
 
-class DecimalFieldType(NumberFieldType):
+class DecimalFieldType(NumberFieldHandler):
     mongoengine_field_classes = [mongoengine.fields.DecimalField]
 
     schema_skel_keys = {'force_string', 'precision', 'rounding'}
@@ -347,7 +347,7 @@ class DecimalFieldType(NumberFieldType):
             to_decimal(self.collection, self.db_field)
 
 
-class ComplexDateTimeFieldType(StringFieldType):
+class ComplexDateTimeFieldType(StringFieldHandler):
     mongoengine_field_classes = [mongoengine.fields.ComplexDateTimeField]
 
     schema_skel_keys = {'separator'}
@@ -412,7 +412,7 @@ class ComplexDateTimeFieldType(StringFieldType):
                                  f"First several examples {','.join(examples)}")
 
 
-class ListFieldType(CommonFieldType):
+class ListFieldHandler(CommonFieldHandler):
     mongoengine_field_classes = [
         mongoengine.fields.ListField
     ]
@@ -436,11 +436,11 @@ class ListFieldType(CommonFieldType):
         ])
 
 
-class DictFieldType(CommonFieldType):
+class DictFieldHandler(CommonFieldHandler):
     pass  # TODO: implement "field" param
 
 
-class BinaryFieldType(CommonFieldType):
+class BinaryFieldHandler(CommonFieldHandler):
     mongoengine_field_classes = [
         mongoengine.fields.BinaryField
     ]
@@ -458,7 +458,7 @@ class BinaryFieldType(CommonFieldType):
         pass
 
 
-class SequenceFieldType(CommonFieldType):
+class SequenceFieldHandler(CommonFieldHandler):
     mongoengine_field_classes = [
         mongoengine.fields.SequenceField
     ]
@@ -481,7 +481,7 @@ class SequenceFieldType(CommonFieldType):
         pass
 
 
-class UUIDFieldType(CommonFieldType):
+class UUIDFieldHandler(CommonFieldHandler):
     mongoengine_field_classes = [
         mongoengine.fields.UUIDField
     ]

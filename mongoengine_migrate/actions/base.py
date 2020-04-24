@@ -118,8 +118,8 @@ class BaseFieldAction(BaseAction):
         self.field_name = field_name
 
     @property
-    def field_type_cls(self):
-        return type_key_registry[self._init_kwargs.get('type_key')].field_type_cls
+    def field_handler_cls(self):
+        return type_key_registry[self._init_kwargs.get('type_key')].field_handler_cls
 
     @classmethod
     @abstractmethod

@@ -29,7 +29,7 @@ class CreateField(BaseFieldAction):
             raise ActionError(f'Cannot create field {self.collection_name}.{self.field_name} '
                               f'since the collection {self.collection_name} is not in schema')
         field_params = {
-            **self.field_type_cls.schema_skel(),
+            **self.field_handler_cls.schema_skel(),
             **self._init_kwargs
         }
         return [(
@@ -77,7 +77,7 @@ class DropField(BaseFieldAction):
             raise ActionError(f'Cannot drop field {self.collection_name}.{self.field_name} '
                               f'since the collection {self.collection_name} is not in schema')
         field_params = {
-            **self.field_type_cls.schema_skel(),
+            **self.field_handler_cls.schema_skel(),
             **self._init_kwargs
         }
         return [(
@@ -170,41 +170,42 @@ class AlterField(BaseFieldAction):
 
     def _run_migration(self, field_params: Mapping[str, AlterDiff]):
         # Take field type from schema. If that field was user-defined
-        # and does not exist anymore then we use CommonFieldType as
+        # and does not exist anymore then we use CommonFieldHandler as
         # fallback variant
         field_schema = self.current_schema.get(self.collection_name, {}).get(self.field_name, {})
-        field_type = self._get_field_type_cls(field_schema.get('type_key'))
+        field_handler = self._get_field_handler(field_schema.get('type_key'))
 
         # Change field type if requested. Then trying to obtain new
-        # FieldType class and process the rest
+        # FieldHandler class and process the rest
         if 'type_key' in field_params:
             try:  # FIXME: remove try
-                field_type.change_param('type_key', field_params['type_key'])
+                field_handler.change_param('type_key', field_params['type_key'])
             except:
                 pass
-            field_type = self._get_field_type_cls(field_params['type_key'].new)
+            field_handler = self._get_field_handler(field_params['type_key'].new)
 
         for name, diff in field_params.items():
             if name == 'type_key':
                 continue
 
             try:  # FIXME: remove try
-                field_type.change_param(name, diff)
+                field_handler.change_param(name, diff)
             except:
                 pass
 
-    def _get_field_type_cls(self, type_name: str):
+    def _get_field_handler(self, type_name: str):
         # TODO: raise if "not type_name"
+        # TODO: doc
         if type_name not in type_key_registry:
             raise MigrationError(f'Could not find field {type_name!r} or one of its base classes '
                                  f'in type_key registry')
 
-        field_type_cls = type_key_registry[type_name].field_type_cls
-        field_type = field_type_cls(
+        handler_cls = type_key_registry[type_name].field_handler_cls
+        handler = handler_cls(
             self.collection,
             self.current_schema.get(self.collection_name, {}).get(self.field_name, {})
         )
-        return field_type
+        return handler
 
     @classmethod
     def _fix_field_params(cls,

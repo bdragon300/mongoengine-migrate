@@ -3,6 +3,11 @@ from .base import BaseAction
 
 
 class RunPython(BaseAction):
+    """
+    Action which runs user defined functions. It's supposed
+    that user must also handle possible schema changes in his functions.
+    """
+    # TODO: implement handling of user's schema changes and to_schema_patch
     def __init__(self, collection_name, forward_func=None, backward_func=None, *args, **kwargs):
         super().__init__(collection_name, *args, **kwargs)
 
@@ -21,7 +26,8 @@ class RunPython(BaseAction):
             self.backward_func(self.db, self.collection, self.current_schema)
 
     def to_schema_patch(self, current_schema: dict):
-        """We can't predict what code will be placed to user functions
+        """
+        We can't predict what code will be placed to user functions
         so don't suppose any schema changes
         """
         return []
@@ -37,7 +43,7 @@ class RunPython(BaseAction):
         }
         kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())  # TODO: sort kwargs
         ff_expr = f'forward_func={self.forward_func.__name__ if self.forward_func else None}'
-        bf_expr = f'bacward_func={self.backward_func.__name__ if self.backward_func else None}'
+        bf_expr = f'backward_func={self.backward_func.__name__ if self.backward_func else None}'
         return f'{self.__class__.__name__}({self.collection_name!r}, ' \
                f'{ff_expr + ", " if self.forward_func else ""}' \
                f'{bf_expr + ", " if self.backward_func else ""}' \

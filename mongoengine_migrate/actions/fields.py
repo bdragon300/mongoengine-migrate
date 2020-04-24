@@ -7,6 +7,7 @@ from .diff import AlterDiff, UNSET
 
 
 class CreateField(BaseFieldAction):
+    """Create field in a given collection"""
     @classmethod
     def build_object_if_applicable(cls,
                                    collection_name: str,
@@ -40,6 +41,9 @@ class CreateField(BaseFieldAction):
 
     def run_forward(self):
         """
+        If field is defined as required then force create it with
+        default value. Otherwise do nothing since mongoengine creates
+        fields automatically on value set
         FIXME: parameters (indexes, acl, etc.)
         """
         is_required = self._init_kwargs.get('required') or self._init_kwargs.get('primary_key')
@@ -50,12 +54,14 @@ class CreateField(BaseFieldAction):
             )
 
     def run_backward(self):
+        """Drop field"""
         self.collection.update_many(
             {self.field_name: {'$exists': True}}, {'$unset': {self.field_name: ''}}
         )
 
 
 class DropField(BaseFieldAction):
+    """Drop field in a given collection"""
     @classmethod
     def build_object_if_applicable(cls,
                                    collection_name: str,
@@ -87,11 +93,17 @@ class DropField(BaseFieldAction):
         )]
 
     def run_forward(self):
+        """Drop field"""
         self.collection.update_many(
             {self.field_name: {'$exists': True}}, {'$unset': {self.field_name: ''}}
         )
 
     def run_backward(self):
+        """
+        If field is defined as required then force create it with
+        default value. Otherwise do nothing since mongoengine creates
+        fields automatically on value set
+        """
         is_required = self._init_kwargs.get('required') or self._init_kwargs.get('primary_key')
         default = self._init_kwargs.get('default')
         if is_required:
@@ -101,6 +113,7 @@ class DropField(BaseFieldAction):
 
 
 class AlterField(BaseFieldAction):
+    """Change field parameters or its type, i.e. altering"""
     def __init__(self,
                  collection_name: str,
                  field_name: str,
@@ -116,7 +129,7 @@ class AlterField(BaseFieldAction):
                                    field_name: str,
                                    old_schema: dict,
                                    new_schema: dict):
-        # Check that field still here, but its schema is differ
+        # Check if field still here but its schema has changed
         match = collection_name in old_schema \
                 and collection_name in new_schema \
                 and field_name in old_schema[collection_name] \
@@ -169,9 +182,14 @@ class AlterField(BaseFieldAction):
         self._run_migration(reversed_field_params)
 
     def _run_migration(self, field_params: Mapping[str, AlterDiff]):
+        """
+        Iterates over action parameters (AlterDiff objects) and
+        executes handler for each one
+        """
         # Take field type from schema. If that field was user-defined
         # and does not exist anymore then we use CommonFieldHandler as
         # fallback variant
+        # FIXME: raise if self.collection_name/self.field_name not in schema
         field_schema = self.current_schema.get(self.collection_name, {}).get(self.field_name, {})
         field_handler = self._get_field_handler(field_schema.get('type_key'))
 
@@ -193,14 +211,18 @@ class AlterField(BaseFieldAction):
             except:
                 pass
 
-    def _get_field_handler(self, type_name: str):
+    def _get_field_handler(self, type_key: str):
+        """
+        Return FieldHandler object by type_key
+        :param type_key: `type_key` item of schema
+        :return: concrete FieldHandler object
+        """
         # TODO: raise if "not type_name"
-        # TODO: doc
-        if type_name not in type_key_registry:
-            raise MigrationError(f'Could not find field {type_name!r} or one of its base classes '
+        if type_key not in type_key_registry:
+            raise MigrationError(f'Could not find field {type_key!r} or one of its base classes '
                                  f'in type_key registry')
 
-        handler_cls = type_key_registry[type_name].field_handler_cls
+        handler_cls = type_key_registry[type_key].field_handler_cls
         handler = handler_cls(
             self.collection,
             self.current_schema.get(self.collection_name, {}).get(self.field_name, {})
@@ -217,9 +239,8 @@ class AlterField(BaseFieldAction):
         """
         Search for potential problems which could be happened during
         migration and return fixed field schema. If such problem
-        could not be resolved only by changing parameters then it
-        raises error.
-
+        could not be resolved only by changing parameters then raise
+        an ActionError
         :param collection_name:
         :param field_name:
         :param field_params:
@@ -250,7 +271,12 @@ class AlterField(BaseFieldAction):
 
 
 class RenameField(BaseFieldAction):
+    """Rename field"""
     factory_exclusive = True
+
+    #: How much percent of items in schema diff of two fields in the
+    #: same collection should be equal to consider such change as
+    #: field rename instead of drop/create
     similarity_threshold = 70
 
     def __init__(self, *args, **kwargs):
@@ -319,13 +345,17 @@ class RenameField(BaseFieldAction):
         ]
 
     def run_forward(self):
-        """Renaming mongoengine model field is not lead to db change
-        `db_field` modification is handled by AlterField action
+        """Renaming mongoengine model field does not required some
+        db changes. It's supposed that possible `db_field` modification,
+        which could exist during field renaming, is handled by
+        AlterField action
         """
         pass
 
     def run_backward(self):
-        """Renaming mongoengine model field is not lead to db change
-        `db_field` modification is handled by AlterField action
+        """Renaming mongoengine model field does not required some
+        db changes. It's supposed that possible `db_field` modification,
+        which could exist during field renaming, is handled by
+        AlterField action
         """
         pass

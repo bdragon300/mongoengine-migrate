@@ -1,11 +1,13 @@
 import weakref
 from abc import ABCMeta, abstractmethod
+from typing import Dict, Type, Optional
+
+from pymongo.database import Database
 
 from mongoengine_migrate.fields.registry import type_key_registry
 
-# Concrete Actions registry
-# {class_name: action_class}
-actions_registry = {}
+#: Migration Actions registry. Mapping of class name and its class
+actions_registry: Dict[str, Type['BaseAction']] = {}
 
 
 class BaseActionMeta(ABCMeta):
@@ -25,23 +27,22 @@ class BaseAction(metaclass=BaseActionMeta):
     Action represents one change within migration such as field
     altering, collection renaming, collection dropping, etc.
 
-    Migration file consists of actions following by each other.
-    Every action accepts collection name, field name and its new
-    parameters if any.
+    Migration file typically consists of actions following by each
+    other. Every action accepts collection name and other parameters
+    (if any) which describes change.
 
-    Action also can be serialized into dict diff in order to make
-    diff to a db schema after migration run
+    Action also can be represented as dictdiff diff in order to apply
+    schema changes.
     """
 
-    # Actions with set `factory_exclusive` are tested by a actions
-    # factory firstly. If such Actions are applicable then they
-    # patch tested schema and the rest actions are tested
-    # with patched schema.
-    # This flag is suitable for rename actions when the other actions
-    # should detect changes of field/collection with new name.
+    #: `factory_exclusive = True` means that the action has high
+    #: priority in test for applicability for schema change.
+    #: This flag is suitable for rename actions which should get tested
+    #: before create/drop actions
+    # TODO: rename
     factory_exclusive = False
 
-    def __init__(self, collection_name, *args, **kwargs):
+    def __init__(self, collection_name: str, *args, **kwargs):
         """
         :param collection_name: Name of collection where the migration
          will be performed on
@@ -56,7 +57,7 @@ class BaseAction(metaclass=BaseActionMeta):
         self.db = None
         self.collection = None
 
-    def prepare(self, db, current_schema: dict):
+    def prepare(self, db: Database, current_schema: dict):
         """
         Prepare action before Action run (both forward and backward)
         :param db: pymongo.Database object
@@ -72,23 +73,22 @@ class BaseAction(metaclass=BaseActionMeta):
 
     @abstractmethod
     def run_forward(self):
-        """Run command in forward direction"""
+        """DB commands to be run in forward direction"""
 
     @abstractmethod
     def run_backward(self):
-        """Run command in backward direction"""
+        """DB commands to be run in backward direction"""
 
     @abstractmethod
     def to_schema_patch(self, current_schema: dict):
         """
-        Return dictdiff patch which this Action is applied to a schema
-        during forward run.
-
-        This function returns diff to applied in forward direction
-        to get needed changes in schema. Note that this function also
-        is used on downgrade process, where this diff is swapped and
-        applied to schema in reverse order
-        :param current_schema:
+        Return dictdiff patch should get applied in a forward direction
+        run, but it runs in both directions. So the patch typically
+        should be the same no matter which the `current_schema`
+        structure has. In other words, `current_schema` has
+        the schema before action would run in a forward direction and
+        the schema after action would run in a backward direction.
+        :param current_schema: schema state before method call
         :return: dictdiffer diff
         """
 
@@ -102,7 +102,8 @@ class BaseAction(metaclass=BaseActionMeta):
 
 # TODO: add to prepare() checking if db_field param has not dots
 class BaseFieldAction(BaseAction):
-    """Base class for action which changes one field"""
+    """Base class for action which affects on one field in a collection
+    """
 
     def __init__(self,
                  collection_name: str,
@@ -110,46 +111,47 @@ class BaseFieldAction(BaseAction):
                  *args,
                  **kwargs):
         """
-        :param collection_name: collection name where we performing a
-         change
-        :param field_name: field which is changed
+        :param collection_name: collection name to be touched
+        :param field_name: changing mongoengine document field name
         """
         super().__init__(collection_name, *args, **kwargs)
         self.field_name = field_name
 
     @property
     def field_handler_cls(self):
+        """Concrete FieldHandler class for a current field type"""
         return type_key_registry[self._init_kwargs.get('type_key')].field_handler_cls
 
     @classmethod
     @abstractmethod
+    # TODO: rename
     def build_object_if_applicable(cls,
                                    collection_name: str,
                                    field_name: str,
                                    old_schema: dict,
-                                   new_schema: dict):
+                                   new_schema: dict) -> Optional['BaseFieldAction']:
         """
-        Factory method which may produce filled in object of concrete
-        action if this action can be used to reflect such field change
-        in schema. Return None if the action is not applicable for such
-        change.
+        Factory method which tests if current action type could process
+        schema changes for a given collection and field. If yes then
+        it produces object of current action type with filled out
+        perameters. If no then it returns None.
 
-        This method in actions is used to guess which action is
-        suitable to reflect schema change. It's called for several
-        times for each field which was modified in mongoengine models.
+        This method is used to guess which action is suitable to
+        reflect schema change. It's called for several times for each
+        field which was modified by a user in mongoengine documents.
 
-        For example, on field deleting this method defined in
+        For example, on field deleting the method defined in
         CreateField action should return None, but those one in
-        DeleteField action should return DeleteField object with
-        set up parameters of change (type of field, is required, etc.)
+        DropField action should return DeleteField object with
+        filled out parameters of change (type of field, required flag,
+        etc.)
 
-        :param collection_name: collection we are considering in
-         schemas diff
-        :param field_name: field we are considering in schemas diff
-        :param old_schema: current database schema (before migration
-         apply)
-        :param new_schema: schema which will be current after the
-         migration will get applied
+        :param collection_name: collection name to consider
+        :param field_name: field name to consider
+        :param old_schema: database schema before a migration
+         would get applied
+        :param new_schema: database schema after a migration
+         would get applied
         :return: object of self type or None
         """
         pass
@@ -175,7 +177,33 @@ class BaseCollectionAction(BaseAction):
     """
     @classmethod
     @abstractmethod
-    def build_object_if_applicable(cls, collection_name: str, old_schema: dict, new_schema: dict):
+    def build_object_if_applicable(cls,
+                                   collection_name: str,
+                                   old_schema: dict,
+                                   new_schema: dict) -> Optional['BaseCollectionAction']:
+        """
+        Factory method which tests if current action type could process
+        schema changes for a given collection at whole. If yes then
+        it produces object of current action type with filled out
+        perameters. If no then it returns None.
+
+        This method is used to guess which action is suitable to
+        reflect schema change. It's called for several times for each
+        collection which was modified by a user in mongoengine
+        documents.
+
+        For example, on collection deleting the method defined in
+        CreateCollection action should return None, but those one in
+        DropCollection action should return DropCollection object with
+        filled out parameters of change (collection name, indexes, etc.)
+
+        :param collection_name: collection name to consider
+        :param old_schema: database schema before a migration
+         would get applied
+        :param new_schema: database schema after a migration
+         would get applied
+        :return: object of self type or None
+        """
         pass
 
     def to_python_expr(self) -> str:

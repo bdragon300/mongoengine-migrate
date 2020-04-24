@@ -15,11 +15,11 @@ from .base import (
 class BaseActionFactory(metaclass=ABCMeta):
     """
     Base abstract class for Actions abstract factory. The main aim
-    is to produce actions chain suitable to handle change of schema
-    written in db and current schema collected from mongoengine models.
+    is to produce actions chain suitable to handle change between
+    current schema and schema collected from mongoengine models.
 
-    Concrete factory produces actions with same kind of change such as
-    collection change, fields change in collection, etc.
+    Concrete factory produces actions with concrete kind of change
+    such as collection change or field change.
     """
     @staticmethod
     @abstractmethod
@@ -27,21 +27,18 @@ class BaseActionFactory(metaclass=ABCMeta):
                           old_schema: dict,
                           new_schema: dict) -> Iterable[BaseAction]:
         """
-        Produce Action objects iterable which consists of actions which
-        can handle such change of a given collection
-        :param collection_name:
-        :param old_schema: schema before change or "schema in db"
-        :param new_schema: schema which would be after change or
-         "schema in models"
+        Produce Action objects iterable with actions suitable to
+        process changes between given schemas
+        :param collection_name: collection name to consider
+        :param old_schema: current schema
+        :param new_schema: schema collected from mongoengine models
         :return: iterable of Action objects
         """
         pass
 
 
 class FieldActionFactory(BaseActionFactory):
-    """
-    Factory for Actions for fields such as renaming, changing
-    the signature, dropping, etc.
+    """Factory of field Actions
     """
     @staticmethod
     def get_actions_chain(collection_name: str,
@@ -73,8 +70,7 @@ class FieldActionFactory(BaseActionFactory):
 
 
 class CollectionActionFactory(BaseActionFactory):
-    """
-    Factory for Actions for collections such as renaming, dropping, etc.
+    """Factory of collection Actions
     """
     @staticmethod
     def get_actions_chain(collection_name: str,
@@ -101,11 +97,10 @@ class CollectionActionFactory(BaseActionFactory):
 
 def build_actions_chain(old_schema: dict, new_schema: dict) -> Iterable[BaseAction]:
     """
-    Build Action objects chain to handle such schema change. Uses all
-    Action factories
-    :param old_schema: schema before change or "schema in db"
-    :param new_schema: schema which would be after change or
-     "schema in models"
+    Build full Action objects chain which suitable for such schema
+    change.
+    :param old_schema: current schema
+    :param new_schema: schema collected from mongoengine models
     :return: iterable of Action objects
     """
     action_chain = []

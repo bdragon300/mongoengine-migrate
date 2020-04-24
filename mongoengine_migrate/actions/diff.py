@@ -2,6 +2,15 @@ from typing import Any, Optional
 
 
 class AlterDiff:
+    """This class is used to set parameter diff in Alter* actions.
+
+    The main aim of class is to keep old and new values of diff and
+    also to make diff applying more flexible.
+
+    Except for values a user can set error handling policy which get
+    executed if error occured during diff applying. And also the
+    default value as another option on error handling.
+    """
     # TODO: error_policy parameter:  'remove_field'
     error_policy_choices = ('ignore', 'raise', 'replace')
     default_error_policy = 'raise'
@@ -21,14 +30,16 @@ class AlterDiff:
         self.default = default
 
     def swap(self):
-        """Return swapped instance of the current one
-        Swapped instance has changed new and old items from each other
+        """Return swapped instance of the current one where new and old
+        values are swapped between each other
         """
         return AlterDiff(self.new, self.old, self.error_policy, self.default)
 
     def to_python_expr(self) -> str:
-        """Callback used in Action self-print method to get python
-        string expression of this object"""
+        """
+        Return string of python code which creates current object with
+        the same state
+        """
         return f"D({', '.join(self._get_params_expr())})"
 
     def _get_params_expr(self) -> list:
@@ -69,11 +80,10 @@ class _UnsetSentinel:
         return 'UNSET'
 
 
-# AlterDiff shortcut for using in migrations
+#: AlterDiff shortcut for using in migrations
 D = AlterDiff
 
 
-# This constant substitutes to old or new value of AlterDiff in order
-# to indicate that such parameter was unset or will be unset in schema
-# after doing migration
+#: Used to indicated that such parameter in schema was unset or will
+#: be unset in schema after running migration
 UNSET = _UnsetSentinel()

@@ -8,20 +8,24 @@ from mongoengine_migrate.exceptions import ActionError, MigrationError
 
 
 def nothing(*args, **kwargs):
+    """Converter which does nothing"""
     pass
 
 
 def deny(collection: Collection, db_field: str, from_cls: Type[BaseField], to_cls: Type[BaseField]):
+    """Convertion is denied"""
     raise MigrationError(f"Unable to convert field {collection.name}.{db_field} "
                          f"from {from_cls.__name__!r} to {to_cls.__name__!r}. You can use "
                          f"error_policy for 'type_key' diff to override this")
 
 
 def drop_field(collection: Collection, db_field: str):
+    """Drop field"""
     collection.update_many({db_field: {'$exists': True}}, {'$unset': {db_field: ''}})
 
 
 def item_to_list(collection: Collection, db_field: str):
+    """Make list with a single element from an value"""
     collection.aggregate([
         {'$match': {db_field: {"$exists": True}}},
         {'$addFields': {db_field: [f"${db_field}"]}},
@@ -30,6 +34,7 @@ def item_to_list(collection: Collection, db_field: str):
 
 
 def extract_from_list(collection: Collection, db_field: str):
+    """Everwrite list with its first element"""
     collection.aggregate([
         {'$match': {db_field: {"$ne": None}}},
         {'$addFields': {db_field: {"$arrayElemAt": [f"${db_field}", 0]}}},
@@ -70,6 +75,10 @@ def to_object_id(collection: Collection, db_field: str):
 
 
 def to_uuid(collection: Collection, db_field: str):
+    """Don't touch fields with 'binData' type. Convert values with
+    other types to a string. Then verify if these strings contain
+    UUIDs. Raise error if not
+    """
     # Convert fields to string where value has type other than binData
     collection.aggregate([
         {'$match': {
@@ -107,11 +116,13 @@ def to_uuid(collection: Collection, db_field: str):
 
 def __mongo_convert(collection: Collection, db_field: str, target_type: str):
     """
-    Launch field convertion pipeline with a given mongo convertion
-    command. For example: '$toInt', '$toString', etc.
-    :param collection:
-    :param db_field:
-    :param target_type:
+    Convert field to a given type in a given collection. `target_type`
+    contains MongoDB type name, such as 'string', 'decimal', etc.
+
+    https://docs.mongodb.com/manual/reference/operator/aggregation/convert/
+    :param collection: pymongo collection object
+    :param db_field: field name
+    :param target_type: MongoDB type name
     :return:
     """
     # TODO: implement also for mongo 3.x

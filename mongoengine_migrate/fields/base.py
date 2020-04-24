@@ -31,24 +31,26 @@ class FieldHandlerMeta(type):
 
 
 class CommonFieldHandler(metaclass=FieldHandlerMeta):
-    """FieldHandler used as default for mongoengine fields which does
-    not have special FieldHandler since this class implements behavior
-    for mongoengine.fields.BaseField
-
-    Special FieldHandler should be derived from this class
     """
-    # TODO: doc
+    Default handler for all mongoengine fields. Used for fields which
+    does not have specific handler.
+
+    Also this is base class for other field-specific handlers
+    """
+    #: Mongoengine field classes which concrete handler can be used for
     field_classes: Iterable[Type[mongoengine.fields.BaseField]] = [
         mongoengine.fields.BaseField
     ]
 
-    # TODO: doc
-    schema_skel_keys: Iterable[str] = {'db_field', 'required', 'default', 'unique', 'unique_with',
-                                       'primary_key', 'choices', 'null', 'sparse', 'type_key'}
+    #: Schema keys used for all fields listed in `field_classes`
+    #: This variable inherits, i.e. keys defined in current class is
+    #: appended to keys defined in parent classes
+    schema_skel_keys: Iterable[str] = {
+        'db_field', 'required', 'default', 'unique', 'unique_with', 'primary_key', 'choices',
+        'null', 'sparse', 'type_key'
+    }
 
-    def __init__(self,
-                 collection: MongoCollection,
-                 field_schema: dict):
+    def __init__(self, collection: MongoCollection, field_schema: dict):
         self.field_schema = field_schema
         self.collection = collection
         self.db_field = field_schema.get('db_field')
@@ -57,7 +59,10 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
     @classmethod
     def schema_skel(cls) -> dict:
-        """Return db schema skeleton dict for concrete field type"""
+        """
+        Return db schema skeleton dict, which contains keys taken from
+        `schema_skel_keys` and Nones as values
+        """
         keys = []
         for klass in reversed(inspect.getmro(cls)):
             keys.extend(getattr(klass, 'schema_skel_keys', []))
@@ -69,8 +74,9 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         """
         Return db schema from a given mongoengine field object
 
-        'type_key' schema item will get filled with the closest
-        mongoengine field class from the type key registry
+        'type_key' schema item will get filled with a mongoengine field
+        class name or one of its parents which have its own type key
+        in registry
         :param field_obj: mongoengine field object
         :return: schema dict
         """
@@ -94,11 +100,10 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
     def change_param(self, name: str, diff: AlterDiff):
         """
-        Return MongoDB pipeline which makes change of given
-        parameter.
+        DB commands to be run in order to change given parameter
 
         This is a facade method which calls concrete method which
-        changes given parameter. Such methods should be called as
+        changes given parameter. Such methods should have name
         'change_NAME' where NAME is a parameter name.
         :param name: parameter name to change
         :param diff: AlterDiff object
@@ -110,13 +115,14 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         method_name = f'change_{name}'
         if hasattr(self, method_name):
             return getattr(self, method_name)(diff)
+        # FIXME: raise if not hasattr
         # FIXME: change self.field_schema with diff
 
     # TODO: make arguments checking and that old != new
     # TODO: consider renaming before other ones
     def change_db_field(self, diff: AlterDiff):
         """
-        Change db field name for a field. Simply rename this field
+        Change db field name of a field. Simply rename this field
         :param diff:
         :return:
         """
@@ -204,7 +210,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
     def change_type_key(self, diff: AlterDiff):
         """
-        Change type of field. Try to convert value
+        Change type of field. Try to convert value in db
         :param diff:
         :return:
         """
@@ -241,7 +247,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         New field will always have target mongoengine field type
         :param from_field_cls: mongoengine field class which was used
-         before or BaseField
+         before
         :param to_field_cls: mongoengine field class which will be used
          further
         :return:

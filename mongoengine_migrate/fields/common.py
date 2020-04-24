@@ -18,10 +18,14 @@ class NumberFieldHandler(CommonFieldHandler):
     schema_skel_keys = {'min_value', 'max_value'}
 
     def change_min_value(self, diff: AlterDiff):
+        """
+        Change min_value of field. Force set to minimum if value is
+        less than limitation (if any)
+        """
         self._check_diff(diff, True, True, (int, float))
         if diff.new in (UNSET, None):
             return
-        # FIXME: treat None in diff old/new as value absence. Here and further
+
         self.collection.update_many(
             {self.db_field: {'$lt': diff.new}},
             {'$set': {self.db_field: diff.new}}
@@ -38,6 +42,10 @@ class NumberFieldHandler(CommonFieldHandler):
         #     )
 
     def change_max_value(self, diff: AlterDiff):
+        """
+        Change max_value of field. Force set to maximum if value is
+        more than limitation (if any)
+        """
         self._check_diff(diff, True, True, (int, float))
         if diff.new in (UNSET, None):
             return
@@ -66,6 +74,7 @@ class StringFieldHandler(CommonFieldHandler):
     schema_skel_keys = {'max_length', 'min_length', 'regex'}
 
     def change_max_length(self, diff: AlterDiff):
+        """Cut off a string if it longer than limitation (if any)"""
         self._check_diff(diff, True, True, int)
         if diff.new in (UNSET, None):
             return
@@ -96,6 +105,7 @@ class StringFieldHandler(CommonFieldHandler):
         #     self.collection.aggregate(pipeline + replace_pipeline)
 
     def change_min_length(self, diff: AlterDiff):
+        """Raise error if string is shorter than limitation (if any)"""
         self._check_diff(diff, True, True, int)
         if diff.new in (UNSET, None):
             return
@@ -124,6 +134,7 @@ class StringFieldHandler(CommonFieldHandler):
         #     self.collection.aggregate(pipeline + replace_pipeline)
 
     def change_regex(self, diff: AlterDiff):
+        """Raise error if string does not match regex (if any)"""
         self._check_diff(diff, True, True, (str, type(re.compile('.'))))
         if diff.new in (UNSET, None):
             return
@@ -157,6 +168,7 @@ class URLFieldType(StringFieldHandler):
     schema_skel_keys = {'schemes'}  # TODO: implement url_regex
 
     def change_schemes(self, diff: AlterDiff):
+        """Raise error if url has scheme not from list"""
         self._check_diff(diff, True, False, Collection)
         if not diff.new or diff.new == UNSET:
             return
@@ -180,6 +192,7 @@ class URLFieldType(StringFieldHandler):
                                  f"contain schemes not from list. This cannot be converted. "
                                  f"First several examples {','.join(examples)}")
 
+    # TODO: move to converters
     def convert_type(self,
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
@@ -209,7 +222,7 @@ class URLFieldType(StringFieldHandler):
 
 class EmailFieldType(StringFieldHandler):
     field_classes = [
-        mongoengine.fields.EmailField  # TODO: implement checks
+        mongoengine.fields.EmailField
     ]
 
     schema_skel_keys = {'domain_whitelist', 'allow_utf8_user', 'allow_ip_domain'}
@@ -251,6 +264,7 @@ class EmailFieldType(StringFieldHandler):
         """
 
     def change_allow_utf8_user(self, diff: AlterDiff):
+        """Raise error if email address has wrong user name"""
         self._check_diff(diff, True, False, bool)
         if diff.new == UNSET:
             return
@@ -270,6 +284,10 @@ class EmailFieldType(StringFieldHandler):
                                  f'{wrong_count} documents contain bad email addresses')
 
     def change_allow_ip_domain(self, diff: AlterDiff):
+        """
+        Raise error if email has domain which not in `domain_whitelist`
+        when `allow_ip_domain` is True. Otherwise do nothing
+        """
         self._check_diff(diff, True, False, bool)
         if diff.new is True or diff.new == UNSET:
             return
@@ -319,6 +337,9 @@ class DecimalFieldType(NumberFieldHandler):
     schema_skel_keys = {'force_string', 'precision', 'rounding'}
 
     def change_force_string(self, diff: AlterDiff):
+        """
+        Convert to string or decimal depending on `force_string` flag
+        """
         self._check_diff(diff, True, False, bool)
         if diff.new == UNSET:
             return
@@ -353,6 +374,7 @@ class ComplexDateTimeFieldType(StringFieldHandler):
     schema_skel_keys = {'separator'}
 
     def change_separator(self, diff: AlterDiff):
+        """Change separator in datetime strings"""
         self._check_diff(diff, True, False, str)
         if not diff.new or not diff.old:
             raise MigrationError('Empty separator specified')
@@ -420,6 +442,7 @@ class ListFieldHandler(CommonFieldHandler):
     schema_skel_keys = {'max_length'}  # TODO: implement "field"
 
     def change_max_length(self, diff: AlterDiff):
+        """Cut off a list if it longer than limitation (if any)"""
         self._check_diff(diff, True, True, int)
         if diff.new in (UNSET, None):
             return
@@ -449,7 +472,8 @@ class BinaryFieldHandler(CommonFieldHandler):
 
     def change_max_bytes(self, diff: AlterDiff):
         """
-        $binarySize expression is not available yet, so do nothing
+        $binarySize expression is not available in MongoDB yet,
+        so do nothing
         """
         self._check_diff(diff, True, True, int)
         if diff.new in (UNSET, None):
@@ -497,36 +521,3 @@ class UUIDFieldHandler(CommonFieldHandler):
         else:
             pass
             # TODO: convert Binary to string
-
-
-
-# ObjectIdField
-# EmbeddedDocumentField
-# GenericEmbeddedDocumentField -- ???
-# ListField
-# EmbeddedDocumentListField
-# SortedListField
-# DictField
-# MapField
-# ReferenceField
-# CachedReferenceField
-# GenericReferenceField -- ???
-# BinaryField
-# SequenceField
-# UUIDField
-# LazyReferenceField
-# GenericLazyReferenceField -- ???
-#
-#
-# GeoPointField
-# PointField
-# LineStringField
-# PolygonField
-# MultiPointField
-# MultiLineStringField
-# MultiPolygonField
-#
-#
-# FileField
-# ImageField
-#

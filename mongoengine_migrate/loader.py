@@ -47,7 +47,7 @@ def symbol_wrap(value: str, width: int = 80, wrap_by: str = ',', wrapstring: str
 
 def import_module(path: str) -> Tuple[ModuleType, str]:
     """
-    Import module by dot notation path
+    Import module by python path
     :param path: dot path
     :return: tuple with module object and path part inside it
     """
@@ -114,11 +114,7 @@ class MongoengineMigrate:
     default_directory: str = './migrations'
     default_models_module = 'models'
 
-    def __init__(self,
-                 mongo_uri: str,
-                 collection_name: str,
-                 migrations_dir: str,
-                 **kwargs):
+    def __init__(self, mongo_uri: str, collection_name: str, migrations_dir: str, **kwargs):
         self.mongo_uri = mongo_uri
         self.migrations_collection_name = collection_name
         self.migration_dir = migrations_dir
@@ -315,6 +311,10 @@ class MongoengineMigrate:
             self.upgrade(migration_name)
 
     def makemigrations(self):
+        """
+        Compare current mongoengine documents state and the last db
+        state and make a migration file if needed
+        """
         graph = self.build_graph()
         db_schema = self.load_db_schema() or {}
 

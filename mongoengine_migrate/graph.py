@@ -7,6 +7,7 @@ from typing import Dict, List
 
 class Migration(Slotinit):
     # TODO: make it dict-like, not list-like
+    # TODO: derive from OrderedDict
     """Object represents one migration
 
     Contains information which is set in migration:

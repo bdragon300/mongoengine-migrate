@@ -2,15 +2,15 @@ from .base import BaseCollectionAction
 from mongoengine_migrate.exceptions import ActionError
 
 
-# Empty collection schema contents skeleton
+#: Empty collection schema contents skeleton
+# FIXME: move to BaseCollectionAction
 collection_schema_skel = {}
 
 
 class CreateCollection(BaseCollectionAction):
     """Create new collection
 
-    Accepts collection name as parameter such as:
-    `CreateCollection("collection1")`
+    Ex.: `CreateCollection("collection1")`
     """
     @classmethod
     def build_object_if_applicable(cls, collection_name: str, old_schema: dict, new_schema: dict):
@@ -35,8 +35,7 @@ class CreateCollection(BaseCollectionAction):
 class DropCollection(BaseCollectionAction):
     """Drop collection
 
-    Accepts collection name as parameter such as:
-    `DropCollection("collection1")`
+    Ex.: `DropCollection("collection1")`
     """
     @classmethod
     def build_object_if_applicable(cls, collection_name: str, old_schema: dict, new_schema: dict):
@@ -62,17 +61,27 @@ class DropCollection(BaseCollectionAction):
 
 
 class RenameCollection(BaseCollectionAction):
+    """Rename collection
+
+    Ex.: `RenameCollection("collection1", new_name="collection2")`
+    """
     factory_exclusive = True
+
+    #: How much percent of items in schema diff of two collections
+    #: should be equal to consider such change as collection rename
+    #: instead of drop/create
+    # TODO: rename to equality_threshold
     similarity_threshold = 70
 
     def __init__(self, *args, **kwargs):
+        # FIXME: new_name in params and local var
         super().__init__(*args, **kwargs)
         if 'new_name' not in kwargs:
             raise ActionError("'new_name' keyword parameter is not specified")
 
     @classmethod
     def build_object_if_applicable(cls, collection_name: str, old_schema: dict, new_schema: dict):
-        # Check if field exists under different name in schema
+        # Check if field exists under different name in schema.
         # Field also can have small schema changes in the same time
         # So we try to get similarity percentage and if it more than
         # threshold then we're consider such change as rename/alter.

@@ -51,12 +51,20 @@ from . import converters
 #
 
 
-# TODO: description
 class TypeKeyRegistryItem(NamedTuple):
+    """
+    Information of classes for a type key
+    """
     field_cls: Type[fields.BaseField]
     field_handler_cls: Optional[Type['CommonFieldHandler']]
 
 
+#: Registry of available `type_key` values which can be used in schema.
+#: And appropriate mongoengine field class and handler class
+#:
+#: This registry is filled out with all available mongoengine field
+#: classes. Type key is a name of mongoengine field class. As a handler
+#: there is used handler associated with this field or CommonFieldHander
 type_key_registry: Dict[str, TypeKeyRegistryItem] = {}
 
 
@@ -75,10 +83,9 @@ def add_type_key(field_cls: Type[fields.BaseField]):
                                                                 field_handler_cls=None)
 
 
-def add_field_handler(field_cls: Type[fields.BaseField], handler_cls):
+def add_field_handler(field_cls: Type[fields.BaseField], handler_cls: Type['CommonFieldHandler']):
     """
-    # TODO: fix func doc here
-    Add field handler to registry of appropriate mongoengine field class
+    Add field handler to the type_key registry for a given field
     :param field_cls:
     :param handler_cls:
     :return:
@@ -87,13 +94,15 @@ def add_field_handler(field_cls: Type[fields.BaseField], handler_cls):
         raise ValueError(f'Could not find {field_cls!r} or one of its base classes '
                          f'in type_key registry')
 
-    # TODO: comment what going on here
-    for fname, (fcls, ftypecls) in type_key_registry.items():
-        if ftypecls is None or issubclass(field_cls, fcls):
-            type_key_registry[fname].field_handler_cls = handler_cls
+    # Handlers can be added in any order
+    # So set a handler only on those registry items where no handler
+    # was set or where handler is a base class of given one
+    for field_name, (field_cls, handler_cls) in type_key_registry.items():
+        if handler_cls is None or issubclass(field_cls, field_cls):
+            type_key_registry[field_name].field_handler_cls = handler_cls
 
 
-# Fill out the type key registry with mongoengine fields
+# Fill out the type key registry with all mongoengine fields
 for name, member in inspect.getmembers(fields):
     if not inspect.isclass(member) or not issubclass(member, fields.BaseField):
         continue
@@ -101,7 +110,6 @@ for name, member in inspect.getmembers(fields):
     add_type_key(member)
 
 
-# TODO: description required
 COMMON_CONVERTERS = {
     fields.StringField: converters.to_string,
     fields.IntField: converters.to_int,
@@ -124,7 +132,17 @@ OBJECTID_CONVERTERS = {
     fields.ObjectIdField: converters.nothing
 }
 
-
+#: Field type convertion matrix
+#: Contains information which converter must be used to convert one
+#: mongoengine field type to another. Used by field handlers when
+#: 'type_key' schema parameter changes
+#:
+#: Types are searched here either as exact class equality or the nearest
+#: parent. If type pair is not exists in matrix, then such convertion
+#: is denied.
+#:
+#: Format: {field_type1: {field_type2: converter_function, ...}, ...}
+#:
 CONVERTION_MATRIX = {
     fields.StringField: {
         **COMMON_CONVERTERS,

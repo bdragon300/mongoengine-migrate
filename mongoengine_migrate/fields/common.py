@@ -10,7 +10,7 @@ from .converters import to_string, to_decimal
 
 
 class NumberFieldHandler(CommonFieldHandler):
-    mongoengine_field_classes = [
+    field_classes = [
         mongoengine.fields.IntField,
         mongoengine.fields.LongField,
         mongoengine.fields.FloatField,
@@ -59,7 +59,7 @@ class NumberFieldHandler(CommonFieldHandler):
 
 
 class StringFieldHandler(CommonFieldHandler):
-    mongoengine_field_classes = [
+    field_classes = [
         mongoengine.fields.StringField,
     ]
 
@@ -150,7 +150,7 @@ class StringFieldHandler(CommonFieldHandler):
 
 
 class URLFieldType(StringFieldHandler):
-    mongoengine_field_classes = [
+    field_classes = [
         mongoengine.fields.URLField,
     ]
 
@@ -208,7 +208,7 @@ class URLFieldType(StringFieldHandler):
 
 
 class EmailFieldType(StringFieldHandler):
-    mongoengine_field_classes = [
+    field_classes = [
         mongoengine.fields.EmailField  # TODO: implement checks
     ]
 
@@ -314,7 +314,7 @@ class EmailFieldType(StringFieldHandler):
 
 
 class DecimalFieldType(NumberFieldHandler):
-    mongoengine_field_classes = [mongoengine.fields.DecimalField]
+    field_classes = [mongoengine.fields.DecimalField]
 
     schema_skel_keys = {'force_string', 'precision', 'rounding'}
 
@@ -348,7 +348,7 @@ class DecimalFieldType(NumberFieldHandler):
 
 
 class ComplexDateTimeFieldType(StringFieldHandler):
-    mongoengine_field_classes = [mongoengine.fields.ComplexDateTimeField]
+    field_classes = [mongoengine.fields.ComplexDateTimeField]
 
     schema_skel_keys = {'separator'}
 
@@ -413,7 +413,7 @@ class ComplexDateTimeFieldType(StringFieldHandler):
 
 
 class ListFieldHandler(CommonFieldHandler):
-    mongoengine_field_classes = [
+    field_classes = [
         mongoengine.fields.ListField
     ]
 
@@ -441,7 +441,7 @@ class DictFieldHandler(CommonFieldHandler):
 
 
 class BinaryFieldHandler(CommonFieldHandler):
-    mongoengine_field_classes = [
+    field_classes = [
         mongoengine.fields.BinaryField
     ]
 
@@ -459,7 +459,7 @@ class BinaryFieldHandler(CommonFieldHandler):
 
 
 class SequenceFieldHandler(CommonFieldHandler):
-    mongoengine_field_classes = [
+    field_classes = [
         mongoengine.fields.SequenceField
     ]
 
@@ -482,7 +482,7 @@ class SequenceFieldHandler(CommonFieldHandler):
 
 
 class UUIDFieldHandler(CommonFieldHandler):
-    mongoengine_field_classes = [
+    field_classes = [
         mongoengine.fields.UUIDField
     ]
 

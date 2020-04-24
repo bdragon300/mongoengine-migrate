@@ -14,7 +14,7 @@ from .registry import CONVERTION_MATRIX
 
 class FieldHandlerMeta(type):
     def __new__(mcs, name, bases, attrs):
-        me_classes_attr = 'mongoengine_field_classes'
+        me_classes_attr = 'field_classes'
         me_classes = attrs.get(me_classes_attr)
 
         assert isinstance(me_classes, (List, Tuple)) or me_classes is None, \
@@ -38,8 +38,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
     Special FieldHandler should be derived from this class
     """
     # TODO: doc
-    # TODO: rename
-    mongoengine_field_classes: Iterable[Type[mongoengine.fields.BaseField]] = [
+    field_classes: Iterable[Type[mongoengine.fields.BaseField]] = [
         mongoengine.fields.BaseField
     ]
 

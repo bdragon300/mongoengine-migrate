@@ -1,12 +1,13 @@
 import re
-from typing import List, Dict, Any, Type, Collection
+from typing import Type, Collection
 
 import mongoengine.fields
 
 from mongoengine_migrate.exceptions import MigrationError
+from mongoengine_migrate.utils import check_empty_result
 from .base import CommonFieldHandler
-from ..actions.diff import AlterDiff, UNSET
 from .converters import to_string, to_decimal
+from ..actions.diff import AlterDiff, UNSET
 
 
 class NumberFieldHandler(CommonFieldHandler):
@@ -139,16 +140,8 @@ class StringFieldHandler(CommonFieldHandler):
         if diff.new in (UNSET, None):
             return
 
-        wrong_count = self.collection.find(
-            {self.db_field: {
-                '$not': re.compile(diff.new),
-                '$ne': None
-            }}
-        ).retrieved
-        if wrong_count > 0:
-            raise MigrationError(f'Cannot migrate regex for '
-                                 f'{self.collection.name}.{self.db_field} because '
-                                 f'{wrong_count} documents do not match this regex')
+        fltr = {self.db_field: {'$not': re.compile(diff.new), '$ne': None}}
+        check_empty_result(self.collection, self.db_field, fltr)
 
         # if diff.error_policy == 'replace':
         #     matched = re.match(diff.new, diff.default)
@@ -175,22 +168,8 @@ class URLFieldType(StringFieldHandler):
 
         # Check if some records contains non-url values in db_field
         scheme_regex = re.compile(rf'\A(?:({"|".join(re.escape(x) for x in diff.new)}))://')
-        bad_records = self.collection.find(
-            {self.db_field: {
-                '$not': scheme_regex,
-                '$ne': None
-            }},
-            limit=3
-        )
-        if bad_records.retrieved:  # FIXME: Remove such copypaste from everywhere around
-            examples = (
-                f'{{_id: {x.get("_id", "unknown")},...{self.db_field}: ' \
-                f'{x.get(self.db_field, "unknown")}}}'
-                for x in bad_records
-            )
-            raise MigrationError(f"Some of records in {self.collection.name}.{self.db_field} "
-                                 f"contain schemes not from list. This cannot be converted. "
-                                 f"First several examples {','.join(examples)}")
+        fltr = {self.db_field: {'$not': scheme_regex, '$ne': None}}
+        check_empty_result(self.collection, self.db_field, fltr)
 
     # TODO: move to converters
     def convert_type(self,
@@ -202,22 +181,8 @@ class URLFieldType(StringFieldHandler):
             r"\A[A-Z]{3,}://[A-Z0-9\-._~:/?#\[\]@!$&'()*+,;%=]\Z",
             re.IGNORECASE
         )
-        bad_records = self.collection.find(
-            {self.db_field: {
-                '$not': url_regex,
-                '$ne': None
-            }},
-            limit=3
-        )
-        if bad_records.retrieved:
-            examples = (
-                f'{{_id: {x.get("_id", "unknown")},...{self.db_field}: ' \
-                f'{x.get(self.db_field, "unknown")}}}'
-                for x in bad_records
-            )
-            raise MigrationError(f"Some of records in {self.collection.name}.{self.db_field} "
-                                 f"contain non-url values. First several examples "
-                                 f"{','.join(examples)}")
+        fltr = {self.db_field: {'$not': url_regex, '$ne': None}}
+        check_empty_result(self.collection, self.db_field, fltr)
 
 
 class EmailFieldType(StringFieldHandler):
@@ -272,16 +237,8 @@ class EmailFieldType(StringFieldHandler):
         regex = self.UTF8_USER_REGEX if diff.new is True else self.USER_REGEX
 
         # Find records which doesn't match to the regex
-        wrong_count = self.collection.find(
-            {self.db_field: {
-                '$not': regex,
-                '$ne': None
-            }}
-        ).retrieved
-        if wrong_count > 0:
-            raise MigrationError(f'Cannot change allow_utf8_user for '
-                                 f'{self.collection.name}.{self.db_field} because '
-                                 f'{wrong_count} documents contain bad email addresses')
+        fltr = {self.db_field: {'$not': regex, '$ne': None}}
+        check_empty_result(self.collection, self.db_field, fltr)
 
     def change_allow_ip_domain(self, diff: AlterDiff):
         """
@@ -296,17 +253,12 @@ class EmailFieldType(StringFieldHandler):
         whitelist_regex = '|'.join(
             re.escape(x) for x in self.field_schema.get('domain_whitelist', [])
         ) or '.*'
-        wrong_count = self.collection.find(
-            {"$and": [
-                {self.db_field: {'$ne': None}},
-                {self.db_field: self.IP_DOMAIN_REGEX},
-                {self.db_field: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
-            ]}
-        ).retrieved
-        if wrong_count > 0:
-            raise MigrationError(f'Cannot change allow_ip_domain for '
-                                 f'{self.collection.name}.{self.db_field} because '
-                                 f'{wrong_count} documents contain bad email addresses')
+        fltr = {"$and": [
+            {self.db_field: {'$ne': None}},
+            {self.db_field: self.IP_DOMAIN_REGEX},
+            {self.db_field: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
+        ]}
+        check_empty_result(self.collection, self.db_field, fltr)
 
     def convert_type(self,
                      from_field_cls: Type[mongoengine.fields.BaseField],
@@ -317,18 +269,13 @@ class EmailFieldType(StringFieldHandler):
         whitelist_regex = '|'.join(
             re.escape(x) for x in self.field_schema.get('domain_whitelist', [])
         ) or '.*'
-        wrong_count = self.collection.find(
-            {'$and': [
-                {self.db_field: {'$ne': None}},
-                {self.db_field: {'$not': self.DOMAIN_REGEX}},
-                {self.db_field: {'$not': self.IP_DOMAIN_REGEX}},
-                {self.db_field: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
-            ]}
-        ).retrieved
-        if wrong_count > 0:
-            raise MigrationError(f'Cannot migrate field {self.collection.name}.{self.db_field}'
-                                 f'from {from_field_cls} to {to_field_cls} because '
-                                 f'{wrong_count} documents contain bad email addresses')
+        fltr = {'$and': [
+            {self.db_field: {'$ne': None}},
+            {self.db_field: {'$not': self.DOMAIN_REGEX}},
+            {self.db_field: {'$not': self.IP_DOMAIN_REGEX}},
+            {self.db_field: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
+        ]}
+        check_empty_result(self.collection, self.db_field, fltr)
 
 
 class DecimalFieldType(NumberFieldHandler):
@@ -416,22 +363,8 @@ class ComplexDateTimeFieldType(StringFieldHandler):
         # We should not know which separator is used, so use '.+'
         # Separator change is handled by appropriate method
         regex = r'\A' + str('.+'.join([r"\d{4}"] + [r"\d{2}"] * 5 + [r"\d{6}"])) + r'\Z'
-        bad_records = self.collection.find(
-            {self.db_field: {
-                '$not': regex,
-                '$ne': None
-            }},
-            limit=3
-        )
-        if bad_records.retrieved:
-            examples = (
-                f'{{_id: {x.get("_id", "unknown")},...{self.db_field}: ' \
-                f'{x.get(self.db_field, "unknown")}}}'
-                for x in bad_records
-            )
-            raise MigrationError(f"Some of records in {self.collection.name}.{self.db_field} "
-                                 f"contain bad values. This cannot be converted. "
-                                 f"First several examples {','.join(examples)}")
+        fltr = {self.db_field: {'$not': regex, '$ne': None}}
+        check_empty_result(self.collection, self.db_field, fltr)
 
 
 class ListFieldHandler(CommonFieldHandler):

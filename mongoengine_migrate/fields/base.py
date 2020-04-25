@@ -8,7 +8,7 @@ from pymongo.collection import Collection as MongoCollection
 from mongoengine_migrate.actions.diff import AlterDiff, UNSET
 from mongoengine_migrate.exceptions import SchemaError, MigrationError
 from mongoengine_migrate.fields.registry import type_key_registry, add_field_handler
-from mongoengine_migrate.utils import get_closest_parent
+from mongoengine_migrate.utils import get_closest_parent, check_empty_result
 from .registry import CONVERTION_MATRIX
 
 
@@ -192,11 +192,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             choices = [k for k, _ in choices]
 
         if diff.error_policy == 'raise':
-            wrong_count = self.collection.find({self.db_field: {'$nin': choices}}).retrieved
-            if wrong_count:
-                raise MigrationError(f'Cannot migrate choices for '
-                                     f'{self.collection.name}.{self.db_field} because '
-                                     f'{wrong_count} documents with field values not in choices')
+            check_empty_result(self.collection, self.db_field, {self.db_field: {'$nin': choices}})
         if diff.error_policy == 'replace':
             if diff.default not in choices:
                 raise MigrationError(f'Cannot set new choices for '

@@ -4,7 +4,8 @@ from typing import Type
 from mongoengine.fields import BaseField
 from pymongo.collection import Collection
 
-from mongoengine_migrate.exceptions import ActionError, MigrationError
+from mongoengine_migrate.exceptions import MigrationError
+from mongoengine_migrate.utils import check_empty_result
 
 
 def nothing(*args, **kwargs):
@@ -95,23 +96,14 @@ def to_uuid(collection: Collection, db_field: str):
     ])
 
     # Verify strings. There are only binData and string values now in db
-    bad_records = collection.find(
-        {db_field: {
-            '$not': re.compile(r'\A[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}\Z')},
+    fltr = {
+        db_field: {
+            '$not': re.compile(r'\A[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}\Z'),
             '$ne': None,
             '$type': "string"
-        },
-        limit=3
-    )
-    if bad_records.retrieved:
-        examples = (
-            f'{{_id: {x.get("_id", "unknown")},...{db_field}: ' \
-            f'{x.get(db_field, "unknown")}}}'
-            for x in bad_records
-        )
-        raise MigrationError(f"Some of records in {collection.name}.{db_field} "
-                             f"contain values which are not UUID. This cannot be converted. "
-                             f"First several examples {','.join(examples)}")
+        }
+    }
+    check_empty_result(collection, db_field, fltr)
 
 
 def __mongo_convert(collection: Collection, db_field: str, target_type: str):

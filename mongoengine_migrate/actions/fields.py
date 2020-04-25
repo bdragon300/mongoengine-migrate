@@ -275,10 +275,9 @@ class RenameField(BaseFieldAction):
     #: field rename instead of drop/create
     similarity_threshold = 70
 
-    def __init__(self, **kwargs):
+    def __init__(self, new_name, **kwargs):
         super().__init__(**kwargs)
-        if 'new_name' not in kwargs:
-            raise ActionError("'new_name' keyword parameter is not specified")
+        self.new_name = new_name
 
     @classmethod
     def build_object(cls,
@@ -330,14 +329,13 @@ class RenameField(BaseFieldAction):
         if self.collection_name not in current_schema:
             raise ActionError(f'Cannot rename field {self.collection_name}.{self.field_name} '
                               f'since the collection {self.collection_name} is not in schema')
-        new_name = self.parameters['new_name']
         item = current_schema[self.collection_name].get(
             self.field_name,
-            current_schema[self.collection_name].get(new_name)
+            current_schema[self.collection_name].get(self.new_name)
         )
         return [
             ('remove', f'{self.collection_name}', [(self.field_name, item)]),
-            ('add', f'{self.collection_name}', [(new_name, item)])
+            ('add', f'{self.collection_name}', [(self.new_name, item)])
         ]
 
     def run_forward(self):

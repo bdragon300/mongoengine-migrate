@@ -67,11 +67,9 @@ class RenameCollection(BaseCollectionAction):
     #: instead of drop/create
     similarity_threshold = 70
 
-    def __init__(self, **kwargs):
-        # FIXME: new_name in params and local var
+    def __init__(self, new_name, **kwargs):
         super().__init__(**kwargs)
-        if 'new_name' not in kwargs:
-            raise ActionError("'new_name' keyword parameter is not specified")
+        self.new_name = new_name
 
     @classmethod
     def build_object(cls, collection_name: str, old_schema: dict, new_schema: dict):
@@ -118,19 +116,18 @@ class RenameCollection(BaseCollectionAction):
             return cls(collection_name=collection_name, new_name=candidates[0][0])
 
     def to_schema_patch(self, current_schema: dict):
-        new_name = self.parameters['new_name']
         item = current_schema.get(
             self.collection_name,
-            current_schema.get(new_name)
+            current_schema.get(self.new_name)
         )
         return [
             ('remove', '', [(self.collection_name, item)]),
-            ('add', '', [(new_name, item)])
+            ('add', '', [(self.new_name, item)])
         ]
 
     def run_forward(self):
         if self.collection.name in self.collection.database.list_collection_names():
-            self.collection.rename(self.parameters['new_name'])
+            self.collection.rename(self.new_name)
 
     def run_backward(self):
         if self.collection.name in self.collection.database.list_collection_names():

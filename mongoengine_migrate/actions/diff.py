@@ -11,6 +11,7 @@ class AlterDiff:
     executed if error occured during diff applying. And also the
     default value as another option on error handling.
     """
+    # TODO: add flag to skip convertion with just changing schema
     error_policy_choices = ('ignore', 'raise', 'replace', 'remove_field')
     default_error_policy = 'raise'
 

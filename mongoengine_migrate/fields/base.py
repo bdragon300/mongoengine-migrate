@@ -109,6 +109,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff: AlterDiff object
         :return:
         """
+        assert name != 'param', "Schema key could not be 'param'"
         # Params which are in common field handler are required
         # Other params typically does not require to do smth on unset
         if diff.new == UNSET:
@@ -116,14 +117,15 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                 raise MigrationError(f'{self.collection.name}.{self.db_field}.{name} could not '
                                      f'became UNSET')
             return
+
+        if diff.new == diff.old:
+            raise MigrationError(f'{self.collection.name}.{self.db_field}.{name} has diff with '
+                                 f'equal old and new values')
         # TODO: make change_x methods return three functions for different policies
-        # FIXME: exclude 'param' from search to avoid endless recursion
         method_name = f'change_{name}'
         return getattr(self, method_name)(diff)
         # FIXME: change self.field_schema with diff
 
-    # TODO: make arguments checking and that old != new
-    # TODO: consider renaming before other ones
     def change_db_field(self, diff: AlterDiff):
         """
         Change db field name of a field. Simply rename this field

@@ -179,7 +179,6 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         # self.change_unique([], []) or []  # TODO
 
     # TODO: consider Document, EmbeddedDocument as choices
-    # TODO: parameter what to do with documents where choices are not met
     def change_choices(self, diff: AlterDiff):
         """
         Set choices for a field

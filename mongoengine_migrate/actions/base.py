@@ -164,6 +164,10 @@ class BaseCollectionAction(BaseAction):
     Base class for actions which change a collection at whole such as
     renaming, creating, dropping, etc.
     """
+
+    #: Empty collection schema contents skeleton
+    COLLECTION_SCHEMA_SKEL = {}
+
     @classmethod
     @abstractmethod
     def build_object(cls,

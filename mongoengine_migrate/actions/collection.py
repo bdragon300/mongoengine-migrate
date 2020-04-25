@@ -2,11 +2,6 @@ from .base import BaseCollectionAction
 from mongoengine_migrate.exceptions import ActionError
 
 
-#: Empty collection schema contents skeleton
-# FIXME: move to BaseCollectionAction
-collection_schema_skel = {}
-
-
 class CreateCollection(BaseCollectionAction):
     """Create new collection
 
@@ -18,7 +13,7 @@ class CreateCollection(BaseCollectionAction):
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
     def to_schema_patch(self, current_schema: dict):
-        return [('add', '', [(self.collection_name, collection_schema_skel)])]
+        return [('add', '', [(self.collection_name, self.COLLECTION_SCHEMA_SKEL)])]
 
     def run_forward(self):
         """
@@ -43,7 +38,7 @@ class DropCollection(BaseCollectionAction):
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
     def to_schema_patch(self, current_schema: dict):
-        return [('remove', '', [(self.collection_name, collection_schema_skel)])]
+        return [('remove', '', [(self.collection_name, self.COLLECTION_SCHEMA_SKEL)])]
 
     def run_forward(self):
         """

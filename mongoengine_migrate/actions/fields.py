@@ -114,12 +114,8 @@ class DropField(BaseFieldAction):
 
 class AlterField(BaseFieldAction):
     """Change field parameters or its type, i.e. altering"""
-    def __init__(self,
-                 collection_name: str,
-                 field_name: str,
-                 *args,
-                 **kwargs):
-        super().__init__(collection_name, field_name, *args, **kwargs)
+    def __init__(self, collection_name: str, field_name: str, **kwargs):
+        super().__init__(collection_name, field_name, **kwargs)
         if not all(isinstance(v, AlterDiff) for v in self._init_kwargs.values()):
             raise ActionError(f'Keyword parameters must be AlterDiff objects')
 
@@ -279,8 +275,8 @@ class RenameField(BaseFieldAction):
     #: field rename instead of drop/create
     similarity_threshold = 70
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         if 'new_name' not in kwargs:
             raise ActionError("'new_name' keyword parameter is not specified")
 

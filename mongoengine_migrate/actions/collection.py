@@ -73,9 +73,9 @@ class RenameCollection(BaseCollectionAction):
     # TODO: rename to equality_threshold
     similarity_threshold = 70
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         # FIXME: new_name in params and local var
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         if 'new_name' not in kwargs:
             raise ActionError("'new_name' keyword parameter is not specified")
 

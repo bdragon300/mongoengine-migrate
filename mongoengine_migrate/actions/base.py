@@ -41,15 +41,13 @@ class BaseAction(metaclass=BaseActionMeta):
     #: before create/drop actions
     higher_priority = False
 
-    def __init__(self, collection_name: str, *args, **kwargs):
+    def __init__(self, collection_name: str, **kwargs):
         """
         :param collection_name: Name of collection where the migration
          will be performed on
-        :param args: Action positional parameters
         :param kwargs: Action keyword parameters
         """
         self.collection_name = collection_name
-        self._init_args = args
         self._init_kwargs = kwargs  # TODO: rename to field_params or smth
 
         self.current_schema = None
@@ -104,16 +102,12 @@ class BaseFieldAction(BaseAction):
     """Base class for action which affects on one field in a collection
     """
 
-    def __init__(self,
-                 collection_name: str,
-                 field_name: str,
-                 *args,
-                 **kwargs):
+    def __init__(self, collection_name: str, field_name: str, **kwargs):
         """
         :param collection_name: collection name to be touched
         :param field_name: changing mongoengine document field name
         """
-        super().__init__(collection_name, *args, **kwargs)
+        super().__init__(collection_name, **kwargs)
         self.field_name = field_name
 
     @property
@@ -155,17 +149,13 @@ class BaseFieldAction(BaseAction):
         pass
 
     def to_python_expr(self) -> str:
-        args_str = ''.join(
-            ', ' + getattr(arg, 'to_python_expr', lambda: repr(arg))()
-            for arg in self._init_args
-        )
         kwargs = {
             name: getattr(val, 'to_python_expr', lambda: repr(val))()
             for name, val in self._init_kwargs.items()
         }
         kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())  # TODO: sort kwargs
         return f'{self.__class__.__name__}({self.collection_name!r}, {self.field_name!r}' \
-               f'{args_str}{kwargs_str})'
+               f'{kwargs_str})'
 
 
 class BaseCollectionAction(BaseAction):
@@ -205,13 +195,9 @@ class BaseCollectionAction(BaseAction):
         pass
 
     def to_python_expr(self) -> str:
-        args_str = ''.join(
-            ', ' + getattr(arg, 'to_python_expr', lambda: repr(arg))()
-            for arg in self._init_args
-        )
         kwargs = {
             name: getattr(val, 'to_python_expr', lambda: repr(val))()
             for name, val in self._init_kwargs.items()
         }
         kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())  # TODO: sort kwargs
-        return f'{self.__class__.__name__}({self.collection_name!r}{args_str}{kwargs_str})'
+        return f'{self.__class__.__name__}({self.collection_name!r}{kwargs_str})'

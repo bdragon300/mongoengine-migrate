@@ -8,8 +8,8 @@ class RunPython(BaseAction):
     that user must also handle possible schema changes in his functions.
     """
     # TODO: implement handling of user's schema changes and to_schema_patch
-    def __init__(self, collection_name, forward_func=None, backward_func=None, *args, **kwargs):
-        super().__init__(collection_name, *args, **kwargs)
+    def __init__(self, collection_name, forward_func=None, backward_func=None, **kwargs):
+        super().__init__(collection_name, **kwargs)
 
         if forward_func is None and backward_func is None:
             raise ActionError("forward_func and backward_func are not set")
@@ -33,10 +33,6 @@ class RunPython(BaseAction):
         return []
 
     def to_python_expr(self) -> str:
-        args_str = ''.join(
-            ', ' + getattr(arg, 'to_python_expr', lambda: repr(arg))()
-            for arg in self._init_args
-        )
         kwargs = {
             name: getattr(val, 'to_python_expr', lambda: repr(val))()
             for name, val in self._init_kwargs.items()
@@ -47,4 +43,4 @@ class RunPython(BaseAction):
         return f'{self.__class__.__name__}({self.collection_name!r}, ' \
                f'{ff_expr + ", " if self.forward_func else ""}' \
                f'{bf_expr + ", " if self.backward_func else ""}' \
-               f'{args_str}{kwargs_str})'
+               f'{kwargs_str})'

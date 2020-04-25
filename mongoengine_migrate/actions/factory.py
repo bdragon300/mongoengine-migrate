@@ -50,8 +50,8 @@ class FieldActionFactory(BaseActionFactory):
         fields = old_collection_schema.keys() | new_collection_schema.keys()
         chain = []
         # Exclusive actions first
-        registry = [a for a in actions_registry.values() if a.factory_exclusive] + \
-                   [a for a in actions_registry.values() if not a.factory_exclusive]
+        registry = [a for a in actions_registry.values() if a.higher_priority] + \
+                   [a for a in actions_registry.values() if not a.higher_priority]
 
         for action_cls in registry:
             for field in fields:
@@ -62,7 +62,7 @@ class FieldActionFactory(BaseActionFactory):
                                                                    old_schema,
                                                                    new_schema)
                 if action_obj is not None:
-                    if action_obj.factory_exclusive:
+                    if action_obj.higher_priority:
                         old_schema = patch(action_obj.to_schema_patch(old_schema), old_schema)
                     chain.append(action_obj)
 
@@ -77,8 +77,8 @@ class CollectionActionFactory(BaseActionFactory):
                           old_schema: dict,
                           new_schema: dict) -> Iterable[BaseCollectionAction]:
         # Exclusive actions first
-        registry = [a for a in actions_registry.values() if a.factory_exclusive] + \
-                   [a for a in actions_registry.values() if not a.factory_exclusive]
+        registry = [a for a in actions_registry.values() if a.higher_priority] + \
+                   [a for a in actions_registry.values() if not a.higher_priority]
         chain = []
 
         for action_cls in registry:
@@ -88,7 +88,7 @@ class CollectionActionFactory(BaseActionFactory):
                                                                old_schema,
                                                                new_schema)
             if action_obj is not None:
-                if action_obj.factory_exclusive:
+                if action_obj.higher_priority:
                     old_schema = patch(action_obj.to_schema_patch(old_schema), old_schema)
                 chain.append(action_obj)
 

@@ -35,12 +35,11 @@ class BaseAction(metaclass=BaseActionMeta):
     schema changes.
     """
 
-    #: `factory_exclusive = True` means that the action has high
+    #: `higher_priority = True` means that the action has high
     #: priority in test for applicability for schema change.
     #: This flag is suitable for rename actions which should get tested
     #: before create/drop actions
-    # TODO: rename
-    factory_exclusive = False
+    higher_priority = False
 
     def __init__(self, collection_name: str, *args, **kwargs):
         """

@@ -272,7 +272,7 @@ class AlterField(BaseFieldAction):
 
 class RenameField(BaseFieldAction):
     """Rename field"""
-    factory_exclusive = True
+    higher_priority = True
 
     #: How much percent of items in schema diff of two fields in the
     #: same collection should be equal to consider such change as

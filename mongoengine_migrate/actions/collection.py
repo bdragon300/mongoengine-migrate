@@ -65,7 +65,7 @@ class RenameCollection(BaseCollectionAction):
 
     Ex.: `RenameCollection("collection1", new_name="collection2")`
     """
-    factory_exclusive = True
+    higher_priority = True
 
     #: How much percent of items in schema diff of two collections
     #: should be equal to consider such change as collection rename

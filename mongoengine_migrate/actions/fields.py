@@ -150,13 +150,10 @@ class AlterField(BaseFieldAction):
                        **field_params
                        )
 
-    # TODO: drop current_schema, use self.current_schema instead
     def to_schema_patch(self, current_schema: dict):
         if self.collection_name not in current_schema:
             raise ActionError(f'Cannot alter field {self.collection_name}.{self.field_name} '
                               f'since the collection {self.collection_name} is not in schema')
-        # TODO raise если param не в skel нового типа при изменении type_key
-        # TODO а что делать если параметр появляется или изчезает, но не указан в kwargs
         p = []
         for param, diff in self.parameters.items():
             if diff.old == UNSET or diff.new == UNSET:

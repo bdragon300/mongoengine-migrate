@@ -65,7 +65,6 @@ class RenameCollection(BaseCollectionAction):
     #: How much percent of items in schema diff of two collections
     #: should be equal to consider such change as collection rename
     #: instead of drop/create
-    # TODO: rename to equality_threshold
     similarity_threshold = 70
 
     def __init__(self, **kwargs):

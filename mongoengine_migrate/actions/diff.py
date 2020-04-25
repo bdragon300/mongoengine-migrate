@@ -11,8 +11,7 @@ class AlterDiff:
     executed if error occured during diff applying. And also the
     default value as another option on error handling.
     """
-    # TODO: error_policy parameter:  'remove_field'
-    error_policy_choices = ('ignore', 'raise', 'replace')
+    error_policy_choices = ('ignore', 'raise', 'replace', 'remove_field')
     default_error_policy = 'raise'
 
     def __init__(self,

@@ -212,7 +212,6 @@ class AlterField(BaseFieldAction):
         :param type_key: `type_key` item of schema
         :return: concrete FieldHandler object
         """
-        # TODO: raise if "not type_name"
         if type_key not in type_key_registry:
             raise MigrationError(f'Could not find field {type_key!r} or one of its base classes '
                                  f'in type_key registry')

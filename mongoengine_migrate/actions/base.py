@@ -99,12 +99,13 @@ class BaseAction(metaclass=BaseActionMeta):
 
 # TODO: add to prepare() checking if db_field param has not dots
 class BaseFieldAction(BaseAction):
-    """Base class for action which affects on one field in a collection
+    """
+    Base class for action which affects on one field in a collection
     """
 
     def __init__(self, collection_name: str, field_name: str, **kwargs):
         """
-        :param collection_name: collection name to be touched
+        :param collection_name: collection name to be affected
         :param field_name: changing mongoengine document field name
         """
         super().__init__(collection_name, **kwargs)

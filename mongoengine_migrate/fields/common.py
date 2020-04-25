@@ -171,19 +171,6 @@ class URLFieldType(StringFieldHandler):
         fltr = {self.db_field: {'$not': scheme_regex, '$ne': None}}
         check_empty_result(self.collection, self.db_field, fltr)
 
-    # TODO: move to converters
-    def convert_type(self,
-                     from_field_cls: Type[mongoengine.fields.BaseField],
-                     to_field_cls: Type[mongoengine.fields.BaseField]):
-        to_string(self.collection, self.db_field)
-
-        url_regex = re.compile(
-            r"\A[A-Z]{3,}://[A-Z0-9\-._~:/?#\[\]@!$&'()*+,;%=]\Z",
-            re.IGNORECASE
-        )
-        fltr = {self.db_field: {'$not': url_regex, '$ne': None}}
-        check_empty_result(self.collection, self.db_field, fltr)
-
 
 class EmailFieldType(StringFieldHandler):
     field_classes = [
@@ -356,15 +343,6 @@ class ComplexDateTimeFieldType(StringFieldHandler):
         # if diff.error_policy == 'replace':
         #     self.collection.update_many({self.db_field: {'$not': {'$regex': old_format}}},
         #                                 {'$set': {self.db_field: diff.default}})
-
-    def convert_type(self,
-                     from_field_cls: Type[mongoengine.fields.BaseField],
-                     to_field_cls: Type[mongoengine.fields.BaseField]):
-        # We should not know which separator is used, so use '.+'
-        # Separator change is handled by appropriate method
-        regex = r'\A' + str('.+'.join([r"\d{4}"] + [r"\d{2}"] * 5 + [r"\d{6}"])) + r'\Z'
-        fltr = {self.db_field: {'$not': regex, '$ne': None}}
-        check_empty_result(self.collection, self.db_field, fltr)
 
 
 class ListFieldHandler(CommonFieldHandler):

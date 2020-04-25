@@ -112,6 +112,7 @@ for name, member in inspect.getmembers(fields):
 
 COMMON_CONVERTERS = {
     fields.StringField: converters.to_string,
+    fields.URLField: converters.to_url_string,
     fields.IntField: converters.to_int,
     fields.LongField: converters.to_long,
     fields.FloatField: converters.to_double,
@@ -120,10 +121,12 @@ COMMON_CONVERTERS = {
     fields.DateTimeField: converters.to_date,
     fields.ListField: converters.item_to_list,
     fields.EmbeddedDocumentListField: converters.deny,
+    fields.ComplexDateTimeField: converters.to_complex_datetime
 }
 
 OBJECTID_CONVERTERS = {
     fields.StringField: converters.to_string,
+    fields.URLField: converters.to_url_string,
     fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
     fields.ListField: converters.item_to_list,
     fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded documents
@@ -169,7 +172,9 @@ CONVERTION_MATRIX = {
     # DynamicField can contain any type, so no convertation is requried
     fields.DynamicField: {
         fields.BaseField: converters.nothing,
-        fields.UUIDField: converters.to_uuid
+        fields.UUIDField: converters.to_uuid,
+        fields.URLField: converters.to_url_string,
+        fields.ComplexDateTimeField: converters.to_complex_datetime
     },
     fields.ListField: {
         fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents

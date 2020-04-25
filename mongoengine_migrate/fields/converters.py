@@ -106,6 +106,28 @@ def to_uuid(collection: Collection, db_field: str):
     check_empty_result(collection, db_field, fltr)
 
 
+def to_url_string(collection: Collection, db_field: str):
+    """Cast fields to string and then verify if they contain URLs"""
+    to_string(collection, db_field)
+
+    url_regex = re.compile(
+        r"\A[A-Z]{3,}://[A-Z0-9\-._~:/?#\[\]@!$&'()*+,;%=]\Z",
+        re.IGNORECASE
+    )
+    fltr = {db_field: {'$not': url_regex, '$ne': None}}
+    check_empty_result(collection, db_field, fltr)
+
+
+def to_complex_datetime(collection: Collection, db_field: str, target_type: str):
+    # We should not know which separator is used, so use '.+'
+    # Separator change is handled by appropriate method
+    to_string(collection, db_field)
+
+    regex = r'\A' + str('.+'.join([r"\d{4}"] + [r"\d{2}"] * 5 + [r"\d{6}"])) + r'\Z'
+    fltr = {db_field: {'$not': regex, '$ne': None}}
+    check_empty_result(collection, db_field, fltr)
+
+
 def __mongo_convert(collection: Collection, db_field: str, target_type: str):
     """
     Convert field to a given type in a given collection. `target_type`

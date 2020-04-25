@@ -109,7 +109,13 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff: AlterDiff object
         :return:
         """
-        # FIXME: process UNSET value in diff
+        # Params which are in common field handler are required
+        # Other params typically does not require to do smth on unset
+        if diff.new == UNSET:
+            if name in CommonFieldHandler.schema_skel_keys:
+                raise MigrationError(f'{self.collection.name}.{self.db_field}.{name} could not '
+                                     f'became UNSET')
+            return
         # TODO: make change_x methods return three functions for different policies
         # FIXME: exclude 'param' from search to avoid endless recursion
         method_name = f'change_{name}'
@@ -124,7 +130,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
-        self._check_diff(diff, False, False, str)
+        self._check_diff(diff, False, str)
         if not diff.new or not diff.old:
             raise MigrationError("db_field must be a non-empty string")
 
@@ -141,7 +147,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
-        self._check_diff(diff, False, False, bool)
+        self._check_diff(diff, False, bool)
         # FIXME: consider diff.policy
         if diff.old is not True and diff.new is True:
             if diff.default is None:
@@ -166,7 +172,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
-        self._check_diff(diff, False, False, bool)
+        self._check_diff(diff, False, bool)
         self.change_required(diff),
         # self.change_unique([], []) or []  # TODO
 
@@ -178,7 +184,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
-        self._check_diff(diff, False, True, Collection)
+        self._check_diff(diff, True, Collection)
         choices = diff.new
         if isinstance(next(iter(choices)), (list, tuple)):
             # next(iter) is useful for sets
@@ -212,7 +218,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
-        self._check_diff(diff, False, False, str)
+        self._check_diff(diff, False, str)
         if not diff.old or not diff.new:
             raise MigrationError(f"'type_key' has empty values: {diff!r}")
 
@@ -268,13 +274,9 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         # FIXME: remove from_field_cls, to_field_cls. Also from current function
         type_converter(self.collection, self.db_field, from_field_cls, to_field_cls)
 
-    def _check_diff(self, diff: AlterDiff, can_be_unset=True, can_be_none=True, check_type=None):
+    def _check_diff(self, diff: AlterDiff, can_be_none=True, check_type=None):
         if diff.new == diff.old:
             raise MigrationError(f'Diff of field {self.db_field} has the equal old and new values')
-
-        if not can_be_unset:
-            if diff.new == UNSET or diff.old == UNSET:
-                raise MigrationError(f'{self.db_field} field cannot be UNSET')
 
         if check_type is not None:
             if diff.old not in (UNSET, None) and not isinstance(diff.old, check_type) \

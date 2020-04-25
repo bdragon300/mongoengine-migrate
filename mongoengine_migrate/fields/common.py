@@ -22,7 +22,7 @@ class NumberFieldHandler(CommonFieldHandler):
         Change min_value of field. Force set to minimum if value is
         less than limitation (if any)
         """
-        self._check_diff(diff, True, True, (int, float))
+        self._check_diff(diff, True, (int, float))
         if diff.new in (UNSET, None):
             return
 
@@ -46,7 +46,7 @@ class NumberFieldHandler(CommonFieldHandler):
         Change max_value of field. Force set to maximum if value is
         more than limitation (if any)
         """
-        self._check_diff(diff, True, True, (int, float))
+        self._check_diff(diff, True, (int, float))
         if diff.new in (UNSET, None):
             return
 
@@ -75,7 +75,7 @@ class StringFieldHandler(CommonFieldHandler):
 
     def change_max_length(self, diff: AlterDiff):
         """Cut off a string if it longer than limitation (if any)"""
-        self._check_diff(diff, True, True, int)
+        self._check_diff(diff, True, int)
         if diff.new in (UNSET, None):
             return
         if diff.new < 0:
@@ -106,7 +106,7 @@ class StringFieldHandler(CommonFieldHandler):
 
     def change_min_length(self, diff: AlterDiff):
         """Raise error if string is shorter than limitation (if any)"""
-        self._check_diff(diff, True, True, int)
+        self._check_diff(diff, True, int)
         if diff.new in (UNSET, None):
             return
         if diff.new < 0:
@@ -135,7 +135,7 @@ class StringFieldHandler(CommonFieldHandler):
 
     def change_regex(self, diff: AlterDiff):
         """Raise error if string does not match regex (if any)"""
-        self._check_diff(diff, True, True, (str, type(re.compile('.'))))
+        self._check_diff(diff, True, (str, type(re.compile('.'))))
         if diff.new in (UNSET, None):
             return
 
@@ -169,7 +169,7 @@ class URLFieldType(StringFieldHandler):
 
     def change_schemes(self, diff: AlterDiff):
         """Raise error if url has scheme not from list"""
-        self._check_diff(diff, True, False, Collection)
+        self._check_diff(diff, False, Collection)
         if not diff.new or diff.new == UNSET:
             return
 
@@ -265,7 +265,7 @@ class EmailFieldType(StringFieldHandler):
 
     def change_allow_utf8_user(self, diff: AlterDiff):
         """Raise error if email address has wrong user name"""
-        self._check_diff(diff, True, False, bool)
+        self._check_diff(diff, False, bool)
         if diff.new == UNSET:
             return
 
@@ -288,7 +288,7 @@ class EmailFieldType(StringFieldHandler):
         Raise error if email has domain which not in `domain_whitelist`
         when `allow_ip_domain` is True. Otherwise do nothing
         """
-        self._check_diff(diff, True, False, bool)
+        self._check_diff(diff, False, bool)
         if diff.new is True or diff.new == UNSET:
             return
 
@@ -340,7 +340,7 @@ class DecimalFieldType(NumberFieldHandler):
         """
         Convert to string or decimal depending on `force_string` flag
         """
-        self._check_diff(diff, True, False, bool)
+        self._check_diff(diff, False, bool)
         if diff.new == UNSET:
             return
 
@@ -375,7 +375,7 @@ class ComplexDateTimeFieldType(StringFieldHandler):
 
     def change_separator(self, diff: AlterDiff):
         """Change separator in datetime strings"""
-        self._check_diff(diff, True, False, str)
+        self._check_diff(diff, False, str)
         if not diff.new or not diff.old:
             raise MigrationError('Empty separator specified')
         if diff.new == UNSET:
@@ -443,7 +443,7 @@ class ListFieldHandler(CommonFieldHandler):
 
     def change_max_length(self, diff: AlterDiff):
         """Cut off a list if it longer than limitation (if any)"""
-        self._check_diff(diff, True, True, int)
+        self._check_diff(diff, True, int)
         if diff.new in (UNSET, None):
             return
 
@@ -475,7 +475,7 @@ class BinaryFieldHandler(CommonFieldHandler):
         $binarySize expression is not available in MongoDB yet,
         so do nothing
         """
-        self._check_diff(diff, True, True, int)
+        self._check_diff(diff, True, int)
         if diff.new in (UNSET, None):
             return
 
@@ -494,14 +494,14 @@ class SequenceFieldHandler(CommonFieldHandler):
         """Typically changing the collection name should not require
         to do any changes
         """
-        self._check_diff(diff, True, False, str)
+        self._check_diff(diff, False, str)
         pass
 
     def change_sequence_name(self, diff: AlterDiff):
         """Typically changing the sequence name should not require
         to do any changes
         """
-        self._check_diff(diff, True, False, str)
+        self._check_diff(diff, False, str)
         pass
 
 
@@ -513,7 +513,7 @@ class UUIDFieldHandler(CommonFieldHandler):
     schema_skel_keys = {'binary'}
 
     def change_binary(self, diff: AlterDiff):
-        self._check_diff(diff, True, False, bool)
+        self._check_diff(diff, False, bool)
 
         if diff.new is True:
             pass

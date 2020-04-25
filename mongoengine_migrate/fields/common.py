@@ -153,7 +153,7 @@ class StringFieldHandler(CommonFieldHandler):
         #                                 {'$set': {self.db_field: diff.new}})
 
 
-class URLFieldType(StringFieldHandler):
+class URLFieldHandler(StringFieldHandler):
     field_classes = [
         mongoengine.fields.URLField,
     ]
@@ -172,7 +172,7 @@ class URLFieldType(StringFieldHandler):
         check_empty_result(self.collection, self.db_field, fltr)
 
 
-class EmailFieldType(StringFieldHandler):
+class EmailFieldHandler(StringFieldHandler):
     field_classes = [
         mongoengine.fields.EmailField
     ]
@@ -265,7 +265,7 @@ class EmailFieldType(StringFieldHandler):
         check_empty_result(self.collection, self.db_field, fltr)
 
 
-class DecimalFieldType(NumberFieldHandler):
+class DecimalFieldHandler(NumberFieldHandler):
     field_classes = [mongoengine.fields.DecimalField]
 
     schema_skel_keys = {'force_string', 'precision', 'rounding'}
@@ -302,7 +302,7 @@ class DecimalFieldType(NumberFieldHandler):
             to_decimal(self.collection, self.db_field)
 
 
-class ComplexDateTimeFieldType(StringFieldHandler):
+class ComplexDateTimeFieldHandler(StringFieldHandler):
     field_classes = [mongoengine.fields.ComplexDateTimeField]
 
     schema_skel_keys = {'separator'}

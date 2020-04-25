@@ -35,7 +35,7 @@ class RunPython(BaseAction):
     def to_python_expr(self) -> str:
         kwargs = {
             name: getattr(val, 'to_python_expr', lambda: repr(val))()
-            for name, val in self._init_kwargs.items()
+            for name, val in self.parameters.items()
         }
         kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())  # TODO: sort kwargs
         ff_expr = f'forward_func={self.forward_func.__name__ if self.forward_func else None}'

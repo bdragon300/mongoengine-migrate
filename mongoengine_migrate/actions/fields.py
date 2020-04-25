@@ -31,7 +31,7 @@ class CreateField(BaseFieldAction):
                               f'since the collection {self.collection_name} is not in schema')
         field_params = {
             **self.field_handler_cls.schema_skel(),
-            **self._init_kwargs
+            **self.parameters
         }
         return [(
             'add',
@@ -46,8 +46,8 @@ class CreateField(BaseFieldAction):
         fields automatically on value set
         FIXME: parameters (indexes, acl, etc.)
         """
-        is_required = self._init_kwargs.get('required') or self._init_kwargs.get('primary_key')
-        default = self._init_kwargs.get('default')
+        is_required = self.parameters.get('required') or self.parameters.get('primary_key')
+        default = self.parameters.get('default')
         if is_required:
             self.collection.update_many(
                 {self.field_name: {'$exists': False}}, {'$set': {self.field_name: default}}
@@ -84,7 +84,7 @@ class DropField(BaseFieldAction):
                               f'since the collection {self.collection_name} is not in schema')
         field_params = {
             **self.field_handler_cls.schema_skel(),
-            **self._init_kwargs
+            **self.parameters
         }
         return [(
             'remove',
@@ -104,8 +104,8 @@ class DropField(BaseFieldAction):
         default value. Otherwise do nothing since mongoengine creates
         fields automatically on value set
         """
-        is_required = self._init_kwargs.get('required') or self._init_kwargs.get('primary_key')
-        default = self._init_kwargs.get('default')
+        is_required = self.parameters.get('required') or self.parameters.get('primary_key')
+        default = self.parameters.get('default')
         if is_required:
             self.collection.update_many(
                 {self.field_name: {'$exists': False}}, {'$set': {self.field_name: default}}
@@ -116,7 +116,7 @@ class AlterField(BaseFieldAction):
     """Change field parameters or its type, i.e. altering"""
     def __init__(self, collection_name: str, field_name: str, **kwargs):
         super().__init__(collection_name, field_name, **kwargs)
-        if not all(isinstance(v, AlterDiff) for v in self._init_kwargs.values()):
+        if not all(isinstance(v, AlterDiff) for v in self.parameters.values()):
             raise ActionError(f'Keyword parameters must be AlterDiff objects')
 
     @classmethod
@@ -158,7 +158,7 @@ class AlterField(BaseFieldAction):
         # TODO raise если param не в skel нового типа при изменении type_key
         # TODO а что делать если параметр появляется или изчезает, но не указан в kwargs
         p = []
-        for param, diff in self._init_kwargs.items():
+        for param, diff in self.parameters.items():
             if diff.old == UNSET or diff.new == UNSET:
                 if diff.old == UNSET:
                     p.append(
@@ -171,10 +171,10 @@ class AlterField(BaseFieldAction):
         return p
 
     def run_forward(self):
-        self._run_migration(self._init_kwargs)
+        self._run_migration(self.parameters)
 
     def run_backward(self):
-        reversed_field_params = {k: v.swap() for k, v in self._init_kwargs.items()}
+        reversed_field_params = {k: v.swap() for k, v in self.parameters.items()}
         self._run_migration(reversed_field_params)
 
     def _run_migration(self, field_params: Mapping[str, AlterDiff]):
@@ -330,7 +330,7 @@ class RenameField(BaseFieldAction):
         if self.collection_name not in current_schema:
             raise ActionError(f'Cannot rename field {self.collection_name}.{self.field_name} '
                               f'since the collection {self.collection_name} is not in schema')
-        new_name = self._init_kwargs['new_name']
+        new_name = self.parameters['new_name']
         item = current_schema[self.collection_name].get(
             self.field_name,
             current_schema[self.collection_name].get(new_name)

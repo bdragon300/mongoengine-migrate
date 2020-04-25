@@ -124,7 +124,7 @@ class RenameCollection(BaseCollectionAction):
             return cls(collection_name=collection_name, new_name=candidates[0][0])
 
     def to_schema_patch(self, current_schema: dict):
-        new_name = self._init_kwargs['new_name']
+        new_name = self.parameters['new_name']
         item = current_schema.get(
             self.collection_name,
             current_schema.get(new_name)
@@ -136,7 +136,7 @@ class RenameCollection(BaseCollectionAction):
 
     def run_forward(self):
         if self.collection.name in self.collection.database.list_collection_names():
-            self.collection.rename(self._init_kwargs['new_name'])
+            self.collection.rename(self.parameters['new_name'])
 
     def run_backward(self):
         if self.collection.name in self.collection.database.list_collection_names():

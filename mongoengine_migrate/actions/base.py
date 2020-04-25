@@ -48,7 +48,7 @@ class BaseAction(metaclass=BaseActionMeta):
         :param kwargs: Action keyword parameters
         """
         self.collection_name = collection_name
-        self._init_kwargs = kwargs  # TODO: rename to field_params or smth
+        self.parameters = kwargs
 
         self.current_schema = None
         self.db = None
@@ -113,7 +113,7 @@ class BaseFieldAction(BaseAction):
     @property
     def field_handler_cls(self):
         """Concrete FieldHandler class for a current field type"""
-        return type_key_registry[self._init_kwargs.get('type_key')].field_handler_cls
+        return type_key_registry[self.parameters.get('type_key')].field_handler_cls
 
     @classmethod
     @abstractmethod
@@ -151,7 +151,7 @@ class BaseFieldAction(BaseAction):
     def to_python_expr(self) -> str:
         kwargs = {
             name: getattr(val, 'to_python_expr', lambda: repr(val))()
-            for name, val in self._init_kwargs.items()
+            for name, val in self.parameters.items()
         }
         kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())  # TODO: sort kwargs
         return f'{self.__class__.__name__}({self.collection_name!r}, {self.field_name!r}' \
@@ -197,7 +197,7 @@ class BaseCollectionAction(BaseAction):
     def to_python_expr(self) -> str:
         kwargs = {
             name: getattr(val, 'to_python_expr', lambda: repr(val))()
-            for name, val in self._init_kwargs.items()
+            for name, val in self.parameters.items()
         }
         kwargs_str = ''.join(f", {name}={val}" for name, val in kwargs.items())  # TODO: sort kwargs
         return f'{self.__class__.__name__}({self.collection_name!r}{kwargs_str})'

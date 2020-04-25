@@ -1,6 +1,6 @@
 from typing import Mapping
 
-from mongoengine_migrate.exceptions import ActionError, MigrationError
+from mongoengine_migrate.exceptions import ActionError, MigrationError, SchemaError
 from mongoengine_migrate.fields.registry import type_key_registry
 from .base import BaseFieldAction
 from .diff import AlterDiff, UNSET
@@ -182,8 +182,10 @@ class AlterField(BaseFieldAction):
         # Take field type from schema. If that field was user-defined
         # and does not exist anymore then we use CommonFieldHandler as
         # fallback variant
-        # FIXME: raise if self.collection_name/self.field_name not in schema
-        field_schema = self.current_schema.get(self.collection_name, {}).get(self.field_name, {})
+        if self.collection_name not in self.current_schema \
+            or self.field_name not in self.current_schema[self.collection_name]:
+            raise SchemaError(f'Field {self.collection_name}.{self.field_name} not in schema')
+        field_schema = self.current_schema[self.collection_name][self.field_name]
         field_handler = self._get_field_handler(field_schema.get('type_key'))
 
         # Change field type if requested. Then trying to obtain new

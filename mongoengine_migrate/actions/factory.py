@@ -57,10 +57,10 @@ class FieldActionFactory(BaseActionFactory):
             for field in fields:
                 if not issubclass(action_cls, BaseFieldAction):
                     continue
-                action_obj = action_cls.build_object_if_applicable(collection_name,
-                                                                   field,
-                                                                   old_schema,
-                                                                   new_schema)
+                action_obj = action_cls.build_object(collection_name,
+                                                     field,
+                                                     old_schema,
+                                                     new_schema)
                 if action_obj is not None:
                     if action_obj.higher_priority:
                         old_schema = patch(action_obj.to_schema_patch(old_schema), old_schema)
@@ -84,9 +84,9 @@ class CollectionActionFactory(BaseActionFactory):
         for action_cls in registry:
             if not issubclass(action_cls, BaseCollectionAction):
                 continue
-            action_obj = action_cls.build_object_if_applicable(collection_name,
-                                                               old_schema,
-                                                               new_schema)
+            action_obj = action_cls.build_object(collection_name,
+                                                 old_schema,
+                                                 new_schema)
             if action_obj is not None:
                 if action_obj.higher_priority:
                     old_schema = patch(action_obj.to_schema_patch(old_schema), old_schema)

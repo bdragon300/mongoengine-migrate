@@ -9,11 +9,11 @@ from .diff import AlterDiff, UNSET
 class CreateField(BaseFieldAction):
     """Create field in a given collection"""
     @classmethod
-    def build_object_if_applicable(cls,
-                                   collection_name: str,
-                                   field_name: str,
-                                   old_schema: dict,
-                                   new_schema: dict):
+    def build_object(cls,
+                     collection_name: str,
+                     field_name: str,
+                     old_schema: dict,
+                     new_schema: dict):
         match = collection_name in old_schema \
                 and collection_name in new_schema \
                 and field_name not in old_schema[collection_name] \
@@ -63,11 +63,11 @@ class CreateField(BaseFieldAction):
 class DropField(BaseFieldAction):
     """Drop field in a given collection"""
     @classmethod
-    def build_object_if_applicable(cls,
-                                   collection_name: str,
-                                   field_name: str,
-                                   old_schema: dict,
-                                   new_schema: dict):
+    def build_object(cls,
+                     collection_name: str,
+                     field_name: str,
+                     old_schema: dict,
+                     new_schema: dict):
         match = collection_name in old_schema \
                 and collection_name in new_schema \
                 and field_name in old_schema[collection_name] \
@@ -124,11 +124,11 @@ class AlterField(BaseFieldAction):
             raise ActionError(f'Keyword parameters must be AlterDiff objects')
 
     @classmethod
-    def build_object_if_applicable(cls,
-                                   collection_name: str,
-                                   field_name: str,
-                                   old_schema: dict,
-                                   new_schema: dict):
+    def build_object(cls,
+                     collection_name: str,
+                     field_name: str,
+                     old_schema: dict,
+                     new_schema: dict):
         # Check if field still here but its schema has changed
         match = collection_name in old_schema \
                 and collection_name in new_schema \
@@ -285,11 +285,11 @@ class RenameField(BaseFieldAction):
             raise ActionError("'new_name' keyword parameter is not specified")
 
     @classmethod
-    def build_object_if_applicable(cls,
-                                   collection_name: str,
-                                   field_name: str,
-                                   old_schema: dict,
-                                   new_schema: dict):
+    def build_object(cls,
+                     collection_name: str,
+                     field_name: str,
+                     old_schema: dict,
+                     new_schema: dict):
         # Check if field exists under different name in schema
         # Field also can have small schema changes in the same time
         # So we try to get similarity percentage and if it more than

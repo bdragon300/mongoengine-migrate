@@ -123,12 +123,11 @@ class BaseFieldAction(BaseAction):
 
     @classmethod
     @abstractmethod
-    # TODO: rename
-    def build_object_if_applicable(cls,
-                                   collection_name: str,
-                                   field_name: str,
-                                   old_schema: dict,
-                                   new_schema: dict) -> Optional['BaseFieldAction']:
+    def build_object(cls,
+                     collection_name: str,
+                     field_name: str,
+                     old_schema: dict,
+                     new_schema: dict) -> Optional['BaseFieldAction']:
         """
         Factory method which tests if current action type could process
         schema changes for a given collection and field. If yes then
@@ -176,10 +175,10 @@ class BaseCollectionAction(BaseAction):
     """
     @classmethod
     @abstractmethod
-    def build_object_if_applicable(cls,
-                                   collection_name: str,
-                                   old_schema: dict,
-                                   new_schema: dict) -> Optional['BaseCollectionAction']:
+    def build_object(cls,
+                     collection_name: str,
+                     old_schema: dict,
+                     new_schema: dict) -> Optional['BaseCollectionAction']:
         """
         Factory method which tests if current action type could process
         schema changes for a given collection at whole. If yes then

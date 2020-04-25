@@ -13,7 +13,7 @@ class CreateCollection(BaseCollectionAction):
     Ex.: `CreateCollection("collection1")`
     """
     @classmethod
-    def build_object_if_applicable(cls, collection_name: str, old_schema: dict, new_schema: dict):
+    def build_object(cls, collection_name: str, old_schema: dict, new_schema: dict):
         if collection_name not in old_schema and collection_name in new_schema:
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
@@ -38,7 +38,7 @@ class DropCollection(BaseCollectionAction):
     Ex.: `DropCollection("collection1")`
     """
     @classmethod
-    def build_object_if_applicable(cls, collection_name: str, old_schema: dict, new_schema: dict):
+    def build_object(cls, collection_name: str, old_schema: dict, new_schema: dict):
         if collection_name in old_schema and collection_name not in new_schema:
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
@@ -80,7 +80,7 @@ class RenameCollection(BaseCollectionAction):
             raise ActionError("'new_name' keyword parameter is not specified")
 
     @classmethod
-    def build_object_if_applicable(cls, collection_name: str, old_schema: dict, new_schema: dict):
+    def build_object(cls, collection_name: str, old_schema: dict, new_schema: dict):
         # Check if field exists under different name in schema.
         # Field also can have small schema changes in the same time
         # So we try to get similarity percentage and if it more than

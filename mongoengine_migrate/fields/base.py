@@ -272,8 +272,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             raise MigrationError(f'Type converter not found for convertion '
                                  f'{from_field_cls!r} -> {to_field_cls!r}')
 
-        # FIXME: remove from_field_cls, to_field_cls. Also from current function
-        type_converter(self.collection, self.db_field, from_field_cls, to_field_cls)
+        type_converter(self.collection, self.db_field)
 
     def _check_diff(self, diff: AlterDiff, can_be_none=True, check_type=None):
         if diff.new == diff.old:

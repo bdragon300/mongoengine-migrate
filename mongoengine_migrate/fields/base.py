@@ -113,9 +113,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         # TODO: make change_x methods return three functions for different policies
         # FIXME: exclude 'param' from search to avoid endless recursion
         method_name = f'change_{name}'
-        if hasattr(self, method_name):
-            return getattr(self, method_name)(diff)
-        # FIXME: raise if not hasattr
+        return getattr(self, method_name)(diff)
         # FIXME: change self.field_schema with diff
 
     # TODO: make arguments checking and that old != new

@@ -2,3 +2,4 @@ dictdiffer
 mongoengine
 jinja2
 click
+wrapt

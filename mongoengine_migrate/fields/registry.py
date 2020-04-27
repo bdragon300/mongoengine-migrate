@@ -97,7 +97,7 @@ def add_field_handler(field_cls: Type[fields.BaseField], handler_cls: Type['Comm
     # was set or where handler is a base class of given one
     for type_key, registry_item in type_key_registry.items():
         current_handler = registry_item.field_handler_cls
-        if current_handler is None or issubclass(handler_cls, current_handler):
+        if current_handler is None or issubclass(registry_item.field_cls, field_cls):
             type_key_registry[type_key] = TypeKeyRegistryItem(
                 field_cls=registry_item.field_cls,
                 field_handler_cls=handler_cls

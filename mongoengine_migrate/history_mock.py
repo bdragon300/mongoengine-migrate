@@ -1,5 +1,4 @@
 from datetime import datetime
-from pprint import pformat
 from typing import NamedTuple, Dict, Tuple, Any
 
 import wrapt
@@ -14,11 +13,13 @@ class HistoryCall(NamedTuple):
     kwargs: Dict[str, Any]
 
     def __str__(self):
-        args_str = ', '.join(f'\n{pformat(arg)}' for arg in self.args)
-        kwargs_str = ', '.join(f"\n{name}={pformat(val)}"
+        args_str = ', '.join(f'\n  {arg}' for arg in self.args)
+        kwargs_str = ', '.join(f"\n  {name}={val}"
                                for name, val in sorted(self.kwargs.items()))
-        return f'[{self.call_datetime}] {self.collection_name}.{self.method_name}' \
-               f'({args_str}{"," if kwargs_str else ""}{kwargs_str})'
+        arguments = f'{args_str}{"," if kwargs_str else ""}{kwargs_str}'
+        if arguments:
+            arguments += '\n'
+        return f'[{self.call_datetime}] {self.collection_name}.{self.method_name}({arguments})'
 
 
 class InsertOneResultMock(NamedTuple):

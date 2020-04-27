@@ -12,6 +12,7 @@ from mongoengine.base import _document_registry
 from mongoengine.fields import EmbeddedDocument
 from pymongo import MongoClient
 
+import mongoengine_migrate.runtime_flags as runtime_flags
 from mongoengine_migrate.actions.factory import build_actions_chain
 from mongoengine_migrate.exceptions import MigrationError, SchemaError
 from mongoengine_migrate.fields.registry import type_key_registry
@@ -242,6 +243,10 @@ class MongoengineMigrate:
             for action_object in migration.get_forward_actions():
                 action_object.prepare(self.db, current_schema)
                 action_object.run_forward()
+                if runtime_flags.dry_run:
+                    for call in action_object.get_call_history():
+                        print(call)
+                        print()
                 action_object.cleanup()
                 # TODO: move the following to the place before cleanup
                 # TODO: handle patch errors (if schema is corrupted)
@@ -252,8 +257,9 @@ class MongoengineMigrate:
             if migration.name == migration_name:
                 break   # We're reached the target migration
 
-        self.write_db_schema(current_schema)
-        self.write_db_migrations_graph(graph)
+        if not runtime_flags.dry_run:
+            self.write_db_schema(current_schema)
+            self.write_db_migrations_graph(graph)
 
     def downgrade(self, migration_name: str):
         """
@@ -276,6 +282,10 @@ class MongoengineMigrate:
             for action_object in migration.get_backward_actions():
                 action_object.prepare(self.db, current_schema)
                 action_object.run_backward()
+                if runtime_flags.dry_run:
+                    for call in action_object.get_call_history():
+                        print(call)
+                        print()
                 action_object.cleanup()
                 # TODO: move the following to the place before cleanup
                 # TODO: handle patch errors (if schema is corrupted)
@@ -284,8 +294,9 @@ class MongoengineMigrate:
 
             graph.migrations[migration.name].applied = False
 
-        self.write_db_schema(current_schema)
-        self.write_db_migrations_graph(graph)
+        if not runtime_flags.dry_run:
+            self.write_db_schema(current_schema)
+            self.write_db_migrations_graph(graph)
 
     def migrate(self, migration_name: str = None):
         """

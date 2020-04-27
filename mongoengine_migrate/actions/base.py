@@ -1,10 +1,12 @@
 import weakref
 from abc import ABCMeta, abstractmethod
-from typing import Dict, Type, Optional
+from typing import Dict, Type, Optional, List
 
 from pymongo.database import Database
 
 from mongoengine_migrate.fields.registry import type_key_registry
+import mongoengine_migrate.runtime_flags as runtime_flags
+from mongoengine_migrate.history_mock import CollectionHistoryMock, HistoryCall
 
 #: Migration Actions registry. Mapping of class name and its class
 actions_registry: Dict[str, Type['BaseAction']] = {}
@@ -63,10 +65,14 @@ class BaseAction(metaclass=BaseActionMeta):
         """
         self.current_schema = current_schema
         self.db = db
-        self.collection = db['collection']
+        self.collection = db[self.collection_name]
+        if runtime_flags.dry_run:
+            self.collection = CollectionHistoryMock(self.collection)
 
     def cleanup(self):
         """Cleanup after Action run (both forward and backward)"""
+        if runtime_flags.dry_run:
+            self.collection.call_history.clear()
 
     @abstractmethod
     def run_forward(self):
@@ -95,6 +101,13 @@ class BaseAction(metaclass=BaseActionMeta):
         Return string of python code which creates current object with
         the same state
         """
+
+    def get_call_history(self) -> List[HistoryCall]:
+        """Return call history of collection modification methods"""
+        if runtime_flags.dry_run:
+            return self.collection.call_history
+
+        return []
 
 
 # TODO: add to prepare() checking if db_field param has not dots

@@ -4,6 +4,7 @@ from typing import Optional
 import click
 
 from mongoengine_migrate.loader import MongoengineMigrate, import_module
+import mongoengine_migrate.runtime_flags as runtime_flags
 
 mongoengine_migrate: Optional[MongoengineMigrate] = None
 
@@ -45,6 +46,13 @@ def cli_options(f):
             metavar="COLLECTION",
             help="Collection where schema and state will be stored",
             show_default=True
+        ),
+        click.option(
+            '--dry-run',
+            default=False,
+            is_flag=True,
+            help='Dry run mode. Don\'t modify the database and print '
+                 'modification commands which would get executed'
         )
     ]
     for decorator in reversed(decorators):
@@ -54,12 +62,14 @@ def cli_options(f):
 
 @click.group()
 @cli_options
-def cli(uri, models_module, directory, collection):
+def cli(uri, models_module, directory, collection, dry_run):
     global mongoengine_migrate
     import_module(models_module)
     mongoengine_migrate = MongoengineMigrate(mongo_uri=uri,
                                              collection_name=collection,
                                              migrations_dir=directory)
+
+    runtime_flags.dry_run = dry_run
 
 
 @click.command(short_help='Upgrade db to the given migration')

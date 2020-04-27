@@ -74,10 +74,8 @@ def add_type_key(field_cls: Type[fields.BaseField]):
     :param field_cls: mongoengine field class
     :return:
     """
-    assert (
-        inspect.isclass(field_cls) and issubclass(field_cls, fields.BaseField),
-        f'{field_cls!r} is not derived from BaseField'
-    )
+    assert inspect.isclass(field_cls) and issubclass(field_cls, fields.BaseField), \
+        f'{field_cls!r} is not a class derived from BaseField'
 
     type_key_registry[field_cls.__name__] = TypeKeyRegistryItem(field_cls=field_cls,
                                                                 field_handler_cls=None)
@@ -90,16 +88,20 @@ def add_field_handler(field_cls: Type[fields.BaseField], handler_cls: Type['Comm
     :param handler_cls:
     :return:
     """
-    if field_cls not in type_key_registry:
+    if field_cls.__name__ not in type_key_registry:
         raise ValueError(f'Could not find {field_cls!r} or one of its base classes '
                          f'in type_key registry')
 
     # Handlers can be added in any order
     # So set a handler only on those registry items where no handler
     # was set or where handler is a base class of given one
-    for field_name, (field_cls, handler_cls) in type_key_registry.items():
-        if handler_cls is None or issubclass(field_cls, field_cls):
-            type_key_registry[field_name].field_handler_cls = handler_cls
+    for type_key, registry_item in type_key_registry.items():
+        current_handler = registry_item.field_handler_cls
+        if current_handler is None or issubclass(handler_cls, current_handler):
+            type_key_registry[type_key] = TypeKeyRegistryItem(
+                field_cls=registry_item.field_cls,
+                field_handler_cls=handler_cls
+            )
 
 
 # Fill out the type key registry with all mongoengine fields

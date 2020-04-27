@@ -67,8 +67,8 @@ class RenameCollection(BaseCollectionAction):
     #: instead of drop/create
     similarity_threshold = 70
 
-    def __init__(self, new_name, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, collection_name: str, new_name, **kwargs):
+        super().__init__(collection_name, new_name=new_name, **kwargs)
         self.new_name = new_name
 
     @classmethod

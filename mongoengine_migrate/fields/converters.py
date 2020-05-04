@@ -6,6 +6,7 @@ from pymongo.collection import Collection
 
 from mongoengine_migrate.exceptions import MigrationError
 from mongoengine_migrate.mongo import check_empty_result
+from ..mongo import mongo_version
 
 
 def nothing(*args, **kwargs):
@@ -25,21 +26,23 @@ def drop_field(collection: Collection, db_field: str):
     collection.update_many({db_field: {'$exists': True}}, {'$unset': {db_field: ''}})
 
 
+@mongo_version(min_version='3.4')
 def item_to_list(collection: Collection, db_field: str):
     """Make list with a single element from an value"""
     collection.aggregate([
         {'$match': {db_field: {"$exists": True}}},
-        {'$addFields': {db_field: [f"${db_field}"]}},
-        {'$out': collection.name}
+        {'$addFields': {db_field: [f"${db_field}"]}},  # >=3.4
+        {'$out': collection.name}  # >= 2.6
     ])
 
 
+@mongo_version(min_version='3.4')
 def extract_from_list(collection: Collection, db_field: str):
     """Everwrite list with its first element"""
     collection.aggregate([
         {'$match': {db_field: {"$ne": None}}},
-        {'$addFields': {db_field: {"$arrayElemAt": [f"${db_field}", 0]}}},
-        {'$out': collection.name}
+        {'$addFields': {db_field: {"$arrayElemAt": [f"${db_field}", 0]}}},  # >=3.4
+        {'$out': collection.name}  # >= 2.6
     ])
 
 
@@ -75,6 +78,7 @@ def to_object_id(collection: Collection, db_field: str):
     __mongo_convert(collection, db_field, 'objectId')
 
 
+@mongo_version(min_version='4.0')
 def to_uuid(collection: Collection, db_field: str):
     """Don't touch fields with 'binData' type. Convert values with
     other types to a string. Then verify if these strings contain
@@ -84,15 +88,15 @@ def to_uuid(collection: Collection, db_field: str):
     collection.aggregate([
         {'$match': {
             db_field: {'$ne': None}, # Field exists and not null
-            '$expr': {'$not': [{'$type': f'${db_field}'}, 'binData']}
+            '$expr': {'$not': [{'$type': f'${db_field}'}, 'binData']}  # $expr >= 3.6, $type >= 3.4
         }},
-        {'$addFields': {
-            '$convert': {
+        {'$addFields': {  # >= 3.4
+            '$convert': {  # >= 4.0
                 'input': f'${db_field}',
                 'to': 'string'
             }
         }},
-        {'$out': collection.name}
+        {'$out': collection.name}  # >= 2.6
     ])
 
     # Verify strings. There are only binData and string values now in db
@@ -128,24 +132,27 @@ def to_complex_datetime(collection: Collection, db_field: str):
     check_empty_result(collection, db_field, fltr)
 
 
+@mongo_version(min_version='3.4')
 def ref_to_cached_reference(collection: Collection, db_field: str):
     """Make SON object (dict) from ObjectID/DBRef object"""
     collection.aggregate([
         {'$match': {db_field: {"$exists": True}}},
-        {'$addFields': {db_field: {'_id': f"${db_field}"}}},
-        {'$out': collection.name}
+        {'$addFields': {db_field: {'_id': f"${db_field}"}}},  # >= 3.4
+        {'$out': collection.name}  # >= 2.6
     ])
 
 
+@mongo_version(min_version='3.4')
 def cached_reference_to_ref(collection: Collection, db_field: str):
     """Extract ObjectID/DBRef reference object from SON object (dict)"""
     collection.aggregate([
         {'$match': {db_field: {"$exists": True}}},
-        {'$addFields': {db_field: f"${db_field}._id"}},
-        {'$out': collection.name}
+        {'$addFields': {db_field: f"${db_field}._id"}},  # >= 3.4
+        {'$out': collection.name}  # >= 2.6
     ])
 
 
+@mongo_version(min_version='4.0')
 def __mongo_convert(collection: Collection, db_field: str, target_type: str):
     """
     Convert field to a given type in a given collection. `target_type`
@@ -163,10 +170,10 @@ def __mongo_convert(collection: Collection, db_field: str, target_type: str):
         # Field exists and not null
         {'$match': {db_field: {"$ne": None}}},
         {'$addFields': {
-            '$convert': {
+            '$convert': {  # >= 4.0
                 'input': f'${db_field}',
                 'to': target_type
             }
         }},
-        {'$out': collection.name}
+        {'$out': collection.name}  # >= 2.6
     ])

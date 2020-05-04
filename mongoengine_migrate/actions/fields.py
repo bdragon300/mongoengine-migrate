@@ -191,20 +191,14 @@ class AlterField(BaseFieldAction):
         # Change field type if requested. Then trying to obtain new
         # FieldHandler class and process the rest
         if 'type_key' in field_params:
-            try:  # FIXME: remove try
-                field_handler.change_param('type_key', field_params['type_key'])
-            except:
-                pass
+            field_handler.change_param('type_key', field_params['type_key'])
             field_handler = self._get_field_handler(field_params['type_key'].new)
 
         for name, diff in field_params.items():
             if name == 'type_key':
                 continue
 
-            try:  # FIXME: remove try
-                field_handler.change_param(name, diff)
-            except:
-                pass
+            field_handler.change_param(name, diff)
 
     def _get_field_handler(self, type_key: str):
         """

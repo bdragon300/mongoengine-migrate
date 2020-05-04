@@ -8,6 +8,7 @@ from ..mongo import check_empty_result
 from .base import CommonFieldHandler
 from .converters import to_string, to_decimal
 from ..actions.diff import AlterDiff, UNSET
+from ..mongo import mongo_version
 
 
 class NumberFieldHandler(CommonFieldHandler):
@@ -74,6 +75,7 @@ class StringFieldHandler(CommonFieldHandler):
 
     schema_skel_keys = {'max_length', 'min_length', 'regex'}
 
+    @mongo_version(min_version='3.6')
     def change_max_length(self, diff: AlterDiff):
         """Cut off a string if it longer than limitation (if any)"""
         self._check_diff(diff, True, int)
@@ -86,12 +88,12 @@ class StringFieldHandler(CommonFieldHandler):
         self.collection.aggregate([
             {'$match': {
                 self.db_field: {"$ne": None},
-                "$expr": {"$gt": [{"$strLenCP": f"${self.db_field}"}, diff.new]},
+                "$expr": {"$gt": [{"$strLenCP": f"${self.db_field}"}, diff.new]},  # >= 3.6
             }},
-            {'$addFields': {
+            {'$addFields': {  # >= 3.4
                 self.db_field: {"$substr": [f'${self.db_field}', 0, diff.new]}
             }},
-            {'$out': self.collection.name}
+            {'$out': self.collection.name}  # >= 2.6
         ])
 
         # if diff.error_policy == 'replace':
@@ -105,6 +107,7 @@ class StringFieldHandler(CommonFieldHandler):
         #     ]
         #     self.collection.aggregate(pipeline + replace_pipeline)
 
+    @mongo_version(min_version='3.6')
     def change_min_length(self, diff: AlterDiff):
         """Raise error if string is shorter than limitation (if any)"""
         self._check_diff(diff, True, int)
@@ -115,7 +118,7 @@ class StringFieldHandler(CommonFieldHandler):
 
         res = self.collection.find({
             self.db_field: {'$ne': None},
-            "$where": f"this.{self.db_field}.length < {diff.new}"
+            "$where": f"this.{self.db_field}.length < {diff.new}"  # >=3.6
         })
         # We can't to increase string length, so raise error if
         # there was found strings which are shorter than should be
@@ -307,6 +310,7 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
 
     schema_skel_keys = {'separator'}
 
+    @mongo_version(min_version='3.4')
     def change_separator(self, diff: AlterDiff):
         """Change separator in datetime strings"""
         self._check_diff(diff, False, str)
@@ -325,19 +329,19 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
                     {self.db_field: {"$ne": None}}
                 ]
             }},
-            {'$addFields': {
+            {'$addFields': {  # >=3.4
                 self.db_field: {
-                    '$reduce': {
-                        'input': {'$split': [f'${self.db_field}', diff.old]},
+                    '$reduce': {  # >=3.4
+                        'input': {'$split': [f'${self.db_field}', diff.old]},  # $split >=3.4
                         'initialValue': '',
                         'in': {'$concat': ['$$value', diff.new, '$$this']}
                     }
                 }
             }},
-            {'$addFields': {
+            {'$addFields': {  # >=3.4
                 self.db_field: {"$substr": [f'${self.db_field}', 1, -1]}
             }},
-            {'$out': self.collection.name}
+            {'$out': self.collection.name}  # >= 2.6
         ])
 
         # if diff.error_policy == 'replace':
@@ -352,6 +356,7 @@ class ListFieldHandler(CommonFieldHandler):
 
     schema_skel_keys = {'max_length'}  # TODO: implement "field"
 
+    @mongo_version(min_version='3.6')
     def change_max_length(self, diff: AlterDiff):
         """Cut off a list if it longer than limitation (if any)"""
         self._check_diff(diff, True, int)
@@ -361,12 +366,12 @@ class ListFieldHandler(CommonFieldHandler):
         self.collection.aggregate([
             {'$match': {
                 self.db_field: {"$ne": None},
-                "$expr": {"$gt": [{"$size": f"${self.db_field}"}, diff.new]},
+                "$expr": {"$gt": [{"$size": f"${self.db_field}"}, diff.new]},  # $expr >= 3.6
             }},
-            {'$addFields': {
-                self.db_field: {"$slice": [f'${self.db_field}', diff.new]}
+            {'$addFields': {  # >=3.4
+                self.db_field: {"$slice": [f'${self.db_field}', diff.new]}  # $slice >=3.2
             }},
-            {'$out': self.collection.name}
+            {'$out': self.collection.name}  # >= 2.6
         ])
 
 

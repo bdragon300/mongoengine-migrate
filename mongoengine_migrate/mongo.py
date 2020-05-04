@@ -26,7 +26,7 @@ def check_empty_result(collection: Collection, db_field: str, find_filter: dict)
                              f"{','.join(examples)}")
 
 
-def mongo_version(min_version=None, max_version=None, throw_error=False):
+def mongo_version(min_version: str = None, max_version:str = None, throw_error: bool = False):
     """
     Restrict the decorated function execution by MongoDB version.
 

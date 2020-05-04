@@ -5,3 +5,7 @@ for example
 #: Dry run mode. Don\'t modify the database and print modification
 #: commands which would get executed
 dry_run: bool = False
+
+
+#: MongoDB server version
+mongo_version = None

@@ -5,6 +5,7 @@ from types import ModuleType
 from typing import Tuple, Iterable, Optional
 
 import pymongo.database
+import pymongo.errors
 from bson import CodecOptions
 from dictdiffer import patch, swap
 from jinja2 import Environment
@@ -121,6 +122,16 @@ class MongoengineMigrate:
         self.migration_dir = migrations_dir
         self._kwargs = kwargs
         self.client = MongoClient(mongo_uri)
+
+        # Trying to figure out server version if not specified
+        if runtime_flags.mongo_version is None:
+            try:
+                server_info = self.client.server_info()
+                runtime_flags.mongo_version = server_info['version']
+            except pymongo.errors.OperationFailure as e:
+                raise MigrationError('Could not figure out MongoDB version. Please set up '
+                                     'right permissions to be able to execute "buildinfo" '
+                                     'command or specify version explicitly') from e
 
     @property
     def db(self) -> pymongo.database.Database:

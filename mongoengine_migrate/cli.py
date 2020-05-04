@@ -53,6 +53,11 @@ def cli_options(f):
             is_flag=True,
             help='Dry run mode. Don\'t modify the database and print '
                  'modification commands which would get executed'
+        ),
+        click.option(
+            '--mongo-version',
+            help="MongoDB server version",
+            metavar="MONGO_VERSION"
         )
     ]
     for decorator in reversed(decorators):
@@ -62,14 +67,16 @@ def cli_options(f):
 
 @click.group()
 @cli_options
-def cli(uri, models_module, directory, collection, dry_run):
+def cli(uri, models_module, directory, collection, dry_run, **kwargs):
     global mongoengine_migrate
     import_module(models_module)
+    runtime_flags.mongo_version = kwargs.get('mongo_version')
+    runtime_flags.dry_run = dry_run
+
     mongoengine_migrate = MongoengineMigrate(mongo_uri=uri,
                                              collection_name=collection,
                                              migrations_dir=directory)
 
-    runtime_flags.dry_run = dry_run
 
 
 @click.command(short_help='Upgrade db to the given migration')

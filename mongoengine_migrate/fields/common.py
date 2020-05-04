@@ -459,6 +459,25 @@ class ReferenceFieldHandler(CommonFieldHandler):
         return schema
 
 
+class CachedReferenceFieldHandler(CommonFieldHandler):
+    field_classes = [
+        mongoengine.fields.CachedReferenceField
+    ]
+
+    schema_skel_keys = {'fields'}
+
+    def change_fields(self, diff: AlterDiff):
+        self._check_diff(diff, False, (list, tuple))
+
+        to_remove = set(diff.old) - set(diff.new)
+        if to_remove:
+            paths = {f'{self.db_field}.{f}': '' for f in to_remove}
+            self.collection.update_many(
+                {self.db_field: {'$exists': True}},
+                {'$unset': paths}
+            )
+
+
 # class EmbeddedDocumentFieldHandler(CommonFieldHandler):
 #     field_classes = [
 #         mongoengine.fields.EmbeddedDocumentField

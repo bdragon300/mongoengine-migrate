@@ -118,7 +118,7 @@ def to_url_string(collection: Collection, db_field: str):
     check_empty_result(collection, db_field, fltr)
 
 
-def to_complex_datetime(collection: Collection, db_field: str, target_type: str):
+def to_complex_datetime(collection: Collection, db_field: str):
     # We should not know which separator is used, so use '.+'
     # Separator change is handled by appropriate method
     to_string(collection, db_field)
@@ -126,6 +126,24 @@ def to_complex_datetime(collection: Collection, db_field: str, target_type: str)
     regex = r'\A' + str('.+'.join([r"\d{4}"] + [r"\d{2}"] * 5 + [r"\d{6}"])) + r'\Z'
     fltr = {db_field: {'$not': regex, '$ne': None}}
     check_empty_result(collection, db_field, fltr)
+
+
+def ref_to_cached_reference(collection: Collection, db_field: str):
+    """Make SON object (dict) from ObjectID/DBRef object"""
+    collection.aggregate([
+        {'$match': {db_field: {"$exists": True}}},
+        {'$addFields': {db_field: {'_id': f"${db_field}"}}},
+        {'$out': collection.name}
+    ])
+
+
+def cached_reference_to_ref(collection: Collection, db_field: str):
+    """Extract ObjectID/DBRef reference object from SON object (dict)"""
+    collection.aggregate([
+        {'$match': {db_field: {"$exists": True}}},
+        {'$addFields': {db_field: f"${db_field}._id"}},
+        {'$out': collection.name}
+    ])
 
 
 def __mongo_convert(collection: Collection, db_field: str, target_type: str):

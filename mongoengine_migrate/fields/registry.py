@@ -134,7 +134,8 @@ OBJECTID_CONVERTERS = {
     fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded documents
     fields.ReferenceField: converters.nothing,
     fields.LazyReferenceField: converters.nothing,
-    fields.ObjectIdField: converters.nothing
+    fields.ObjectIdField: converters.nothing,
+    fields.CachedReferenceField: converters.ref_to_cached_reference
 }
 
 #: Field type convertion matrix
@@ -169,6 +170,7 @@ CONVERTION_MATRIX = {
         fields.ReferenceField: converters.deny,  # TODO: implement convert reference-like fields from/to embedded-like
         fields.ListField: converters.item_to_list,
         fields.EmbeddedDocumentListField: converters.item_to_list,
+        fields.CachedReferenceField: converters.nothing
         # fields.GeoJsonBaseField: converters.dict_to_geojson,
     },
     # DynamicField can contain any type, so no convertation is requried
@@ -188,19 +190,24 @@ CONVERTION_MATRIX = {
         fields.EmbeddedDocumentField: converters.nothing,
         fields.ListField: converters.nothing,
         fields.DictField: converters.extract_from_list,
+        fields.CachedReferenceField: converters.extract_from_list
         # fields.GeoJsonBaseField: converters.list_to_geojson
     },
     fields.DictField: {
         fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
         fields.ListField: converters.item_to_list,
         fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded documents
+        fields.CachedReferenceField: converters.deny
         # fields.GeoJsonBaseField: converters.dict_to_geojson,
     },
     fields.ReferenceField: OBJECTID_CONVERTERS.copy(),
     fields.LazyReferenceField: OBJECTID_CONVERTERS.copy(),
     fields.ObjectIdField: OBJECTID_CONVERTERS.copy(),
     fields.CachedReferenceField: {
-        # TODO
+        fields.EmbeddedDocumentField: converters.nothing,
+        fields.ListField: converters.item_to_list,
+        fields.ReferenceField: converters.cached_reference_to_ref,
+        fields.DictField: converters.nothing
     },
     fields.BinaryField: {
         fields.UUIDField: converters.to_uuid

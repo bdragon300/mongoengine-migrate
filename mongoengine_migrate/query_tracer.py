@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import NamedTuple, Dict, Tuple, Any
 
 import wrapt
+import functools
 from bson import ObjectId
 
 
@@ -52,16 +53,21 @@ class BulkWriteResultMock(NamedTuple):
     upserted_ids: Tuple[ObjectId] = (ObjectId('000000000000000000000000'), )
 
 
-@wrapt.decorator
-def history_method(wrapped, instance, args, kwargs):
-    instance.call_history.append(HistoryCall(
-        collection_name=instance.__wrapped__.full_name,
-        method_name=wrapped.__name__,
-        call_datetime=datetime.now(),
-        args=args,
-        kwargs=kwargs
-    ))
-    return wrapped(*args, **kwargs)
+def history_method(f):
+    @functools.wraps(f)
+    def w(instance, *args, **kwargs):
+        instance.call_history.append(
+            HistoryCall(
+                collection_name=instance.__wrapped__.full_name,
+                method_name=f.__name__,
+                call_datetime=datetime.now(),
+                args=args,
+                kwargs=kwargs
+            )
+        )
+        return f(*args, **kwargs)
+
+    return w
 
 
 class QueryTracer(wrapt.ObjectProxy):

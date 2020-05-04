@@ -4,7 +4,7 @@ from typing import Optional
 import click
 
 from mongoengine_migrate.loader import MongoengineMigrate, import_module
-import mongoengine_migrate.runtime_flags as runtime_flags
+import mongoengine_migrate.flags as runtime_flags
 
 mongoengine_migrate: Optional[MongoengineMigrate] = None
 

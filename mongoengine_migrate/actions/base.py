@@ -5,7 +5,7 @@ from typing import Dict, Type, Optional, List
 from pymongo.database import Database
 
 from mongoengine_migrate.fields.registry import type_key_registry
-import mongoengine_migrate.runtime_flags as runtime_flags
+import mongoengine_migrate.flags as runtime_flags
 from mongoengine_migrate.history_mock import CollectionHistoryMock, HistoryCall
 
 #: Migration Actions registry. Mapping of class name and its class

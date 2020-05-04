@@ -12,7 +12,7 @@ from mongoengine.base import _document_registry
 from mongoengine.fields import EmbeddedDocument
 from pymongo import MongoClient
 
-import mongoengine_migrate.runtime_flags as runtime_flags
+import mongoengine_migrate.flags as runtime_flags
 from mongoengine_migrate.actions.factory import build_actions_chain
 from mongoengine_migrate.exceptions import MigrationError, SchemaError
 from mongoengine_migrate.fields.registry import type_key_registry

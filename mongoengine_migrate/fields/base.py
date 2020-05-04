@@ -8,7 +8,8 @@ from pymongo.collection import Collection as MongoCollection
 from mongoengine_migrate.actions.diff import AlterDiff, UNSET
 from mongoengine_migrate.exceptions import SchemaError, MigrationError
 from mongoengine_migrate.fields.registry import type_key_registry, add_field_handler
-from mongoengine_migrate.utils import get_closest_parent, check_empty_result
+from mongoengine_migrate.utils import get_closest_parent
+from ..mongo import check_empty_result
 from .registry import CONVERTION_MATRIX
 
 

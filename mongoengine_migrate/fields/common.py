@@ -4,7 +4,7 @@ from typing import Type, Collection
 import mongoengine.fields
 
 from mongoengine_migrate.exceptions import MigrationError
-from mongoengine_migrate.utils import check_empty_result
+from ..mongo import check_empty_result
 from .base import CommonFieldHandler
 from .converters import to_string, to_decimal
 from ..actions.diff import AlterDiff, UNSET

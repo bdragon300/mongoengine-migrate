@@ -5,7 +5,7 @@ from mongoengine.fields import BaseField
 from pymongo.collection import Collection
 
 from mongoengine_migrate.exceptions import MigrationError
-from mongoengine_migrate.utils import check_empty_result
+from mongoengine_migrate.mongo import check_empty_result
 
 
 def nothing(*args, **kwargs):

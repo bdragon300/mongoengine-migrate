@@ -455,6 +455,7 @@ class ReferenceFieldHandler(CommonFieldHandler):
 
         # TODO: figure out about ObjectID and DBRef storing
 
+    @classmethod
     def build_schema(cls, field_obj: mongoengine.fields.BaseField) -> dict:
         schema = super().build_schema(field_obj)
 

@@ -64,7 +64,7 @@ def history_method(wrapped, instance, args, kwargs):
     return wrapped(*args, **kwargs)
 
 
-class CollectionHistoryMock(wrapt.ObjectProxy):
+class QueryTracer(wrapt.ObjectProxy):
     """
     pymongo.Collection wrapper object which mocks modification methods
     calls and writes their call to history

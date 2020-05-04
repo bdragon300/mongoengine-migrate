@@ -6,7 +6,7 @@ from pymongo.database import Database
 
 from mongoengine_migrate.fields.registry import type_key_registry
 import mongoengine_migrate.flags as runtime_flags
-from mongoengine_migrate.history_mock import CollectionHistoryMock, HistoryCall
+from mongoengine_migrate.query_tracer import QueryTracer, HistoryCall
 
 #: Migration Actions registry. Mapping of class name and its class
 actions_registry: Dict[str, Type['BaseAction']] = {}
@@ -67,7 +67,7 @@ class BaseAction(metaclass=BaseActionMeta):
         self.db = db
         self.collection = db[self.collection_name]
         if runtime_flags.dry_run:
-            self.collection = CollectionHistoryMock(self.collection)
+            self.collection = QueryTracer(self.collection)
 
     def cleanup(self):
         """Cleanup after Action run (both forward and backward)"""

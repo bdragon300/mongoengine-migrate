@@ -207,6 +207,7 @@ CONVERTION_MATRIX = {
         fields.EmbeddedDocumentField: converters.nothing,
         fields.ListField: converters.item_to_list,
         fields.ReferenceField: converters.cached_reference_to_ref,
+        fields.LazyReferenceField: converters.cached_reference_to_ref,
         fields.DictField: converters.nothing
     },
     fields.BinaryField: {

@@ -441,7 +441,8 @@ class UUIDFieldHandler(CommonFieldHandler):
 
 class ReferenceFieldHandler(CommonFieldHandler):
     field_classes = [
-        mongoengine.fields.ReferenceField
+        mongoengine.fields.ReferenceField,
+        mongoengine.fields.LazyReferenceField
     ]
 
     schema_skel_keys = {'link_collection', 'dbref'}

@@ -432,3 +432,50 @@ class UUIDFieldHandler(CommonFieldHandler):
         else:
             pass
             # TODO: convert Binary to string
+
+
+class ReferenceFieldHandler(CommonFieldHandler):
+    field_classes = [
+        mongoengine.fields.ReferenceField
+    ]
+
+    schema_skel_keys = {'link_collection', 'dbref'}
+
+    def change_link_collection(self, diff: AlterDiff):
+        """Collection could be not existed in db, so do nothing"""
+        self._check_diff(diff, False, str)
+
+    def change_dbref(self, diff: AlterDiff):
+        self._check_diff(diff, False, bool)
+
+        # TODO: figure out about ObjectID and DBRef storing
+
+    def build_schema(cls, field_obj: mongoengine.fields.BaseField) -> dict:
+        schema = super().build_schema(field_obj)
+
+        document_type = field_obj.document_type
+        schema['link_collection'] = document_type._get_collection_name()
+
+        return schema
+
+
+# class EmbeddedDocumentFieldHandler(CommonFieldHandler):
+#     field_classes = [
+#         mongoengine.fields.EmbeddedDocumentField
+#     ]
+#
+#     schema_skel_keys = {'document_type'}
+#
+#     def change_document_type(self, diff: AlterDiff):
+#         self._check_diff(diff, False, str)
+#
+#         try:
+#             document = get_document(diff.new)
+#         except mongoengine.errors.NotRegistered as e:
+#             raise MigrationError(f'Could not find document {diff.new}, field: {self.db_field}, '
+#                                  f'diff: {diff!s}') from e
+#
+#     def build_schema(cls, field_obj: mongoengine.fields.BaseField) -> dict:
+#         schema = super().build_schema(field_obj)
+#
+#         document_type = field_obj.document_type

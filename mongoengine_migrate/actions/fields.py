@@ -48,15 +48,17 @@ class CreateField(BaseFieldAction):
         """
         is_required = self.parameters.get('required') or self.parameters.get('primary_key')
         default = self.parameters.get('default')
+        db_field = self.parameters['db_field']
         if is_required:
             self.collection.update_many(
-                {self.field_name: {'$exists': False}}, {'$set': {self.field_name: default}}
+                {db_field: {'$exists': False}}, {'$set': {db_field: default}}
             )
 
     def run_backward(self):
         """Drop field"""
+        db_field = self.parameters['db_field']
         self.collection.update_many(
-            {self.field_name: {'$exists': True}}, {'$unset': {self.field_name: ''}}
+            {db_field: {'$exists': True}}, {'$unset': {db_field: ''}}
         )
 
 
@@ -94,8 +96,9 @@ class DropField(BaseFieldAction):
 
     def run_forward(self):
         """Drop field"""
+        db_field = self.parameters['db_field']
         self.collection.update_many(
-            {self.field_name: {'$exists': True}}, {'$unset': {self.field_name: ''}}
+            {db_field: {'$exists': True}}, {'$unset': {db_field: ''}}
         )
 
     def run_backward(self):
@@ -106,9 +109,10 @@ class DropField(BaseFieldAction):
         """
         is_required = self.parameters.get('required') or self.parameters.get('primary_key')
         default = self.parameters.get('default')
+        db_field = self.parameters['db_field']
         if is_required:
             self.collection.update_many(
-                {self.field_name: {'$exists': False}}, {'$set': {self.field_name: default}}
+                {db_field: {'$exists': False}}, {'$set': {db_field: default}}
             )
 
 

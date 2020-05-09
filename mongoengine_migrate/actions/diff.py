@@ -11,18 +11,36 @@ class AlterDiff:
     executed if error occured during diff applying. And also the
     default value as another option on error handling.
     """
-    # TODO: add flag to skip convertion with just changing schema
     error_policy_choices = ('ignore', 'raise', 'replace', 'remove_field')
     default_error_policy = 'raise'
 
     def __init__(self,
                  old_value: Any,
                  new_value: Any,
+                 convert: bool = True,
                  error_policy: Optional[str] = None,
                  default: Any = None):
+        """
+        :param old_value:
+        :param new_value:
+        :param convert: execute convertion queries during migration run
+        :param error_policy: convertion error policy. When error has
+         occured during convertion, following policies could be applied:
+
+         - "raise" -- raise an exception and abort migration (Default)
+         - "ignore" -- ignore the errors and keep convertion run
+         - "replace" -- replace the field value with the value specified
+         in "default" parameter
+         - "remove_field" -- remove field from the document
+
+        :param default: value to be written to field on convertion error
+         and "replace" error policy selected
+        """
         self.old = old_value
         self.new = new_value
         self.diff = (old_value, new_value)
+        self.convert = convert
+
         if error_policy in self.error_policy_choices:
             self.error_policy = error_policy
         else:
@@ -44,6 +62,10 @@ class AlterDiff:
 
     def _get_params_expr(self) -> list:
         expr = [repr(self.old), repr(self.new)]
+
+        if self.convert is not True:
+            expr.append(f'convert=False')
+
         if self.error_policy != self.default_error_policy:
             expr.append(f'error_policy={self.error_policy!r}')
 

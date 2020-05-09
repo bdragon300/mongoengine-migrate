@@ -179,3 +179,5 @@ class QueryTracer(wrapt.ObjectProxy):
     @history_method
     def find_and_modify(self, *args, **kwargs):
         pass
+
+    # TODO: implement read methods with appropriate mark in history_method

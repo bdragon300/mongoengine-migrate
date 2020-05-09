@@ -221,7 +221,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             raise MigrationError(f"'type_key' has empty values: {diff!r}")
 
         field_classes = []
-        for val in (diff.new, diff.old):
+        for val in (diff.old, diff.new):
             if val not in type_key_registry:
                 raise MigrationError(f'Could not find {val!r} or one of its base classes '
                                      f'in type_key registry')

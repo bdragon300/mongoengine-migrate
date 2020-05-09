@@ -65,7 +65,7 @@ def history_method(f):
                 kwargs=kwargs
             )
         )
-        return f(*args, **kwargs)
+        return f(instance, *args, **kwargs)
 
     return w
 

@@ -190,7 +190,7 @@ class AlterField(BaseFieldAction):
 
         # Change field type if requested. Then trying to obtain new
         # FieldHandler class and process the rest
-        if 'type_key' in field_params:
+        if 'type_key' in field_params and field_params['type_key'].convert:
             field_handler.change_param('type_key', field_params['type_key'])
             field_handler = self._get_field_handler(field_params['type_key'].new)
 
@@ -198,7 +198,8 @@ class AlterField(BaseFieldAction):
             if name == 'type_key':
                 continue
 
-            field_handler.change_param(name, diff)
+            if diff.convert:
+                field_handler.change_param(name, diff)
 
     def _get_field_handler(self, type_key: str):
         """

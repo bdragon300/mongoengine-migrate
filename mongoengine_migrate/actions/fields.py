@@ -182,10 +182,11 @@ class AlterField(BaseFieldAction):
         # Take field type from schema. If that field was user-defined
         # and does not exist anymore then we use CommonFieldHandler as
         # fallback variant
-        if self.collection_name not in self.current_schema \
-            or self.field_name not in self.current_schema[self.collection_name]:
+        try:
+            field_schema = self.current_schema[self.collection_name][self.field_name]
+        except KeyError:
             raise SchemaError(f'Field {self.collection_name}.{self.field_name} not in schema')
-        field_schema = self.current_schema[self.collection_name][self.field_name]
+        
         field_handler = self._get_field_handler(field_schema.get('type_key'))
 
         # Change field type if requested. Then trying to obtain new

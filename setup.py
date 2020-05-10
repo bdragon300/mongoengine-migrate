@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name='mongoengine-migrate',
     description='Migrations for MongoEngine ODM inspired by Django',
-    version='0.1.dev1',
+    version='0.1a1.dev1',
     author='Igor Derkach',
     author_email='gosha753951@gmail.com',
     url='https://github.com/bdragon300/mongoengine-migrate',

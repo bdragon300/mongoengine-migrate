@@ -157,8 +157,8 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                 raise MigrationError(f'Cannot mark field {self.collection.name}.{self.db_field} '
                                      f'as required because default value is not set')
             self.collection.update_many(
-                {self.db_field: {'$exists': False}},
-                {'$set': {self.db_field: diff.default}}
+                {self.db_field: None},  # Both null and nonexistent field
+                {'$set': {self.db_field: diff.default}}  # FIXME: change to field default
             )
 
     def change_unique(self, diff: AlterDiff):
@@ -176,7 +176,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :return:
         """
         self._check_diff(diff, False, bool)
-        self.change_required(diff),
+        self.change_required(diff),  # FIXME: should not consider default value, but check if field is required
         # self.change_unique([], []) or []  # TODO
 
     # TODO: consider Document, EmbeddedDocument as choices
@@ -201,7 +201,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                                      f'{diff.default} does not listed in choices')
             self.collection.update_many(
                 {self.db_field: {'$nin': choices}},
-                {'$set': {self.db_field: diff.default}}
+                {'$set': {self.db_field: diff.default}}  # FIXME: consider smth another
             )
 
     def change_null(self, diff: AlterDiff):

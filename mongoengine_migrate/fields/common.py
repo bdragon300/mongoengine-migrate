@@ -116,16 +116,14 @@ class StringFieldHandler(CommonFieldHandler):
         if diff.new < 0:
             diff.new = 0
 
-        res = self.collection.find({
-            self.db_field: {'$ne': None},
-            "$where": f"this.{self.db_field}.length < {diff.new}"  # >=3.6
-        })
         # We can't to increase string length, so raise error if
         # there was found strings which are shorter than should be
-        if res.retrieved > 0:
-            raise MigrationError(f'Cannot migrate min_length for '
-                                 f'{self.collection.name}.{self.db_field} because '
-                                 f'{res.retrieved} documents are less than min_length')
+        fltr = {
+            self.db_field: {'$ne': None},
+            "$where": f"this.{self.db_field}.length < {diff.new}"  # >=3.6
+        }
+        check_empty_result(self.collection, self.db_field, fltr)
+
         # if diff.error_policy == 'replace':
         #     if diff.default is not None and len(diff.default) < diff.new:
         #         raise MigrationError(f"Cannot set min_length for "
@@ -325,8 +323,8 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
         self.collection.aggregate([
             {'$match': {
                 '$and': [
+                    {self.db_field: {"$ne": None}},
                     {self.db_field: re.compile(old_regex)},
-                    {self.db_field: {"$ne": None}}
                 ]
             }},
             {'$addFields': {  # >=3.4
@@ -480,7 +478,7 @@ class CachedReferenceFieldHandler(CommonFieldHandler):
         if to_remove:
             paths = {f'{self.db_field}.{f}': '' for f in to_remove}
             self.collection.update_many(
-                {self.db_field: {'$exists': True}},
+                {self.db_field: {'$ne': None}},
                 {'$unset': paths}
             )
 

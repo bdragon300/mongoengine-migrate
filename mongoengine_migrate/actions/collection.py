@@ -1,5 +1,4 @@
 from .base import BaseCollectionAction
-from mongoengine_migrate.exceptions import ActionError
 
 
 class CreateCollection(BaseCollectionAction):

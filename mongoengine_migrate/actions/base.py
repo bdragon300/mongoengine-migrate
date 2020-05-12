@@ -4,8 +4,8 @@ from typing import Dict, Type, Optional, List
 
 from pymongo.database import Database
 
-from mongoengine_migrate.fields.registry import type_key_registry
 import mongoengine_migrate.flags as runtime_flags
+from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.query_tracer import QueryTracer, HistoryCall
 
 #: Migration Actions registry. Mapping of class name and its class
@@ -76,11 +76,27 @@ class BaseAction(metaclass=BaseActionMeta):
 
     @abstractmethod
     def run_forward(self):
-        """DB commands to be run in forward direction"""
+        """
+        DB commands to be run in forward direction.
+
+        All queries executed here must be idempotental, i.e. give the
+        same result after repeated execution. This is because if any
+        query would fail then migration process will be aborted, and
+        repeated migration run will execute the same commands in this
+        case until the migration will get finished.
+        """
 
     @abstractmethod
     def run_backward(self):
-        """DB commands to be run in backward direction"""
+        """
+        DB commands to be run in backward direction
+
+        All queries executed here must be idempotental, i.e. give the
+        same result after repeated execution. This is because if any
+        query would fail then migration process will be aborted, and
+        repeated migration run will execute the same commands in this
+        case until the migration will get finished.
+        """
 
     @abstractmethod
     def to_schema_patch(self, current_schema: dict):

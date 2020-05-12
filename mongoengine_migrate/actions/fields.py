@@ -199,7 +199,7 @@ class AlterField(BaseFieldAction):
             field_handler.change_param('type_key', field_params['type_key'])
             field_handler = self._get_field_handler(field_params['type_key'].new)
 
-        for name, diff in field_params.items():
+        for name, diff in field_params.items():  # FIXME: sort items by field name
             if name == 'type_key':
                 continue
 

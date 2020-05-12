@@ -26,21 +26,28 @@ def drop_field(collection: Collection, db_field: str):
     collection.update_many({db_field: {'$exists': True}}, {'$unset': {db_field: ''}})
 
 
-@mongo_version(min_version='3.4')
+@mongo_version(min_version='3.6')
 def item_to_list(collection: Collection, db_field: str):
-    """Make list with a single element from an value"""
+    """Make a list with single element from every non-array value"""
     collection.aggregate([
-        {'$match': {db_field: {"$exists": True}}},
+        {'$match': {
+            db_field: {"$exists": True},
+            "$expr": {"$ne": [{"$type": f'${db_field}'}, 'array']}  # $expr >= 3.6, $type >= 3.4
+        }},
         {'$addFields': {db_field: [f"${db_field}"]}},  # >=3.4
         {'$out': collection.name}  # >= 2.6
     ])
 
 
-@mongo_version(min_version='3.4')
+@mongo_version(min_version='3.6')
 def extract_from_list(collection: Collection, db_field: str):
-    """Everwrite list with its first element"""
+    """Replace every list which was met with its first element"""
     collection.aggregate([
-        {'$match': {db_field: {"$ne": None}}},
+        {'$match': {
+            db_field: {"$ne": None},
+            # FIXME: what if nested list (not idempotent query)
+            "$expr": {"$eq": [{"$type": f'${db_field}'}, 'array']}  # $expr >= 3.6, $type >= 3.4
+        }},
         {'$addFields': {db_field: {"$arrayElemAt": [f"${db_field}", 0]}}},  # >=3.4
         {'$out': collection.name}  # >= 2.6
     ])
@@ -88,7 +95,12 @@ def to_uuid(collection: Collection, db_field: str):
     collection.aggregate([
         {'$match': {
             db_field: {'$ne': None}, # Field exists and not null
-            '$expr': {'$not': [{'$type': f'${db_field}'}, 'binData']}  # $expr >= 3.6, $type >= 3.4
+            '$expr': {  # >= 3.6
+                '$not': [
+                    # $type >= 3.4, $in >= 3.4
+                    {'$in': [{'$type': f'${db_field}'}, ['binData', 'string']]}
+                ]
+            }
         }},
         {'$addFields': {  # >= 3.4
             '$convert': {  # >= 4.0
@@ -132,24 +144,43 @@ def to_complex_datetime(collection: Collection, db_field: str):
     check_empty_result(collection, db_field, fltr)
 
 
-@mongo_version(min_version='3.4')
+@mongo_version(min_version='3.6')
 def ref_to_cached_reference(collection: Collection, db_field: str):
     """Make SON object (dict) from ObjectID/DBRef object"""
+    # FIXME: move to class, it's depended on `dbref` flag
     collection.aggregate([
-        {'$match': {db_field: {"$exists": True}}},
+        {'$match': {
+            db_field: {"$ne": None},
+            "$expr": {"$ne": [{"$type": f'${db_field}'}, 'object']}  # $expr >= 3.6, $type >= 3.4
+        }},
         {'$addFields': {db_field: {'_id': f"${db_field}"}}},  # >= 3.4
         {'$out': collection.name}  # >= 2.6
     ])
 
+    # Check if all objects which was not converted has correct format
+    fltr = {f'{db_field}._id': {'$exists': False}}
+    check_empty_result(collection, db_field, fltr)
 
-@mongo_version(min_version='3.4')
+
+@mongo_version(min_version='3.6')
 def cached_reference_to_ref(collection: Collection, db_field: str):
-    """Extract ObjectID/DBRef reference object from SON object (dict)"""
+    """Extract ObjectID reference object from SON object (dict)"""
+    # FIXME: move to class, it's depended on `dbref` flag
     collection.aggregate([
-        {'$match': {db_field: {"$exists": True}}},
+        {'$match': {"$and": [
+            {f'{db_field}._id': {"$ne": None}},
+            {"$expr": {"$eq": [{"$type": f'${db_field}'}, 'object']}}  # $expr >= 3.6, $type >= 3.4
+        ]}},
         {'$addFields': {db_field: f"${db_field}._id"}},  # >= 3.4
         {'$out': collection.name}  # >= 2.6
     ])
+
+    # Check if all values are DBRef or ObjectID
+    fltr = {"$expr": {
+        "$not": [{
+            "$in": [{"$type": "$key"}, ['objectId', ]]
+        }]
+    }}
 
 
 @mongo_version(min_version='4.0')
@@ -168,7 +199,11 @@ def __mongo_convert(collection: Collection, db_field: str, target_type: str):
     # TODO: use $convert with onError and onNull
     collection.aggregate([
         # Field exists and not null
-        {'$match': {db_field: {"$ne": None}}},
+        {'$match': {
+            db_field: {'$ne': None},  # Field exists and not null
+            # $expr >= 3.6, $type >= 3.4
+            "$expr": {"$ne": [{"$type": f'${db_field}'}, target_type]}
+        }},
         {'$addFields': {
             '$convert': {  # >= 4.0
                 'input': f'${db_field}',

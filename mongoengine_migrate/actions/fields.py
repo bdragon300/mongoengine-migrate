@@ -25,8 +25,8 @@ class CreateField(BaseFieldAction):
                        **field_params
                        )
 
-    def to_schema_patch(self, current_schema: dict):
-        if self.collection_name not in current_schema:
+    def to_schema_patch(self, left_schema: dict):
+        if self.collection_name not in left_schema:
             raise ActionError(f'Cannot create field {self.collection_name}.{self.field_name} '
                               f'since the collection {self.collection_name} is not in schema')
         field_params = {
@@ -80,8 +80,8 @@ class DropField(BaseFieldAction):
                        field_name=field_name,
                        **field_params)
 
-    def to_schema_patch(self, current_schema: dict):
-        if self.collection_name not in current_schema:
+    def to_schema_patch(self, left_schema: dict):
+        if self.collection_name not in left_schema:
             raise ActionError(f'Cannot drop field {self.collection_name}.{self.field_name} '
                               f'since the collection {self.collection_name} is not in schema')
         field_params = {
@@ -154,8 +154,8 @@ class AlterField(BaseFieldAction):
                        **field_params
                        )
 
-    def to_schema_patch(self, current_schema: dict):
-        if self.collection_name not in current_schema:
+    def to_schema_patch(self, left_schema: dict):
+        if self.collection_name not in left_schema:
             raise ActionError(f'Cannot alter field {self.collection_name}.{self.field_name} '
                               f'since the collection {self.collection_name} is not in schema')
         p = []
@@ -187,7 +187,7 @@ class AlterField(BaseFieldAction):
         # and does not exist anymore then we use CommonFieldHandler as
         # fallback variant
         try:
-            field_schema = self.current_schema[self.collection_name][self.field_name]
+            field_schema = self.left_schema[self.collection_name][self.field_name]
         except KeyError:
             raise SchemaError(f'Field {self.collection_name}.{self.field_name} not in schema')
         
@@ -219,7 +219,7 @@ class AlterField(BaseFieldAction):
         handler_cls = type_key_registry[type_key].field_handler_cls
         handler = handler_cls(
             self.collection,
-            self.current_schema.get(self.collection_name, {}).get(self.field_name, {})
+            self.left_schema.get(self.collection_name, {}).get(self.field_name, {})
         )
         return handler
 
@@ -323,13 +323,13 @@ class RenameField(BaseFieldAction):
                        field_name=field_name,
                        new_name=candidates[0][0])
 
-    def to_schema_patch(self, current_schema: dict):
-        if self.collection_name not in current_schema:
+    def to_schema_patch(self, left_schema: dict):
+        if self.collection_name not in left_schema:
             raise ActionError(f'Cannot rename field {self.collection_name}.{self.field_name} '
                               f'since the collection {self.collection_name} is not in schema')
-        item = current_schema[self.collection_name].get(
+        item = left_schema[self.collection_name].get(
             self.field_name,
-            current_schema[self.collection_name].get(self.new_name)
+            left_schema[self.collection_name].get(self.new_name)
         )
         return [
             ('remove', f'{self.collection_name}', [(self.field_name, item)]),

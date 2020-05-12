@@ -11,7 +11,7 @@ class CreateCollection(BaseCollectionAction):
         if collection_name not in old_schema and collection_name in new_schema:
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
-    def to_schema_patch(self, current_schema: dict):
+    def to_schema_patch(self, left_schema: dict):
         return [('add', '', [(self.collection_name, self.COLLECTION_SCHEMA_SKEL)])]
 
     def run_forward(self):
@@ -36,7 +36,7 @@ class DropCollection(BaseCollectionAction):
         if collection_name in old_schema and collection_name not in new_schema:
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
-    def to_schema_patch(self, current_schema: dict):
+    def to_schema_patch(self, left_schema: dict):
         return [('remove', '', [(self.collection_name, self.COLLECTION_SCHEMA_SKEL)])]
 
     def run_forward(self):
@@ -114,10 +114,10 @@ class RenameCollection(BaseCollectionAction):
         if len(candidates) == 1:
             return cls(collection_name=collection_name, new_name=candidates[0][0])
 
-    def to_schema_patch(self, current_schema: dict):
-        item = current_schema.get(
+    def to_schema_patch(self, left_schema: dict):
+        item = left_schema.get(
             self.collection_name,
-            current_schema.get(self.new_name)
+            left_schema.get(self.new_name)
         )
         return [
             ('remove', '', [(self.collection_name, item)]),

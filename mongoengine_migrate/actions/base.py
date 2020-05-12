@@ -52,18 +52,18 @@ class BaseAction(metaclass=BaseActionMeta):
         self.collection_name = collection_name
         self.parameters = kwargs
 
-        self.current_schema = None
+        self.left_schema = None
         self.db = None
         self.collection = None
 
-    def prepare(self, db: Database, current_schema: dict):
+    def prepare(self, db: Database, left_schema: dict):
         """
         Prepare action before Action run (both forward and backward)
         :param db: pymongo.Database object
-        :param current_schema: db schema which is before migration
+        :param left_schema: db schema before migration (left side)
         :return:
         """
-        self.current_schema = current_schema
+        self.left_schema = left_schema
         self.db = db
         self.collection = db[self.collection_name]
         if runtime_flags.dry_run:
@@ -99,16 +99,13 @@ class BaseAction(metaclass=BaseActionMeta):
         """
 
     @abstractmethod
-    def to_schema_patch(self, current_schema: dict):
+    def to_schema_patch(self, left_schema: dict):
         """
         Return dictdiff patch should get applied in a forward direction
-        run, but it runs in both directions. So the patch typically
-        should be the same no matter which the `current_schema`
-        structure has. In other words, `current_schema` has
-        the schema before action would run in a forward direction and
-        the schema after action would run in a backward direction.
-        :param current_schema: schema state before method call
-        :return: dictdiffer diff
+        run
+        :param left_schema: schema state before the Action would get
+         applied (left side)
+        :return: schema diff
         """
 
     @abstractmethod

@@ -183,7 +183,7 @@ CONVERTION_MATRIX = {
     fields.ListField: {
         fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
         fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded documents
-        fields.DictField: converters.extract_from_list,
+        fields.DictField: converters.extract_from_list,  # FIXME: it's may be not a dict after extraction
         # fields.GeoJsonBaseField: converters.list_to_geojson
     },
     fields.EmbeddedDocumentListField: {

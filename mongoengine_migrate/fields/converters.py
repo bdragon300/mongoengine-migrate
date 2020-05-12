@@ -146,41 +146,54 @@ def to_complex_datetime(collection: Collection, db_field: str):
 
 @mongo_version(min_version='3.6')
 def ref_to_cached_reference(collection: Collection, db_field: str):
-    """Make SON object (dict) from ObjectID/DBRef object"""
-    # FIXME: move to class, it's depended on `dbref` flag
+    """Convert ObjectId values to Manual Reference SON object.
+    Leave DBRef objects as is.
+    """
     collection.aggregate([
         {'$match': {
             db_field: {"$ne": None},
-            "$expr": {"$ne": [{"$type": f'${db_field}'}, 'object']}  # $expr >= 3.6, $type >= 3.4
+            # $expr >= 3.6, $type >= 3.4
+            "$expr": {"$eq": [{"$type": f'${db_field}'}, 'objectId']}
         }},
         {'$addFields': {db_field: {'_id': f"${db_field}"}}},  # >= 3.4
         {'$out': collection.name}  # >= 2.6
     ])
 
-    # Check if all objects which was not converted has correct format
-    fltr = {f'{db_field}._id': {'$exists': False}}
+    # Check if all values in collection are DBRef or Manual reference
+    # objects because we could miss other value types on a previous step
+    fltr = {
+        db_field: {"$ne": None},
+        f'{db_field}.$id': {"$exists": False},  # Exclude DBRef objects
+        f'{db_field}._id': {"$exists": False},  # Exclude Manual refs
+    }
     check_empty_result(collection, db_field, fltr)
 
 
 @mongo_version(min_version='3.6')
 def cached_reference_to_ref(collection: Collection, db_field: str):
-    """Extract ObjectID reference object from SON object (dict)"""
-    # FIXME: move to class, it's depended on `dbref` flag
+    """Convert Manual Reference SON object to ObjectId value.
+    Leave DBRef objects as is.
+    """
     collection.aggregate([
-        {'$match': {"$and": [
-            {f'{db_field}._id': {"$ne": None}},
-            {"$expr": {"$eq": [{"$type": f'${db_field}'}, 'object']}}  # $expr >= 3.6, $type >= 3.4
-        ]}},
+        {'$match': {
+            f'{db_field}._id': {"$ne": None},
+            # $expr >= 3.6, $type >= 3.4
+            "$expr": {"$eq": [{"$type": f'${db_field}'}, 'object']}
+        }},
         {'$addFields': {db_field: f"${db_field}._id"}},  # >= 3.4
         {'$out': collection.name}  # >= 2.6
     ])
 
-    # Check if all values are DBRef or ObjectID
-    fltr = {"$expr": {
-        "$not": [{
-            "$in": [{"$type": "$key"}, ['objectId', ]]
-        }]
-    }}
+    # Check if all values in collection are DBRef or ObjectId because
+    # we could miss other value types on a previous step
+    fltr = {
+        db_field: {"$ne": None},
+        f'{db_field}.$id': {"$exists": False},  # Exclude DBRef objects
+        "$expr": {  # >= 3.6
+            "$ne": [{"$type": "$key"}, 'objectId']
+        }
+    }
+    check_empty_result(collection, db_field, fltr)
 
 
 @mongo_version(min_version='4.0')

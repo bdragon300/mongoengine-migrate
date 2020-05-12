@@ -7,8 +7,8 @@ class CreateCollection(BaseCollectionAction):
     Ex.: `CreateCollection("collection1")`
     """
     @classmethod
-    def build_object(cls, collection_name: str, old_schema: dict, new_schema: dict):
-        if collection_name not in old_schema and collection_name in new_schema:
+    def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
+        if collection_name not in left_schema and collection_name in right_schema:
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
     def to_schema_patch(self, left_schema: dict):
@@ -32,8 +32,8 @@ class DropCollection(BaseCollectionAction):
     Ex.: `DropCollection("collection1")`
     """
     @classmethod
-    def build_object(cls, collection_name: str, old_schema: dict, new_schema: dict):
-        if collection_name in old_schema and collection_name not in new_schema:
+    def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
+        if collection_name in left_schema and collection_name not in right_schema:
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
     def to_schema_patch(self, left_schema: dict):
@@ -71,23 +71,23 @@ class RenameCollection(BaseCollectionAction):
         self.new_name = new_name
 
     @classmethod
-    def build_object(cls, collection_name: str, old_schema: dict, new_schema: dict):
+    def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
         # Check if field exists under different name in schema.
         # Field also can have small schema changes in the same time
         # So we try to get similarity percentage and if it more than
         # threshold then we're consider such change as rename/alter.
         # Otherwise it is drop/create
-        match = collection_name in old_schema and collection_name not in new_schema
+        match = collection_name in left_schema and collection_name not in right_schema
         if not match:
             return
 
-        old_col_schema = old_schema[collection_name]
+        old_col_schema = left_schema[collection_name]
         candidates = []
         matches = 0
         compares = 0
-        for name, schema in new_schema.items():
+        for name, schema in right_schema.items():
             # Skip collections which was not renamed
-            if name in old_schema:
+            if name in left_schema:
                 continue
 
             # Exact match, collection was just renamed
@@ -115,10 +115,7 @@ class RenameCollection(BaseCollectionAction):
             return cls(collection_name=collection_name, new_name=candidates[0][0])
 
     def to_schema_patch(self, left_schema: dict):
-        item = left_schema.get(
-            self.collection_name,
-            left_schema.get(self.new_name)
-        )
+        item = left_schema[self.collection_name]
         return [
             ('remove', '', [(self.collection_name, item)]),
             ('add', '', [(self.new_name, item)])

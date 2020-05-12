@@ -1,9 +1,8 @@
 from typing import Mapping
 
-from mongoengine_migrate.exceptions import ActionError, MigrationError, SchemaError
-from mongoengine_migrate.fields.registry import type_key_registry
+from mongoengine_migrate.exceptions import ActionError, SchemaError
 from .base import BaseFieldAction
-from .diff import AlterDiff, UNSET
+from .diff import AlterDiff
 
 
 class CreateField(BaseFieldAction):
@@ -12,23 +11,35 @@ class CreateField(BaseFieldAction):
     def build_object(cls,
                      collection_name: str,
                      field_name: str,
-                     old_schema: dict,
-                     new_schema: dict):
-        match = collection_name in old_schema \
-                and collection_name in new_schema \
-                and field_name not in old_schema[collection_name] \
-                and field_name in new_schema[collection_name]
+                     left_schema: dict,
+                     right_schema: dict):
+        match = collection_name in left_schema \
+                and collection_name in right_schema \
+                and field_name not in left_schema[collection_name] \
+                and field_name in right_schema[collection_name]
         if match:
-            field_params = new_schema[collection_name][field_name]
+            field_params = right_schema[collection_name][field_name]
             return cls(collection_name=collection_name,
                        field_name=field_name,
                        **field_params
                        )
 
     def to_schema_patch(self, left_schema: dict):
-        if self.collection_name not in left_schema:
-            raise ActionError(f'Cannot create field {self.collection_name}.{self.field_name} '
+        try:
+            left_field_schema = left_schema[self.collection_name]
+        except KeyError:
+            raise ActionError(f'Cannot alter field {self.collection_name}.{self.field_name} '
                               f'since the collection {self.collection_name} is not in schema')
+
+        # Get schema skeleton for field type
+        field_handler = self._get_field_handler(
+            self.parameters.get('type_key', left_field_schema.get('type_key'))
+        )
+        right_schema_skel = field_handler.schema_skel()
+        extra_keys = self.parameters.keys() - right_schema_skel.keys()
+        if extra_keys:
+            raise ActionError(f'Unknown schema parameters: {extra_keys}')
+
         field_params = {
             **self.field_handler_cls.schema_skel(),
             **self.parameters
@@ -68,30 +79,23 @@ class DropField(BaseFieldAction):
     def build_object(cls,
                      collection_name: str,
                      field_name: str,
-                     old_schema: dict,
-                     new_schema: dict):
-        match = collection_name in old_schema \
-                and collection_name in new_schema \
-                and field_name in old_schema[collection_name] \
-                and field_name not in new_schema[collection_name]
+                     left_schema: dict,
+                     right_schema: dict):
+        match = collection_name in left_schema \
+                and collection_name in right_schema \
+                and field_name in left_schema[collection_name] \
+                and field_name not in right_schema[collection_name]
         if match:
-            field_params = old_schema[collection_name][field_name]
-            return cls(collection_name=collection_name,
-                       field_name=field_name,
-                       **field_params)
+            return cls(collection_name=collection_name, field_name=field_name)
 
     def to_schema_patch(self, left_schema: dict):
         if self.collection_name not in left_schema:
             raise ActionError(f'Cannot drop field {self.collection_name}.{self.field_name} '
                               f'since the collection {self.collection_name} is not in schema')
-        field_params = {
-            **self.field_handler_cls.schema_skel(),
-            **self.parameters
-        }
         return [(
             'remove',
             self.collection_name,
-            [(self.field_name, field_params)]
+            [(self.field_name, left_schema.get(self.collection_name, {}))]
         )]
 
     def run_forward(self):
@@ -118,58 +122,64 @@ class DropField(BaseFieldAction):
 
 class AlterField(BaseFieldAction):
     """Change field parameters or its type, i.e. altering"""
-    def __init__(self, collection_name: str, field_name: str, **kwargs):
-        super().__init__(collection_name, field_name, **kwargs)
-        if not all(isinstance(v, AlterDiff) for v in self.parameters.values()):
-            raise ActionError(f'Keyword parameters must be AlterDiff objects')
-
     @classmethod
     def build_object(cls,
                      collection_name: str,
                      field_name: str,
-                     old_schema: dict,
-                     new_schema: dict):
+                     left_schema: dict,
+                     right_schema: dict):
         # Check if field still here but its schema has changed
-        match = collection_name in old_schema \
-                and collection_name in new_schema \
-                and field_name in old_schema[collection_name] \
-                and field_name in new_schema[collection_name] \
-                and old_schema[collection_name][field_name] != new_schema[collection_name][field_name]
+        match = collection_name in left_schema \
+                and collection_name in right_schema \
+                and field_name in left_schema[collection_name] \
+                and field_name in right_schema[collection_name] \
+                and left_schema[collection_name][field_name] != right_schema[collection_name][field_name]
         if match:
-            new_params = new_schema[collection_name][field_name]
-            old_params = old_schema[collection_name][field_name]
-            # Get only those schema keys which have changed
-            # If keys are not equal between schemas then consider all
-            # of them
-            field_params = {k: AlterDiff(old_params.get(k, UNSET), new_params.get(k, UNSET))
-                            for k in new_params.keys() | old_params.keys()
-                            if old_params.get(k, object()) != new_params.get(k, object())}
-            field_params = cls._fix_field_params(collection_name,
-                                                 field_name,
-                                                 field_params,
-                                                 old_schema,
-                                                 new_schema)
-            return cls(collection_name=collection_name,
-                       field_name=field_name,
-                       **field_params
-                       )
+            # Consider items which was changed and added, skip those
+            # ones which was unchanged or was removed
+            right_field_schema = right_schema[collection_name][field_name]
+            left_field_schema = left_schema[collection_name][field_name]
+            action_params = dict(right_field_schema.items() - left_field_schema.items())
+            # FIXME: use function below
+            # field_params = cls._fix_field_params(collection_name,
+            #                                      field_name,
+            #                                      field_params,
+            #                                      old_schema,
+            #                                      new_schema)
+            return cls(collection_name=collection_name, field_name=field_name, **action_params)
 
     def to_schema_patch(self, left_schema: dict):
-        if self.collection_name not in left_schema:
+        try:
+            left_field_schema = left_schema[self.collection_name]
+        except KeyError:
             raise ActionError(f'Cannot alter field {self.collection_name}.{self.field_name} '
                               f'since the collection {self.collection_name} is not in schema')
-        p = []
-        for param, diff in self.parameters.items():
-            if diff.old == UNSET or diff.new == UNSET:
-                if diff.old == UNSET:
-                    p.append(
-                        ('add', f'{self.collection_name}.{self.field_name}', [(param, diff.new)])
-                    )
-                if diff.new == UNSET:
-                    p.append(('remove', f'{self.collection_name}.{self.field_name}', [(param, ())]))
-            else:
-                p.append(('change', f'{self.collection_name}.{self.field_name}.{param}', diff.diff))
-        return p
+
+        # Get schema skeleton for field type
+        field_handler = self._get_field_handler(
+            self.parameters.get('type_key', left_field_schema.get('type_key'))
+        )
+        right_schema_skel = field_handler.schema_skel()
+        extra_keys = self.parameters.keys() - right_schema_skel.keys()
+        if extra_keys:
+            raise ActionError(f'Unknown schema parameters: {extra_keys}')
+
+        # Shortcuts
+        left = left_field_schema
+        params = self.parameters
+
+        # Remove params
+        d = [('remove', f'{self.collection_name}.{self.field_name}', [(key, ())])
+             for key in left.keys() - right_schema_skel.keys()]
+        # Add new params
+        d += [('add', f'{self.collection_name}.{self.field_name}', [(key, params[key])])
+              for key in params.keys() - left.keys()]
+        # Change params if they are requested to be changed
+        d += [('change', f'{self.collection_name}.{self.field_name}.{key}', (left[key], params[key]))
+              for key in params.keys() & left.keys()
+              if left[key] != params[key]]
+
+        return d
 
     def run_forward(self):
         self._run_migration(self.parameters)
@@ -205,23 +215,6 @@ class AlterField(BaseFieldAction):
 
             if diff.convert:
                 field_handler.change_param(name, diff)
-
-    def _get_field_handler(self, type_key: str):
-        """
-        Return FieldHandler object by type_key
-        :param type_key: `type_key` item of schema
-        :return: concrete FieldHandler object
-        """
-        if type_key not in type_key_registry:
-            raise MigrationError(f'Could not find field {type_key!r} or one of its base classes '
-                                 f'in type_key registry')
-
-        handler_cls = type_key_registry[type_key].field_handler_cls
-        handler = handler_cls(
-            self.collection,
-            self.left_schema.get(self.collection_name, {}).get(self.field_name, {})
-        )
-        return handler
 
     @classmethod
     def _fix_field_params(cls,
@@ -281,26 +274,26 @@ class RenameField(BaseFieldAction):
     def build_object(cls,
                      collection_name: str,
                      field_name: str,
-                     old_schema: dict,
-                     new_schema: dict):
+                     left_schema: dict,
+                     right_schema: dict):
         # Check if field exists under different name in schema
         # Field also can have small schema changes in the same time
         # So we try to get similarity percentage and if it more than
         # threshold then we're consider such change as rename/alter.
         # Otherwise it is drop/create
-        match = collection_name in old_schema \
-                and collection_name in new_schema \
-                and field_name in old_schema[collection_name] \
-                and field_name not in new_schema[collection_name]
+        match = collection_name in left_schema \
+                and collection_name in right_schema \
+                and field_name in left_schema[collection_name] \
+                and field_name not in right_schema[collection_name]
         if not match:
             return
 
-        old_field_schema = old_schema[collection_name][field_name]
+        old_field_schema = left_schema[collection_name][field_name]
         candidates = []
-        for name, schema in new_schema[collection_name].items():
+        for name, schema in right_schema[collection_name].items():
             # Skip fields which was not renamed
             # Changing 'db_field' parameter is altering, not renaming
-            if name in old_schema[collection_name]:
+            if name in left_schema[collection_name]:
                 continue
 
             # Model field renamed, but db field is the same
@@ -324,13 +317,13 @@ class RenameField(BaseFieldAction):
                        new_name=candidates[0][0])
 
     def to_schema_patch(self, left_schema: dict):
-        if self.collection_name not in left_schema:
-            raise ActionError(f'Cannot rename field {self.collection_name}.{self.field_name} '
+        try:
+            left_field_schema = left_schema[self.collection_name]
+        except KeyError:
+            raise ActionError(f'Cannot alter field {self.collection_name}.{self.field_name} '
                               f'since the collection {self.collection_name} is not in schema')
-        item = left_schema[self.collection_name].get(
-            self.field_name,
-            left_schema[self.collection_name].get(self.new_name)
-        )
+
+        item = left_field_schema.get(self.field_name, {})
         return [
             ('remove', f'{self.collection_name}', [(self.field_name, item)]),
             ('add', f'{self.collection_name}', [(self.new_name, item)])

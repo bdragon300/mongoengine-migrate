@@ -7,6 +7,7 @@ from pymongo.database import Database
 import mongoengine_migrate.flags as runtime_flags
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.query_tracer import QueryTracer, HistoryCall
+from mongoengine_migrate.exceptions import MigrationError
 
 #: Migration Actions registry. Mapping of class name and its class
 actions_registry: Dict[str, Type['BaseAction']] = {}
@@ -140,6 +141,7 @@ class BaseFieldAction(BaseAction):
     @property
     def field_handler_cls(self):
         """Concrete FieldHandler class for a current field type"""
+        # FIXME: parameter could be not set
         return type_key_registry[self.parameters.get('type_key')].field_handler_cls
 
     @classmethod
@@ -183,6 +185,23 @@ class BaseFieldAction(BaseAction):
         kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
         return f'{self.__class__.__name__}({self.collection_name!r}, {self.field_name!r}' \
                f'{kwargs_str})'
+
+    def _get_field_handler(self, type_key: str):
+        """
+        Return FieldHandler object by type_key
+        :param type_key: `type_key` item of schema
+        :return: concrete FieldHandler object
+        """
+        if type_key not in type_key_registry:
+            raise MigrationError(f'Could not find field {type_key!r} or one of its base classes '
+                                 f'in type_key registry')
+
+        handler_cls = type_key_registry[type_key].field_handler_cls
+        handler = handler_cls(
+            self.collection,
+            self.left_schema.get(self.collection_name, {}).get(self.field_name, {})
+        )
+        return handler
 
 
 class BaseCollectionAction(BaseAction):

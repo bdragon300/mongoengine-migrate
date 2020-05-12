@@ -147,8 +147,8 @@ class BaseFieldAction(BaseAction):
     def build_object(cls,
                      collection_name: str,
                      field_name: str,
-                     old_schema: dict,
-                     new_schema: dict) -> Optional['BaseFieldAction']:
+                     left_schema: dict,
+                     right_schema: dict) -> Optional['BaseFieldAction']:
         """
         Factory method which tests if current action type could process
         schema changes for a given collection and field. If yes then
@@ -167,10 +167,10 @@ class BaseFieldAction(BaseAction):
 
         :param collection_name: collection name to consider
         :param field_name: field name to consider
-        :param old_schema: database schema before a migration
-         would get applied
-        :param new_schema: database schema after a migration
-         would get applied
+        :param left_schema: database schema before a migration
+         would get applied (left side)
+        :param right_schema: database schema after a migration
+         would get applied (right side)
         :return: object of self type or None
         """
         pass
@@ -198,8 +198,8 @@ class BaseCollectionAction(BaseAction):
     @abstractmethod
     def build_object(cls,
                      collection_name: str,
-                     old_schema: dict,
-                     new_schema: dict) -> Optional['BaseCollectionAction']:
+                     left_schema: dict,
+                     right_schema: dict) -> Optional['BaseCollectionAction']:
         """
         Factory method which tests if current action type could process
         schema changes for a given collection at whole. If yes then
@@ -217,10 +217,10 @@ class BaseCollectionAction(BaseAction):
         filled out parameters of change (collection name, indexes, etc.)
 
         :param collection_name: collection name to consider
-        :param old_schema: database schema before a migration
-         would get applied
-        :param new_schema: database schema after a migration
-         would get applied
+        :param left_schema: database schema before a migration
+         would get applied (left side)
+        :param right_schema: database schema after a migration
+         would get applied (right side)
         :return: object of self type or None
         """
         pass

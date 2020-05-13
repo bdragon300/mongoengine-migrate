@@ -30,15 +30,6 @@ def cli_options(f):
             show_default=True,
         ),
         click.option(
-            "-m",
-            "--models-module",
-            default=MongoengineMigrate.default_models_module,
-            envvar="MONGOENGINE_MIGRATE_MODELS_MODULE",
-            metavar="MODULE_NAME",
-            help="Python module where mongoengine models are loaded from",
-            show_default=True,
-        ),
-        click.option(
             "-c",
             "--collection",
             default=MongoengineMigrate.default_collection_name,
@@ -67,16 +58,14 @@ def cli_options(f):
 
 @click.group()
 @cli_options
-def cli(uri, models_module, directory, collection, dry_run, **kwargs):
+def cli(uri, directory, collection, dry_run, **kwargs):
     global mongoengine_migrate
-    import_module(models_module)
     runtime_flags.mongo_version = kwargs.get('mongo_version')
     runtime_flags.dry_run = dry_run
 
     mongoengine_migrate = MongoengineMigrate(mongo_uri=uri,
                                              collection_name=collection,
                                              migrations_dir=directory)
-
 
 
 @click.command(short_help='Upgrade db to the given migration')
@@ -98,7 +87,17 @@ def migrate(migration):
 
 
 @click.command(short_help='Generate migration file based on mongoengine model changes')
-def makemigrations():
+@click.option(
+    "-m",
+    "--models-module",
+    default=MongoengineMigrate.default_models_module,
+    envvar="MONGOENGINE_MIGRATE_MODELS_MODULE",
+    metavar="MODULE_NAME",
+    help="Python module where mongoengine models are loaded from",
+    show_default=True,
+)
+def makemigrations(models_module):
+    import_module(models_module)
     mongoengine_migrate.makemigrations()
 
 

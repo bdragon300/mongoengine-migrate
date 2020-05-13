@@ -76,6 +76,24 @@ mongoengine-migrate -m myproject.db migrate my_migration
 ```
 ...to be continued 
 
+## Roadmap
+
+- [x] Migrations graph utilities and core code
+- [x] Basic collection actions
+- [x] Basic field actions
+- [x] User-defined code action
+- [x] Basic data type fields support (string, integer, float, etc.)
+- [x] Dictionary, list fields support
+- [x] Reference fields support
+- [ ] Embedded documents support + actions
+- [ ] Document inheritance support
+- [ ] Geo fields support
+- [ ] GridFS fields support
+- [ ] Generic* fields support
+- [ ] Interactive mode
+- [ ] Schema repair tools
+- [ ] Alpha release
+
 # Author
 
 Igor Derkach, gosha753951@gmail.com

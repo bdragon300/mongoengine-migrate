@@ -32,16 +32,6 @@ class NumberFieldHandler(CommonFieldHandler):
             {self.db_field: {'$lt': diff.new}},
             {'$set': {self.db_field: diff.new}}
         )
-        # # FIXME: make replacing on error only here and further
-        # if diff.error_policy == 'replace':
-        #     if diff.default < diff.new:
-        #         raise MigrationError(f'Cannot set min_value for '
-        #                              f'{self.collection.name}.{self.db_field} because default value'
-        #                              f'{diff.default} is less than min_value')
-        #     self.collection.update_many(
-        #         {self.db_field: {'$lt': diff.new}},
-        #         {'$set': {self.db_field: diff.default}}
-        #     )
 
     def change_max_value(self, diff: AlterDiff):
         """
@@ -56,16 +46,6 @@ class NumberFieldHandler(CommonFieldHandler):
             {self.db_field: {'$gt': diff.new}},
             {'$set': {self.db_field: diff.new}}
         )
-
-        # if diff.error_policy == 'replace':
-        #     if diff.default < diff.new:
-        #         raise MigrationError(f'Cannot set max_value for '
-        #                              f'{self.collection.name}.{self.db_field} because default value'
-        #                              f'{diff.default} is greater than max_value')
-        #     self.collection.update_many(
-        #         {self.db_field: {'$gt': diff.new}},
-        #         {'$set': {self.db_field: diff.default}}
-        #     )
 
 
 class StringFieldHandler(CommonFieldHandler):
@@ -96,17 +76,6 @@ class StringFieldHandler(CommonFieldHandler):
             {'$out': self.collection.name}  # >= 2.6
         ])
 
-        # if diff.error_policy == 'replace':
-        #     if diff.default is not None and len(diff.default) > diff.new:
-        #         raise MigrationError(f'Cannot set default value for '
-        #                              f'{self.collection.name}.{self.db_field} because default value'
-        #                              f'{diff.default} is longer than max_length')
-        #     replace_pipeline = [
-        #         {'$addFields': {self.db_field: diff.default}},
-        #         {'$out': self.collection.name}
-        #     ]
-        #     self.collection.aggregate(pipeline + replace_pipeline)
-
     @mongo_version(min_version='3.6')
     def change_min_length(self, diff: AlterDiff):
         """Raise error if string is shorter than limitation (if any)"""
@@ -124,17 +93,6 @@ class StringFieldHandler(CommonFieldHandler):
         }
         check_empty_result(self.collection, self.db_field, fltr)
 
-        # if diff.error_policy == 'replace':
-        #     if diff.default is not None and len(diff.default) < diff.new:
-        #         raise MigrationError(f"Cannot set min_length for "
-        #                              f"{self.collection.name}.{self.db_field} because default value"
-        #                              f"'{diff.default}' is shorter than min_length")
-        #     replace_pipeline = [
-        #         {'$addFields': {self.db_field: diff.default}},
-        #         {'$out': self.collection.name}
-        #     ]
-        #     self.collection.aggregate(pipeline + replace_pipeline)
-
     def change_regex(self, diff: AlterDiff):
         """Raise error if string does not match regex (if any)"""
         self._check_diff(diff, True, (str, type(re.compile('.'))))
@@ -143,15 +101,6 @@ class StringFieldHandler(CommonFieldHandler):
 
         fltr = {self.db_field: {'$not': re.compile(diff.new), '$ne': None}}
         check_empty_result(self.collection, self.db_field, fltr)
-
-        # if diff.error_policy == 'replace':
-        #     matched = re.match(diff.new, diff.default)
-        #     if not matched:
-        #         raise MigrationError(f"Cannot set regex for "
-        #                              f"{self.collection.name}.{self.db_field} because default value"
-        #                              f"'{diff.default}' does not match that regex")
-        #     self.collection.update_many({self.db_field: {'$not': {'$regex': diff.new}}},
-        #                                 {'$set': {self.db_field: diff.new}})
 
 
 class URLFieldHandler(StringFieldHandler):
@@ -341,10 +290,6 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
             }},
             {'$out': self.collection.name}  # >= 2.6
         ])
-
-        # if diff.error_policy == 'replace':
-        #     self.collection.update_many({self.db_field: {'$not': {'$regex': old_format}}},
-        #                                 {'$set': {self.db_field: diff.default}})
 
 
 class ListFieldHandler(CommonFieldHandler):

@@ -279,34 +279,43 @@ class MongoengineMigrate:
         :return:
         """
         graph = self.build_graph()
-        current_schema = self.load_db_schema() or {}
+        left_schema = self.load_db_schema() or {}
 
         if migration_name not in graph.migrations:
             raise MigrationError(f'Migration {migration_name} not found')
 
-        # TODO: transaction
+        # Collect schema diffs across all migrations
+        migration_diffs = {}  # {migration_name: [action1_diff, ...]}
+        temp_left_schema = {}
+        for migration in graph.walk_down(graph.initial, unapplied_only=False):
+            migration_diffs[migration.name] = []
+            for action in migration.get_forward_actions():
+                forward_patch = action.to_schema_patch(temp_left_schema)
+                migration_diffs[migration.name].append(forward_patch)
+                temp_left_schema = patch(forward_patch, temp_left_schema)
+
         # TODO: error handling
         for migration in graph.walk_up(graph.last, applied_only=True):
             if migration.name == migration_name:
                 break  # We're reached the target migration
 
-            for action_object in migration.get_backward_actions():
-                action_object.prepare(self.db, current_schema)
+            action_diffs = zip(migration.get_forward_actions(), migration_diffs[migration.name])
+            for action_object, action_diff in reversed(list(action_diffs)):
+                left_schema = patch(list(swap(action_diff)), left_schema)
+
+                action_object.prepare(self.db, left_schema)
                 action_object.run_backward()
                 if runtime_flags.dry_run:
                     for call in action_object.get_call_history():
                         print(call)
                         print()
                 action_object.cleanup()
-                # TODO: move the following to the place before cleanup
                 # TODO: handle patch errors (if schema is corrupted)
-                reverse_patch = list(swap(action_object.to_schema_patch(current_schema)))
-                current_schema = patch(reverse_patch, current_schema)
 
             graph.migrations[migration.name].applied = False
 
         if not runtime_flags.dry_run:
-            self.write_db_schema(current_schema)
+            self.write_db_schema(left_schema)
             self.write_db_migrations_graph(graph)
 
     def migrate(self, migration_name: str = None):

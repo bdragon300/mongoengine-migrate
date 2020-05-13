@@ -1,6 +1,6 @@
 import inspect
 import weakref
-from typing import Type, Iterable, List, Tuple, Collection
+from typing import Type, Iterable, List, Tuple, Collection, Any
 
 import mongoengine.fields
 from pymongo.collection import Collection as MongoCollection
@@ -107,25 +107,13 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         changes given parameter. Such methods should have name
         'change_NAME' where NAME is a parameter name.
         :param name: parameter name to change
-        :param diff: AlterDiff object
+        :param diff:
         :return:
         """
         assert name != 'param', "Schema key could not be 'param'"
-        # Params which are in common field handler are required
-        # Other params typically does not require to do smth on unset
-        if diff.new == UNSET:
-            if name in CommonFieldHandler.schema_skel_keys:
-                raise MigrationError(f'{self.collection.name}.{self.db_field}.{name} could not '
-                                     f'became UNSET')
-            return
-
-        if diff.new == diff.old:
-            raise MigrationError(f'{self.collection.name}.{self.db_field}.{name} has diff with '
-                                 f'equal old and new values')
         # TODO: make change_x methods return three functions for different policies
         method_name = f'change_{name}'
         return getattr(self, method_name)(diff)
-        # FIXME: change self.field_schema with diff
 
     def change_db_field(self, diff: AlterDiff):
         """
@@ -153,13 +141,17 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         self._check_diff(diff, False, bool)
         # FIXME: consider diff.policy
         if diff.old is not True and diff.new is True:
-            if diff.default is None:
-                raise MigrationError(f'Cannot mark field {self.collection.name}.{self.db_field} '
-                                     f'as required because default value is not set')
+            # if diff.default is None:
+            #     raise MigrationError(f'Cannot mark field {self.collection.name}.{self.db_field} '
+            #                          f'as required because default value is not set')
             self.collection.update_many(
                 {self.db_field: None},  # Both null and nonexistent field
                 {'$set': {self.db_field: diff.default}}  # FIXME: change to field default
             )
+
+    def change_default(self, diff: AlterDiff):
+        """Stub method. No need to do smth on default change"""
+        pass
 
     def change_unique(self, diff: AlterDiff):
         # TODO

@@ -137,12 +137,15 @@ class BaseFieldAction(BaseAction):
         """
         super().__init__(collection_name, **kwargs)
         self.field_name = field_name
+        self.left_field_schema = None
 
-    @property
-    def field_handler_cls(self):
-        """Concrete FieldHandler class for a current field type"""
-        # FIXME: parameter could be not set
-        return type_key_registry[self.parameters.get('type_key')].field_handler_cls
+    def get_field_handler_cls(self, type_key: str):
+        """Concrete FieldHandler class for a given type key"""
+        if type_key not in type_key_registry:
+            raise MigrationError(f'Could not find field {type_key!r} or one of its base classes '
+                                 f'in type_key registry')
+
+        return type_key_registry[type_key].field_handler_cls
 
     @classmethod
     @abstractmethod
@@ -177,6 +180,10 @@ class BaseFieldAction(BaseAction):
         """
         pass
 
+    def prepare(self, db: Database, left_schema: dict):
+        super().prepare(db, left_schema)
+        self.left_field_schema = left_schema[self.collection_name].get(self.field_name, {})
+
     def to_python_expr(self) -> str:
         parameters = {
             name: getattr(val, 'to_python_expr', lambda: repr(val))()
@@ -186,21 +193,15 @@ class BaseFieldAction(BaseAction):
         return f'{self.__class__.__name__}({self.collection_name!r}, {self.field_name!r}' \
                f'{kwargs_str})'
 
-    def _get_field_handler(self, type_key: str):
+    def _get_field_handler(self, type_key: str, field_schema: dict):
         """
         Return FieldHandler object by type_key
-        :param type_key: `type_key` item of schema
+        :param type_key: field type_key string
+        :param field_schema: schema of concrete field
         :return: concrete FieldHandler object
         """
-        if type_key not in type_key_registry:
-            raise MigrationError(f'Could not find field {type_key!r} or one of its base classes '
-                                 f'in type_key registry')
-
-        handler_cls = type_key_registry[type_key].field_handler_cls
-        handler = handler_cls(
-            self.collection,
-            self.left_schema.get(self.collection_name, {}).get(self.field_name, {})
-        )
+        handler_cls = self.get_field_handler_cls(type_key)
+        handler = handler_cls(self.collection, field_schema)
         return handler
 
 

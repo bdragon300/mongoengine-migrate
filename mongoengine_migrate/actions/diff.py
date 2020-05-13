@@ -2,6 +2,7 @@ from typing import Any, Optional
 
 
 class AlterDiff:
+    # FIXME: rework it with new Alter action parameters approach
     """This class is used to set parameter diff in Alter* actions.
 
     The main aim of class is to keep old and new values of diff and

@@ -40,7 +40,6 @@ New migration file will be created:
 
 ```python
 from mongoengine_migrate.actions import *
-from mongoengine_migrate.fields import *
 
 
 dependencies = [
@@ -53,11 +52,8 @@ forward = [
         min_length=None, null=False, primary_key=False, regex=None, required=True,
         sparse=False, type_key='StringField', unique=False, unique_with=None),
     RenameField('books', 'name', new_name='caption'),
-    AlterField('books', 'caption', required=D(False, True, default=''), 
-        db_field=D('name', 'caption')),
-    AlterField('books', 'year', type_key=D('StringField', 'IntField'), regex=D(None, UNSET),
-        min_length=D(None, UNSET), max_length=D(None, UNSET), min_value=D(UNSET, None), 
-        max_value=D(UNSET, None)),
+    AlterField('books', 'caption', required=True, db_field='caption'),
+    AlterField('books', 'year', type_key='IntField', min_value=None, max_value=None),
     DropField('books', 'isbn'),
     CreateField('books', 'author', choices=None, db_field='author', dbref=False, default=None,
         link_collection='author', null=False, primary_key=False, required=False, sparse=False,

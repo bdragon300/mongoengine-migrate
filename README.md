@@ -1,5 +1,7 @@
 # Mongoengine-migrate
 
+*Work in progress*
+
 Schema migrations for [Mongoengine](http://mongoengine.org/) ODM. Inspired by Django migrations system.
 
 ## How it works

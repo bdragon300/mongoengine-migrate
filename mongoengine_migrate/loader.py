@@ -253,7 +253,6 @@ class MongoengineMigrate:
         if migration_name not in graph.migrations:
             raise MigrationError(f'Migration {migration_name} not found')
 
-        # TODO: transaction
         # TODO: error handling
         for migration in graph.walk_down(graph.initial, unapplied_only=True):
             for action_object in migration.get_actions():

@@ -111,7 +111,6 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :return:
         """
         assert name != 'param', "Schema key could not be 'param'"
-        # TODO: make change_x methods return three functions for different policies
         method_name = f'change_{name}'
         return getattr(self, method_name)(diff)
 
@@ -219,7 +218,6 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                                      f'in type_key registry')
             field_classes.append(type_key_registry[val].field_cls)
 
-        # TODO: use diff.policy
         new_handler_cls = type_key_registry[diff.new].field_handler_cls
         new_handler = new_handler_cls(self.collection, self.field_schema)
         new_handler.convert_type(*field_classes)

@@ -25,6 +25,7 @@ class Migration(Slotinit):
         return self.module.forward
 
     def get_backward_actions(self):
+        # FIXME: deprecated
         # FIXME: type checking, attribute checking
         # FIXME: tests
         return reversed(self.module.forward)

@@ -89,6 +89,11 @@ def collect_models_schema() -> dict:
 
         # Collect schema for every field
         for field_name, field_obj in model_cls._fields.items():
+            # Exclude '_id' special MongoDB field since it is immutable
+            # and should not be a part of migrations
+            if field_obj.db_field == '_id':
+                continue
+
             field_cls = field_obj.__class__
 
             if field_cls in field_mapping_registry:

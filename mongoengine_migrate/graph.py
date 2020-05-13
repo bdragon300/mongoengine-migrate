@@ -5,6 +5,7 @@ from typing import Dict, List
 
 # TODO: __all__ to all modules
 
+
 class Migration(Slotinit):
     # TODO: make it dict-like, not list-like
     # TODO: derive from OrderedDict
@@ -19,16 +20,10 @@ class Migration(Slotinit):
     __slots__ = ('name', 'dependencies', 'applied', 'module')
     defaults = {'applied': False}
 
-    def get_forward_actions(self):
+    def get_actions(self):
         # FIXME: type checking, attribute checking
         # FIXME: tests
-        return self.module.forward
-
-    def get_backward_actions(self):
-        # FIXME: deprecated
-        # FIXME: type checking, attribute checking
-        # FIXME: tests
-        return reversed(self.module.forward)
+        return self.module.actions
 
 
 class MigrationsGraph:

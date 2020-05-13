@@ -251,7 +251,7 @@ class MongoengineMigrate:
         # TODO: transaction
         # TODO: error handling
         for migration in graph.walk_down(graph.initial, unapplied_only=True):
-            for action_object in migration.get_forward_actions():
+            for action_object in migration.get_actions():
                 action_object.prepare(self.db, current_schema)
                 action_object.run_forward()
                 if runtime_flags.dry_run:
@@ -289,7 +289,7 @@ class MongoengineMigrate:
         temp_left_schema = {}
         for migration in graph.walk_down(graph.initial, unapplied_only=False):
             migration_diffs[migration.name] = []
-            for action in migration.get_forward_actions():
+            for action in migration.get_actions():
                 forward_patch = action.to_schema_patch(temp_left_schema)
                 migration_diffs[migration.name].append(forward_patch)
                 temp_left_schema = patch(forward_patch, temp_left_schema)
@@ -299,7 +299,7 @@ class MongoengineMigrate:
             if migration.name == migration_name:
                 break  # We're reached the target migration
 
-            action_diffs = zip(migration.get_forward_actions(), migration_diffs[migration.name])
+            action_diffs = zip(migration.get_actions(), migration_diffs[migration.name])
             for action_object, action_diff in reversed(list(action_diffs)):
                 left_schema = patch(list(swap(action_diff)), left_schema)
 
@@ -354,7 +354,7 @@ class MongoengineMigrate:
         # If mongoengine models schema was changed regarding db schema
         #  then try to guess which actions would reflect such changes
         for migration in graph.walk_down(graph.initial, unapplied_only=False):
-            for action_object in migration.get_forward_actions():
+            for action_object in migration.get_actions():
                 db_schema = patch(action_object.to_schema_patch(db_schema), db_schema)
 
         models_schema = collect_models_schema()

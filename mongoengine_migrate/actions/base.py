@@ -214,10 +214,6 @@ class BaseDocumentAction(BaseAction):
     #: Empty docuemnt schema contents skeleton
     DOCUMENT_SCHEMA_SKEL = {}
 
-    #: If this prefix contains in collection name then this document
-    #: is considered as embedded
-    EMBEDDED_DOCUMENT_NAME_PREFIX = '.'
-
     @classmethod
     @abstractmethod
     def build_object(cls,

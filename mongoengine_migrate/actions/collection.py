@@ -1,4 +1,5 @@
 from .base import BaseCreateDocument, BaseDropDocument, BaseRenameDocument
+from mongoengine_migrate.flags import EMBEDDED_DOCUMENT_NAME_PREFIX
 
 
 class CreateCollection(BaseCreateDocument):
@@ -9,7 +10,7 @@ class CreateCollection(BaseCreateDocument):
     """
     @classmethod
     def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
-        if collection_name.startswith(cls.EMBEDDED_DOCUMENT_NAME_PREFIX):
+        if collection_name.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
             # This is an embedded document
             return None
 
@@ -34,7 +35,7 @@ class DropCollection(BaseDropDocument):
     """
     @classmethod
     def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
-        if collection_name.startswith(cls.EMBEDDED_DOCUMENT_NAME_PREFIX):
+        if collection_name.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
             # This is an embedded document
             return None
 
@@ -62,7 +63,7 @@ class RenameCollection(BaseRenameDocument):
     """
     @classmethod
     def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
-        if collection_name.startswith(cls.EMBEDDED_DOCUMENT_NAME_PREFIX):
+        if collection_name.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
             # This is an embedded document
             return None
 

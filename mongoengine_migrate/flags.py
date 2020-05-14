@@ -9,3 +9,7 @@ dry_run: bool = False
 
 #: MongoDB server version
 mongo_version = None
+
+#: If this prefix contains in collection name then this document
+#: is considered as embedded
+EMBEDDED_DOCUMENT_NAME_PREFIX = '.'

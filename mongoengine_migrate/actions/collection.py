@@ -8,6 +8,10 @@ class CreateCollection(BaseDocumentAction):
     """
     @classmethod
     def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
+        if collection_name.startswith(cls.EMBEDDED_DOCUMENT_NAME_PREFIX):
+            # This is an embedded document
+            return None
+
         if collection_name not in left_schema and collection_name in right_schema:
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
@@ -33,6 +37,10 @@ class DropCollection(BaseDocumentAction):
     """
     @classmethod
     def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
+        if collection_name.startswith(cls.EMBEDDED_DOCUMENT_NAME_PREFIX):
+            # This is an embedded document
+            return None
+
         if collection_name in left_schema and collection_name not in right_schema:
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
@@ -77,6 +85,10 @@ class RenameCollection(BaseDocumentAction):
         # So we try to get similarity percentage and if it more than
         # threshold then we're consider such change as rename/alter.
         # Otherwise it is drop/create
+        if collection_name.startswith(cls.EMBEDDED_DOCUMENT_NAME_PREFIX):
+            # This is an embedded document
+            return None
+
         match = collection_name in left_schema and collection_name not in right_schema
         if not match:
             return

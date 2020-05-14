@@ -205,10 +205,10 @@ class BaseFieldAction(BaseAction):
         return handler
 
 
-class BaseCollectionAction(BaseAction):
+class BaseDocumentAction(BaseAction):
     """
-    Base class for actions which change a collection at whole such as
-    renaming, creating, dropping, etc.
+    Base class for actions which change a document (collection or
+    embedded document) at whole such as renaming, creating, dropping, etc.
     """
 
     #: Empty collection schema contents skeleton
@@ -219,7 +219,7 @@ class BaseCollectionAction(BaseAction):
     def build_object(cls,
                      collection_name: str,
                      left_schema: dict,
-                     right_schema: dict) -> Optional['BaseCollectionAction']:
+                     right_schema: dict) -> Optional['BaseDocumentAction']:
         """
         Factory method which tests if current action type could process
         schema changes for a given collection at whole. If yes then

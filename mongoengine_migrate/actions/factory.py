@@ -7,7 +7,7 @@ from mongoengine_migrate.exceptions import ActionError
 from .base import (
     actions_registry,
     BaseFieldAction,
-    BaseCollectionAction,
+    BaseDocumentAction,
     BaseAction
 )
 
@@ -38,8 +38,7 @@ class BaseActionFactory(metaclass=ABCMeta):
 
 
 class FieldActionFactory(BaseActionFactory):
-    """Factory of field Actions
-    """
+    """Factory of field Actions"""
     @staticmethod
     def get_actions_chain(collection_name: str,
                           old_schema: dict,
@@ -69,20 +68,19 @@ class FieldActionFactory(BaseActionFactory):
         return chain
 
 
-class CollectionActionFactory(BaseActionFactory):
-    """Factory of collection Actions
-    """
+class DocumentActionFactory(BaseActionFactory):
+    """Factory of document Actions"""
     @staticmethod
     def get_actions_chain(collection_name: str,
                           old_schema: dict,
-                          new_schema: dict) -> Iterable[BaseCollectionAction]:
+                          new_schema: dict) -> Iterable[BaseDocumentAction]:
         # Exclusive actions first
         registry = [a for a in actions_registry.values() if a.higher_priority] + \
                    [a for a in actions_registry.values() if not a.higher_priority]
         chain = []
 
         for action_cls in registry:
-            if not issubclass(action_cls, BaseCollectionAction):
+            if not issubclass(action_cls, BaseDocumentAction):
                 continue
             action_obj = action_cls.build_object(collection_name,
                                                  old_schema,
@@ -111,7 +109,7 @@ def build_actions_chain(old_schema: dict, new_schema: dict) -> Iterable[BaseActi
     all_collections = list(old_schema.keys()) + list(new_schema.keys() - old_schema.keys())
     current_schema = old_schema.copy()
     for collection_name in all_collections:
-        for factory in (CollectionActionFactory, FieldActionFactory):
+        for factory in (DocumentActionFactory, FieldActionFactory):
             new_actions = list(factory.get_actions_chain(
                 collection_name,
                 current_schema,

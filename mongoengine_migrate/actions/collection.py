@@ -1,7 +1,7 @@
-from .base import BaseCollectionAction
+from .base import BaseDocumentAction
 
 
-class CreateCollection(BaseCollectionAction):
+class CreateCollection(BaseDocumentAction):
     """Create new collection
 
     Ex.: `CreateCollection("collection1")`
@@ -26,7 +26,7 @@ class CreateCollection(BaseCollectionAction):
         self.collection.drop()
 
 
-class DropCollection(BaseCollectionAction):
+class DropCollection(BaseDocumentAction):
     """Drop collection
 
     Ex.: `DropCollection("collection1")`
@@ -54,7 +54,7 @@ class DropCollection(BaseCollectionAction):
         """
 
 
-class RenameCollection(BaseCollectionAction):
+class RenameCollection(BaseDocumentAction):
     """Rename collection
 
     Ex.: `RenameCollection("collection1", new_name="collection2")`

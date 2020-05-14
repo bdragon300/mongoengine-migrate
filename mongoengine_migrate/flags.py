@@ -12,4 +12,4 @@ mongo_version = None
 
 #: If this prefix contains in collection name then this document
 #: is considered as embedded
-EMBEDDED_DOCUMENT_NAME_PREFIX = '.'
+EMBEDDED_DOCUMENT_NAME_PREFIX = '$'

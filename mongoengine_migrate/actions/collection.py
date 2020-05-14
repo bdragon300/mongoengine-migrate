@@ -1,10 +1,11 @@
-from .base import BaseDocumentAction
+from .base import BaseCreateDocument, BaseDropDocument, BaseRenameDocument
 
 
-class CreateCollection(BaseDocumentAction):
+class CreateCollection(BaseCreateDocument):
     """Create new collection
 
     Ex.: `CreateCollection("collection1")`
+    # FIXME: parameters (indexes, acl, etc.)
     """
     @classmethod
     def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
@@ -12,11 +13,7 @@ class CreateCollection(BaseDocumentAction):
             # This is an embedded document
             return None
 
-        if collection_name not in left_schema and collection_name in right_schema:
-            return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
-
-    def to_schema_patch(self, left_schema: dict):
-        return [('add', '', [(self.collection_name, self.COLLECTION_SCHEMA_SKEL)])]
+        return super().build_object(collection_name, left_schema, right_schema)
 
     def run_forward(self):
         """
@@ -30,7 +27,7 @@ class CreateCollection(BaseDocumentAction):
         self.collection.drop()
 
 
-class DropCollection(BaseDocumentAction):
+class DropCollection(BaseDropDocument):
     """Drop collection
 
     Ex.: `DropCollection("collection1")`
@@ -41,11 +38,7 @@ class DropCollection(BaseDocumentAction):
             # This is an embedded document
             return None
 
-        if collection_name in left_schema and collection_name not in right_schema:
-            return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
-
-    def to_schema_patch(self, left_schema: dict):
-        return [('remove', '', [(self.collection_name, self.COLLECTION_SCHEMA_SKEL)])]
+        return super().build_object(collection_name, left_schema, right_schema)
 
     def run_forward(self):
         """
@@ -62,76 +55,18 @@ class DropCollection(BaseDocumentAction):
         """
 
 
-class RenameCollection(BaseDocumentAction):
+class RenameCollection(BaseRenameDocument):
     """Rename collection
 
     Ex.: `RenameCollection("collection1", new_name="collection2")`
     """
-    higher_priority = True
-
-    #: How much percent of items in schema diff of two collections
-    #: should be equal to consider such change as collection rename
-    #: instead of drop/create
-    similarity_threshold = 70
-
-    def __init__(self, collection_name: str, new_name, **kwargs):
-        super().__init__(collection_name, new_name=new_name, **kwargs)
-        self.new_name = new_name
-
     @classmethod
     def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
-        # Check if field exists under different name in schema.
-        # Field also can have small schema changes in the same time
-        # So we try to get similarity percentage and if it more than
-        # threshold then we're consider such change as rename/alter.
-        # Otherwise it is drop/create
         if collection_name.startswith(cls.EMBEDDED_DOCUMENT_NAME_PREFIX):
             # This is an embedded document
             return None
 
-        match = collection_name in left_schema and collection_name not in right_schema
-        if not match:
-            return
-
-        old_col_schema = left_schema[collection_name]
-        candidates = []
-        matches = 0
-        compares = 0
-        for name, schema in right_schema.items():
-            # Skip collections which was not renamed
-            if name in left_schema:
-                continue
-
-            # Exact match, collection was just renamed
-            if old_col_schema == schema:
-                candidates = [(name, schema)]
-                break
-
-            # Try to find collection by its schema similarity
-            # Compares are counted as every field schema comparing
-            fields = old_col_schema.keys() | schema.keys()
-            for field_name in fields:
-                old_field_schema = old_col_schema.get(field_name, {})
-                field_schema = schema.get(field_name, {})
-                common_keys = old_field_schema.keys() & field_schema.keys()
-                compares += len(common_keys)
-                matches += sum(
-                    old_field_schema[k] == field_schema[k]
-                    for k in common_keys
-                )
-
-            if (matches / compares * 100) >= cls.similarity_threshold:
-                candidates.append((name, schema))
-
-        if len(candidates) == 1:
-            return cls(collection_name=collection_name, new_name=candidates[0][0])
-
-    def to_schema_patch(self, left_schema: dict):
-        item = left_schema[self.collection_name]
-        return [
-            ('remove', '', [(self.collection_name, item)]),
-            ('add', '', [(self.new_name, item)])
-        ]
+        return super().build_object(collection_name, left_schema, right_schema)
 
     def run_forward(self):
         if self.collection.name in self.collection.database.list_collection_names():

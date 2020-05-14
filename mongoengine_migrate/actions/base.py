@@ -211,8 +211,12 @@ class BaseDocumentAction(BaseAction):
     embedded document) at whole such as renaming, creating, dropping, etc.
     """
 
-    #: Empty collection schema contents skeleton
-    COLLECTION_SCHEMA_SKEL = {}
+    #: Empty docuemnt schema contents skeleton
+    DOCUMENT_SCHEMA_SKEL = {}
+
+    #: If this prefix contains in collection name then this document
+    #: is considered as embedded
+    EMBEDDED_DOCUMENT_NAME_PREFIX = '.'
 
     @classmethod
     @abstractmethod
@@ -252,3 +256,87 @@ class BaseDocumentAction(BaseAction):
         }
         kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
         return f'{self.__class__.__name__}({self.collection_name!r}{kwargs_str})'
+
+
+class BaseCreateDocument(BaseDocumentAction):
+    @classmethod
+    def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
+        if collection_name not in left_schema and collection_name in right_schema:
+            return cls(collection_name=collection_name)
+
+    def to_schema_patch(self, left_schema: dict):
+        return [('add', '', [(self.collection_name, self.DOCUMENT_SCHEMA_SKEL)])]
+
+
+class BaseDropDocument(BaseDocumentAction):
+    @classmethod
+    def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
+        if collection_name in left_schema and collection_name not in right_schema:
+            return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
+
+    def to_schema_patch(self, left_schema: dict):
+        return [('remove', '', [(self.collection_name, self.DOCUMENT_SCHEMA_SKEL)])]
+
+
+class BaseRenameDocument(BaseDocumentAction):
+    higher_priority = True
+
+    #: How much percent of items in schema diff of two collections
+    #: should be equal to consider such change as collection rename
+    #: instead of drop/create
+    similarity_threshold = 70
+
+    def __init__(self, collection_name: str, new_name, **kwargs):
+        super().__init__(collection_name, new_name=new_name, **kwargs)
+        self.new_name = new_name
+
+    @classmethod
+    def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
+        # Check if field exists under different name in schema.
+        # Field also can have small schema changes in the same time
+        # So we try to get similarity percentage and if it more than
+        # threshold then we're consider such change as rename/alter.
+        # Otherwise it is drop/create
+        match = collection_name in left_schema and collection_name not in right_schema
+        if not match:
+            return
+
+        old_col_schema = left_schema[collection_name]
+        candidates = []
+        matches = 0
+        compares = 0
+        for name, schema in right_schema.items():
+            # Skip collections which was not renamed
+            if name in left_schema:
+                continue
+
+            # Exact match, collection was just renamed
+            if old_col_schema == schema:
+                candidates = [(name, schema)]
+                break
+
+            # Try to find collection by its schema similarity
+            # Compares are counted as every field schema comparing
+            fields = old_col_schema.keys() | schema.keys()
+            for field_name in fields:
+                old_field_schema = old_col_schema.get(field_name, {})
+                field_schema = schema.get(field_name, {})
+                common_keys = old_field_schema.keys() & field_schema.keys()
+                compares += len(common_keys)
+                matches += sum(
+                    old_field_schema[k] == field_schema[k]
+                    for k in common_keys
+                )
+
+            if (matches / compares * 100) >= cls.similarity_threshold:
+                candidates.append((name, schema))
+
+        if len(candidates) == 1:
+            return cls(collection_name=collection_name, new_name=candidates[0][0])
+
+    def to_schema_patch(self, left_schema: dict):
+        item = left_schema[self.collection_name]
+        return [
+            ('remove', '', [(self.collection_name, item)]),
+            ('add', '', [(self.new_name, item)])
+        ]

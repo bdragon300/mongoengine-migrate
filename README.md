@@ -35,7 +35,7 @@ Such changes should be reflected in database during upgrading. To
 detect changes run the command:
 
 ```shell script
-mongoengine-migrate -m myproject.db makemigrations
+mongoengine-migrate makemigrations -m myproject.db 
 ```
 
 New migration file will be created:
@@ -66,13 +66,13 @@ forward = [
 Now in order to migrate database to the last migration, just run the command:
 
 ```shell script
-mongoengine-migrate -m myproject.db migrate
+mongoengine-migrate migrate
 ```
 
 Or to migrate to the certain migration:
 
 ```shell script
-mongoengine-migrate -m myproject.db migrate my_migration
+mongoengine-migrate migrate my_migration
 ```
 ...to be continued 
 

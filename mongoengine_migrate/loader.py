@@ -77,9 +77,10 @@ def collect_models_schema() -> dict:
     # Retrieve models from mongoengine global document registry
     for model_cls in _document_registry.values():
         if issubclass(model_cls, EmbeddedDocument):
-            continue  # FIXME: remove when EmbeddedDocuments will be implemented
+            collection_name = f'{runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX}{model_cls.__name__}'
+        else:
+            collection_name = model_cls._get_collection_name()
 
-        collection_name = model_cls._get_collection_name()
         if collection_name in schema:
             raise SchemaError(f'Models with the same collection names {collection_name!r} found')
         schema[collection_name] = {}

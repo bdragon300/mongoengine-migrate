@@ -55,18 +55,30 @@ class CreateField(BaseFieldAction):
         """
         is_required = self.parameters.get('required') or self.parameters.get('primary_key')
         default = self.parameters.get('default')
-        db_field = self.parameters['db_field']
         if is_required:
-            self.collection.update_many(
-                {db_field: {'$exists': False}}, {'$set': {db_field: default}}
-            )
+            db_field = self.parameters['db_field']
+            if self.is_embedded:
+                self._update_embedded_doc_field(self.parameters['document_type'],
+                                                db_field,
+                                                self.left_schema,
+                                                set_to=default)
+            else:
+                self.collection.update_many(
+                    {db_field: {'$exists': False}}, {'$set': {db_field: default}}
+                )
 
     def run_backward(self):
         """Drop field"""
         db_field = self.parameters['db_field']
-        self.collection.update_many(
-            {db_field: {'$exists': True}}, {'$unset': {db_field: ''}}
-        )
+        if self.is_embedded:
+            self._update_embedded_doc_field(self.parameters['document_type'],
+                                            db_field,
+                                            self.left_schema,
+                                            unset=True)
+        else:
+            self.collection.update_many(
+                {db_field: {'$exists': True}}, {'$unset': {db_field: ''}}
+            )
 
 
 class DropField(BaseFieldAction):
@@ -100,9 +112,15 @@ class DropField(BaseFieldAction):
     def run_forward(self):
         """Drop field"""
         db_field = self.left_field_schema['db_field']
-        self.collection.update_many(
-            {db_field: {'$exists': True}}, {'$unset': {db_field: ''}}
-        )
+        if self.is_embedded:
+            self._update_embedded_doc_field(self.parameters['document_type'],
+                                            db_field,
+                                            self.left_schema,
+                                            unset=True)
+        else:
+            self.collection.update_many(
+                {db_field: {'$exists': True}}, {'$unset': {db_field: ''}}
+            )
 
     def run_backward(self):
         """
@@ -112,11 +130,17 @@ class DropField(BaseFieldAction):
         """
         is_required = self.left_field_schema.get('required')
         default = self.left_field_schema.get('default')
-        db_field = self.left_field_schema['db_field']
         if is_required:
-            self.collection.update_many(
-                {db_field: {'$exists': False}}, {'$set': {db_field: default}}
-            )
+            db_field = self.parameters['db_field']
+            if self.is_embedded:
+                self._update_embedded_doc_field(self.parameters['document_type'],
+                                                db_field,
+                                                self.left_schema,
+                                                set_to=default)
+            else:
+                self.collection.update_many(
+                    {db_field: {'$exists': False}}, {'$set': {db_field: default}}
+                )
 
 
 class AlterField(BaseFieldAction):

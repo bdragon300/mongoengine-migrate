@@ -41,7 +41,7 @@ def mongo_version(min_version: str = None, max_version:str = None, throw_error: 
     :return:
     """
     assert min_version or max_version
-
+    # TODO: add warning if monge version is not in range
     def dec(f):
         @functools.wraps(f)
         def w(*args, **kwargs):

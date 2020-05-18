@@ -257,13 +257,14 @@ class MongoengineMigrate:
         # TODO: error handling
         for migration in graph.walk_down(graph.initial, unapplied_only=True):
             for action_object in migration.get_actions():
-                action_object.prepare(self.db, current_schema)
-                action_object.run_forward()
-                if runtime_flags.dry_run:
-                    for call in action_object.get_call_history():
-                        print(call)
-                        print()
-                action_object.cleanup()
+                if not action_object.dummy_action:
+                    action_object.prepare(self.db, current_schema)
+                    action_object.run_forward()
+                    if runtime_flags.dry_run:
+                        for call in action_object.get_call_history():
+                            print(call)
+                            print()
+                    action_object.cleanup()
                 # TODO: move the following to the place before cleanup
                 # TODO: handle patch errors (if schema is corrupted)
                 current_schema = patch(action_object.to_schema_patch(current_schema),
@@ -308,13 +309,14 @@ class MongoengineMigrate:
             for action_object, action_diff in reversed(list(action_diffs)):
                 left_schema = patch(list(swap(action_diff)), left_schema)
 
-                action_object.prepare(self.db, left_schema)
-                action_object.run_backward()
-                if runtime_flags.dry_run:
-                    for call in action_object.get_call_history():
-                        print(call)
-                        print()
-                action_object.cleanup()
+                if not action_object.dummy_action:
+                    action_object.prepare(self.db, left_schema)
+                    action_object.run_backward()
+                    if runtime_flags.dry_run:
+                        for call in action_object.get_call_history():
+                            print(call)
+                            print()
+                    action_object.cleanup()
                 # TODO: handle patch errors (if schema is corrupted)
 
             graph.migrations[migration.name].applied = False

@@ -49,16 +49,20 @@ class BaseAction(metaclass=BaseActionMeta):
     #: before create/drop actions
     higher_priority = False
 
-    def __init__(self, collection_name: str, **kwargs):
+    def __init__(self, collection_name: str, dummy_action: bool = False, **kwargs):
         """
         :param collection_name: Name of collection where the migration
          will be performed on
+        :param dummy_action: If True then the action will not
+         perform any queries on db during migration, but still used
+         for changing the db schema
         :param kwargs: Action keyword parameters
         """
         self.collection_name = collection_name
         self.orig_collection_name = collection_name
-        self.is_embedded = False
+        self.dummy_action = dummy_action
         self.parameters = kwargs
+        self.is_embedded = False
 
         _prefix = runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX
         if collection_name.startswith(_prefix):

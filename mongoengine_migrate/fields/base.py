@@ -51,10 +51,10 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         'null', 'sparse', 'type_key'
     }
 
-    def __init__(self, collection: MongoCollection, field_schema: dict):
-        self.field_schema = field_schema
+    def __init__(self, collection: MongoCollection, left_field_schema: dict):
+        self.left_field_schema = left_field_schema
         self.collection = collection
-        self.db_field = field_schema.get('db_field')
+        self.db_field = left_field_schema.get('db_field')
         if self.db_field is None:
             raise SchemaError(f"Missed 'db_field' key in schema of collection {collection.name}")
 
@@ -219,7 +219,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             field_classes.append(type_key_registry[val].field_cls)
 
         new_handler_cls = type_key_registry[diff.new].field_handler_cls
-        new_handler = new_handler_cls(self.collection, self.field_schema)
+        new_handler = new_handler_cls(self.collection, self.left_field_schema)
         new_handler.convert_type(*field_classes)
 
     def convert_type(self,

@@ -389,15 +389,16 @@ class BaseFieldAction(BaseAction):
         return f'{self.__class__.__name__}({self.collection_name!r}, {self.field_name!r}' \
                f'{kwargs_str})'
 
-    def _get_field_handler(self, type_key: str, field_schema: dict):
+    def _get_field_handler(self, type_key: str, left_field_schema: dict):
         """
         Return FieldHandler object by type_key
         :param type_key: field type_key string
-        :param field_schema: schema of concrete field
+        :param left_field_schema: left schema which will be passed to
+         a field
         :return: concrete FieldHandler object
         """
         handler_cls = self.get_field_handler_cls(type_key)
-        handler = handler_cls(self.collection, field_schema)
+        handler = handler_cls(self.collection, left_field_schema)
         return handler
 
 

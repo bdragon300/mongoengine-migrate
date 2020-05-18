@@ -188,7 +188,7 @@ class EmailFieldHandler(StringFieldHandler):
 
         # Find records with ip domains and raise error if found
         whitelist_regex = '|'.join(
-            re.escape(x) for x in self.field_schema.get('domain_whitelist', [])
+            re.escape(x) for x in self.left_field_schema.get('domain_whitelist', [])
         ) or '.*'
         fltr = {"$and": [
             {self.db_field: {'$ne': None}},
@@ -204,7 +204,7 @@ class EmailFieldHandler(StringFieldHandler):
 
         # Find records with ip domains and raise error if found
         whitelist_regex = '|'.join(
-            re.escape(x) for x in self.field_schema.get('domain_whitelist', [])
+            re.escape(x) for x in self.left_field_schema.get('domain_whitelist', [])
         ) or '.*'
         fltr = {'$and': [
             {self.db_field: {'$ne': None}},
@@ -246,7 +246,7 @@ class DecimalFieldHandler(NumberFieldHandler):
     def convert_type(self,
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
-        if self.field_schema.get('force_string', True):
+        if self.left_field_schema.get('force_string', True):
             to_string(self.collection, self.db_field)
         else:
             to_decimal(self.collection, self.db_field)

@@ -85,7 +85,8 @@ mongoengine-migrate migrate my_migration
 - [x] Basic data type fields support (string, integer, float, etc.)
 - [x] Dictionary, list fields support
 - [x] Reference fields support
-- [ ] Embedded documents support + actions
+- [x] Embedded documents support + actions
+- [ ] Altering fields in embedded documents
 - [ ] Document inheritance support
 - [ ] Geo fields support
 - [ ] GridFS fields support

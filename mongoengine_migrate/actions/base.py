@@ -136,11 +136,11 @@ class BaseAction(metaclass=BaseActionMeta):
         return []
 
     def _find_embedded_fields(self,
-                              collection: str,
+                              collection: Collection,
                               document_type: str,
                               db_schema: dict,
                               _base_path: Optional[list] = None,
-                              _initial_col: Optional[Collection] = None) -> Iterable[list]:
+                              _document_name: Optional[str] = None) -> Iterable[list]:
         """
         Perform recursive search for embedded document fields of given
         type in given collection and return key paths to them. Paths
@@ -151,22 +151,23 @@ class BaseAction(metaclass=BaseActionMeta):
         Each key path is returned if it actually exists in db. This
         check is needed to break recursion since embedded documents
         may refer to each other or even themselves.
-        :param collection: collection name
-        :param document_type: embedded document name to find
+        :param collection: collection object where to search given
+         embedded document
+        :param document_type: embedded document name to search
         :param db_schema: db schema
         :return:
         """
+        if _base_path is None:
+            _base_path = []
+
         # Restrict recursion depth
         max_path_len = 64
         if len(_base_path) >= max_path_len:
             return
 
-        if _base_path is None:
-            _base_path = []
-
-        # Get initial collection to be able to perform checks
-        if _initial_col is None:
-            _initial_col = self.db[collection]  # FIXME: could be QueryTracer
+        # Begin the search from a passed collection
+        if _document_name is None:
+            _document_name = collection.name
 
         # Return every field nested path if it has a needed type_key.
         # Next also overlook in depth to each embedded document field
@@ -179,13 +180,13 @@ class BaseAction(metaclass=BaseActionMeta):
         # Fields may contain embedded docs and/or array of embedded docs
         # Because of limitations of MongoDB we're checking type
         # (object/array) and update a field further separately.
-        for field, field_schema in db_schema.get(collection, {}).items():
+        for field, field_schema in db_schema.get(_document_name, {}).items():
             path = _base_path + [field]
             filter_path = [p for p in path if p != '$[]']
 
             # Check if field is EmbeddedField or EmbeddedFieldList
-            dtype = field_schema.get('document_type')
-            if dtype and dtype.startswith(runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
+            doc_name = field_schema.get('document_type')
+            if doc_name and doc_name.startswith(runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
                 # Check if field type is object or array.
                 # Dotpath field resolving always takes the first
                 # element type if it is an array
@@ -193,7 +194,7 @@ class BaseAction(metaclass=BaseActionMeta):
                 # order to ensure that field contains array (non-empty)
                 array_dotpath = '.'.join(filter_path + ['.0'])
 
-                is_object = _initial_col.find(
+                is_object = collection.find(
                     {
                         array_dotpath: {'$exists': False},
                         '.'.join(filter_path): {'$type': "object"}
@@ -201,13 +202,13 @@ class BaseAction(metaclass=BaseActionMeta):
                     limit=1
                 )
                 if is_object.retrieved > 0:
-                    if dtype == document_type:
+                    if doc_name == document_type:
                         yield path
-                    yield from self._find_embedded_fields(dtype,
+                    yield from self._find_embedded_fields(collection,
                                                           document_type,
                                                           db_schema,
                                                           path,
-                                                          _initial_col)
+                                                          doc_name)
                     # Return if field contains objects
                     # It's better to have ability to handle situation
                     # when the same field has both array and object
@@ -228,18 +229,18 @@ class BaseAction(metaclass=BaseActionMeta):
                     return
 
                 # TODO: return also empty array fields
-                is_nonempty_array = _initial_col.find(
+                is_nonempty_array = collection.find(
                     {array_dotpath: {'$exists': True}},
                     limit=1
                 )
                 if is_nonempty_array.retrieved > 0:
-                    if dtype == document_type:
-                        yield path + ['$[]']  # FIXME: intermediate $[]
-                    yield from self._find_embedded_fields(dtype,
+                    if doc_name == document_type:
+                        yield path + ['$[]']
+                    yield from self._find_embedded_fields(collection,
                                                           document_type,
                                                           db_schema,
                                                           path + ['$[]'],
-                                                          _initial_col)
+                                                          doc_name)
 
     # TODO: move method to Schema class
     @staticmethod
@@ -270,8 +271,13 @@ class BaseAction(metaclass=BaseActionMeta):
         :param unset: unset field
         :return:
         """
+        def _new_collection(x): return self.db[x]
+        if runtime_flags.dry_run:
+            def _new_collection(x): return QueryTracer(self.db[x])
+
         for collection_name, collection_schema in self._filter_collection_items(db_schema):
-            for path in self._find_embedded_fields(collection_name, document_type, db_schema):
+            collection = _new_collection(collection_name)
+            for path in self._find_embedded_fields(collection, document_type, db_schema):
                 update_path = path + [field_name]
                 filter_path = [p for p in path if p != '$[]']
 
@@ -297,7 +303,7 @@ class BaseAction(metaclass=BaseActionMeta):
                 else:
                     raise ValueError("No update command was specified in function parameters")
 
-                self.db[collection_name].update_many(
+                collection.update_many(
                     filter_expr,
                     update_expr,
                     array_filters=array_filters

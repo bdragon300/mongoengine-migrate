@@ -56,7 +56,14 @@ class BaseAction(metaclass=BaseActionMeta):
         :param kwargs: Action keyword parameters
         """
         self.collection_name = collection_name
+        self.orig_collection_name = collection_name
+        self.is_embedded = False
         self.parameters = kwargs
+
+        _prefix = runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX
+        if collection_name.startswith(_prefix):
+            self.collection_name = collection_name[len(_prefix):]
+            self.is_embedded = True
 
         self.left_schema = None
         self.db = None
@@ -310,7 +317,6 @@ class BaseFieldAction(BaseAction):
         super().__init__(collection_name, **kwargs)
         self.field_name = field_name
         self.left_field_schema = None
-        self.is_embedded = collection_name.startswith(runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
 
     def get_field_handler_cls(self, type_key: str):
         """Concrete FieldHandler class for a given type key"""

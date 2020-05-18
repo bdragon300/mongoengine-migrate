@@ -379,6 +379,9 @@ class BaseFieldAction(BaseAction):
             name: getattr(val, 'to_python_expr', lambda: repr(val))()
             for name, val in self.parameters.items()
         }
+        if self.dummy_action:
+            parameters['dummy_action'] = True
+
         kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
         return f'{self.__class__.__name__}({self.collection_name!r}, {self.field_name!r}' \
                f'{kwargs_str})'
@@ -440,6 +443,9 @@ class BaseDocumentAction(BaseAction):
             name: getattr(val, 'to_python_expr', lambda: repr(val))()
             for name, val in self.parameters.items()
         }
+        if self.dummy_action:
+            parameters['dummy_action'] = True
+
         kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
         return f'{self.__class__.__name__}({self.collection_name!r}{kwargs_str})'
 

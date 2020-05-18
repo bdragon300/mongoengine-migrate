@@ -58,7 +58,7 @@ class CreateField(BaseFieldAction):
         if is_required:
             db_field = self.parameters['db_field']
             if self.is_embedded:
-                self._update_embedded_doc_field(self.parameters['document_type'],
+                self._update_embedded_doc_field(self.orig_collection_name,
                                                 db_field,
                                                 self.left_schema,
                                                 set_to=default)
@@ -71,7 +71,7 @@ class CreateField(BaseFieldAction):
         """Drop field"""
         db_field = self.parameters['db_field']
         if self.is_embedded:
-            self._update_embedded_doc_field(self.parameters['document_type'],
+            self._update_embedded_doc_field(self.orig_collection_name,
                                             db_field,
                                             self.left_schema,
                                             unset=True)
@@ -113,7 +113,7 @@ class DropField(BaseFieldAction):
         """Drop field"""
         db_field = self.left_field_schema['db_field']
         if self.is_embedded:
-            self._update_embedded_doc_field(self.parameters['document_type'],
+            self._update_embedded_doc_field(self.orig_collection_name,
                                             db_field,
                                             self.left_schema,
                                             unset=True)
@@ -131,9 +131,9 @@ class DropField(BaseFieldAction):
         is_required = self.left_field_schema.get('required')
         default = self.left_field_schema.get('default')
         if is_required:
-            db_field = self.parameters['db_field']
+            db_field = self.left_field_schema['db_field']
             if self.is_embedded:
-                self._update_embedded_doc_field(self.parameters['document_type'],
+                self._update_embedded_doc_field(self.orig_collection_name,
                                                 db_field,
                                                 self.left_schema,
                                                 set_to=default)

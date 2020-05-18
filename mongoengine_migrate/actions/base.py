@@ -166,7 +166,7 @@ class BaseAction(metaclass=BaseActionMeta):
 
         # Get initial collection to be able to perform checks
         if _initial_col is None:
-            _initial_col = self.db[collection]
+            _initial_col = self.db[collection]  # FIXME: could be QueryTracer
 
         # Return every field nested path if it has a needed type_key.
         # Next also overlook in depth to each embedded document field
@@ -183,9 +183,10 @@ class BaseAction(metaclass=BaseActionMeta):
             path = _base_path + [field]
             filter_path = [p for p in path if p != '$[]']
 
-            dtype = field_schema['document_type']
-            if dtype.startswith(runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-                # Check field type is object or array.
+            # Check if field is EmbeddedField or EmbeddedFieldList
+            dtype = field_schema.get('document_type')
+            if dtype and dtype.startswith(runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
+                # Check if field type is object or array.
                 # Dotpath field resolving always takes the first
                 # element type if it is an array
                 # So do the {"field.path.0": {$exists: true}} in

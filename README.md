@@ -88,6 +88,7 @@ mongoengine-migrate migrate my_migration
 - [x] Embedded documents support + actions
 - [ ] Altering fields in embedded documents
 - [ ] Document inheritance support
+- [ ] Index support
 - [ ] Geo fields support
 - [ ] GridFS fields support
 - [ ] Generic* fields support

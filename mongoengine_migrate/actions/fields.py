@@ -221,17 +221,15 @@ class AlterField(BaseFieldAction):
             left_field_schema, right_field_schema = right_field_schema, left_field_schema
             type_key = left_field_schema['type_key']
 
-        field_handler = self._get_field_handler(type_key, left_field_schema)
+        field_handler = self._get_field_handler(type_key, left_field_schema, right_field_schema)
 
         # Change field type first, obtain new field handler object
         # and process other parameters with it
         if type_key != right_field_schema['type_key']:
-            field_handler.change_param(
-                'type_key',
-                AlterDiff(type_key, right_field_schema['type_key'])
-            )
+            field_handler.change_param('type_key')
             field_handler = self._get_field_handler(right_field_schema['type_key'],
-                                                    left_field_schema)
+                                                    left_field_schema,
+                                                    right_field_schema)
 
         # Try to process all parameters on same order to avoid
         # potential problems on repeated launches if some query on
@@ -241,7 +239,7 @@ class AlterField(BaseFieldAction):
             if name == 'type_key' or new_value == old_value:
                 continue
 
-            field_handler.change_param(name, AlterDiff(old_value, new_value))
+            field_handler.change_param(name)
 
     @classmethod
     def _fix_field_params(cls,

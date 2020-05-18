@@ -51,8 +51,12 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         'null', 'sparse', 'type_key'
     }
 
-    def __init__(self, collection: MongoCollection, left_field_schema: dict):
+    def __init__(self,
+                 collection: MongoCollection,
+                 left_field_schema: dict,
+                 right_field_schema: dict):
         self.left_field_schema = left_field_schema
+        self.right_field_schema = right_field_schema
         self.collection = collection
         self.db_field = left_field_schema.get('db_field')
         if self.db_field is None:
@@ -99,7 +103,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         return schema
 
-    def change_param(self, name: str, diff: AlterDiff):
+    def change_param(self, name: str):
         """
         DB commands to be run in order to change given parameter
 
@@ -107,11 +111,14 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         changes given parameter. Such methods should have name
         'change_NAME' where NAME is a parameter name.
         :param name: parameter name to change
-        :param diff:
         :return:
         """
         assert name != 'param', "Schema key could not be 'param'"
         method_name = f'change_{name}'
+        diff = AlterDiff(
+            self.left_field_schema.get(name, UNSET),
+            self.right_field_schema.get(name, UNSET)
+        )
         return getattr(self, method_name)(diff)
 
     def change_db_field(self, diff: AlterDiff):
@@ -138,14 +145,16 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :return:
         """
         self._check_diff(diff, False, bool)
-        # FIXME: consider diff.policy
+
         if diff.old is not True and diff.new is True:
-            # if diff.default is None:
-            #     raise MigrationError(f'Cannot mark field {self.collection.name}.{self.db_field} '
-            #                          f'as required because default value is not set')
+            default = self.right_field_schema.get('default')
+            # None and UNSET default has the same meaning here
+            if default is None:
+                raise MigrationError(f'Cannot mark field {self.collection.name}.{self.db_field} '
+                                     f'as required because default value is not set')
             self.collection.update_many(
                 {self.db_field: None},  # Both null and nonexistent field
-                {'$set': {self.db_field: diff.default}}  # FIXME: change to field default
+                {'$set': {self.db_field: default}}
             )
 
     def change_default(self, diff: AlterDiff):

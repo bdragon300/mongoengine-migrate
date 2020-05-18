@@ -192,17 +192,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             # next(iter) is useful for sets
             choices = [k for k, _ in choices]
 
-        if diff.error_policy == 'raise':
-            check_empty_result(self.collection, self.db_field, {self.db_field: {'$nin': choices}})
-        if diff.error_policy == 'replace':
-            if diff.default not in choices:
-                raise MigrationError(f'Cannot set new choices for '
-                                     f'{self.collection.name}.{self.db_field} because default value'
-                                     f'{diff.default} does not listed in choices')
-            self.collection.update_many(
-                {self.db_field: {'$nin': choices}},
-                {'$set': {self.db_field: diff.default}}  # FIXME: consider smth another
-            )
+        check_empty_result(self.collection, self.db_field, {self.db_field: {'$nin': choices}})
 
     def change_null(self, diff: AlterDiff):
         pass

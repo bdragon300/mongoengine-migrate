@@ -8,7 +8,7 @@ from pymongo.collection import Collection
 import mongoengine_migrate.flags as runtime_flags
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.query_tracer import QueryTracer, HistoryCall
-from mongoengine_migrate.exceptions import MigrationError
+from mongoengine_migrate.exceptions import MigrationError, ActionError
 from mongoengine_migrate.mongo import mongo_version
 
 #: Migration Actions registry. Mapping of class name and its class
@@ -314,7 +314,6 @@ class BaseAction(metaclass=BaseActionMeta):
                 )
 
 
-# TODO: add to prepare() checking if db_field param has not dots
 class BaseFieldAction(BaseAction):
     """
     Base class for action which affects on one field in a collection
@@ -328,6 +327,10 @@ class BaseFieldAction(BaseAction):
         super().__init__(collection_name, **kwargs)
         self.field_name = field_name
         self.left_field_schema = None
+
+        db_field = kwargs.get('db_field')
+        if db_field and '.' in db_field:
+            raise ActionError("'db_field' parameter could not contain dots")
 
     def get_field_handler_cls(self, type_key: str):
         """Concrete FieldHandler class for a given type key"""

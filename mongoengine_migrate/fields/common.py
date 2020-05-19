@@ -9,6 +9,7 @@ from .base import CommonFieldHandler
 from .converters import to_string, to_decimal
 from ..actions.diff import AlterDiff, UNSET
 from ..mongo import mongo_version
+from bson import DBRef
 
 
 class NumberFieldHandler(CommonFieldHandler):
@@ -233,8 +234,6 @@ class DecimalFieldHandler(NumberFieldHandler):
         else:
             to_decimal(self.collection, self.db_field)
 
-        # TODO: implement 'replace'
-
     def change_precision(self, diff: AlterDiff):
         """This one is related only for python. Nothing to do"""
         pass
@@ -395,14 +394,50 @@ class ReferenceFieldHandler(CommonFieldHandler):
         self._check_diff(diff, False, str)
 
     def change_dbref(self, diff: AlterDiff):
+        """Change reference storing format: ObjectId or DBRef"""
         self._check_diff(diff, False, bool)
 
-        # TODO: figure out about ObjectID and DBRef storing
+        if diff.new is True:
+            self._objectid_to_dbref()
+        else:
+            self._dbref_to_objectid()
+
+    @mongo_version(min_version='3.6')
+    def _objectid_to_dbref(self):
+        self.collection.aggregate([
+            {'$match': {
+                self.db_field: {"$ne": None},
+                # $expr >= 3.6, $type >= 3.4
+                "$expr": {"$eq": [{"$type": f'${self.db_field}'}, 'objectId']}
+            }},
+            {'$addFields': {  # >= 3.4
+                self.db_field: {
+                    '$ref': self.collection.name,
+                    '$id': f"${self.db_field}"
+                }
+            }},
+            {'$out': self.collection.name}  # >= 2.6
+        ])
+
+    @mongo_version(min_version='3.6')
+    def _dbref_to_objectid(self):
+        self.collection.aggregate([
+            {'$match': {
+                f'{self.db_field}.$id': {"$ne": None},
+                f'{self.db_field}.$ref': {"$ne": None},
+                # $expr >= 3.6, $type >= 3.4
+                "$expr": {"$eq": [{"$type": f'${self.db_field}.$id'}, 'objectId']}
+            }},
+            {'$addFields': {self.db_field: f"${self.db_field}.$id"}},  # >= 3.4
+            {'$out': self.collection.name}  # >= 2.6
+        ])
 
     @classmethod
     def build_schema(cls, field_obj: mongoengine.fields.BaseField) -> dict:
         schema = super().build_schema(field_obj)
 
+        # 'document_type' is restricted to use only Document class
+        # by mongoengine itself
         document_type = field_obj.document_type
         schema['link_collection'] = document_type._get_collection_name()
 

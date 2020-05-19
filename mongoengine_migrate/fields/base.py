@@ -218,7 +218,9 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             field_classes.append(type_key_registry[val].field_cls)
 
         new_handler_cls = type_key_registry[diff.new].field_handler_cls
-        new_handler = new_handler_cls(self.collection, self.left_field_schema)
+        new_handler = new_handler_cls(self.collection,
+                                      self.left_field_schema,
+                                      self.right_field_schema)
         new_handler.convert_type(*field_classes)
 
     def convert_type(self,

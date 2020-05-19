@@ -7,7 +7,7 @@ from pymongo.collection import Collection
 
 import mongoengine_migrate.flags as runtime_flags
 from mongoengine_migrate.fields.registry import type_key_registry
-from mongoengine_migrate.query_tracer import QueryTracer, HistoryCall
+from mongoengine_migrate.query_tracer import CollectionQueryTracer, HistoryCall
 from mongoengine_migrate.exceptions import MigrationError, ActionError
 from mongoengine_migrate.mongo import mongo_version
 
@@ -84,7 +84,7 @@ class BaseAction(metaclass=BaseActionMeta):
         self.db = db
         self.collection = db[self.collection_name]
         if runtime_flags.dry_run:
-            self.collection = QueryTracer(self.collection)
+            self.collection = CollectionQueryTracer(self.collection)
 
     def cleanup(self):
         """Cleanup after Action run (both forward and backward)"""
@@ -277,7 +277,7 @@ class BaseAction(metaclass=BaseActionMeta):
         """
         def _new_collection(x): return self.db[x]
         if runtime_flags.dry_run:
-            def _new_collection(x): return QueryTracer(self.db[x])
+            def _new_collection(x): return CollectionQueryTracer(self.db[x])
 
         for collection_name, collection_schema in self._filter_collection_items(db_schema):
             collection = _new_collection(collection_name)

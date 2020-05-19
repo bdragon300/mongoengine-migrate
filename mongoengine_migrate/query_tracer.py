@@ -66,7 +66,7 @@ def make_history_method(func_name, return_value=_sentinel):
     return w
 
 
-class QueryTracer(wrapt.ObjectProxy):
+class CollectionQueryTracer(wrapt.ObjectProxy):
     """
     pymongo.Collection wrapper object which mocks modification methods
     calls and writes their call to history

@@ -40,7 +40,8 @@ def cli_options(f):
         ),
         click.option(
             '--mongo-version',
-            help="MongoDB server version",
+            help="Manually set MongoDB server version. By default it's determined automatically, "
+                 "but this requires a permission for 'buildinfo' admin command",
             metavar="MONGO_VERSION"
         )
     ]

@@ -87,6 +87,11 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         """
         schema_skel = cls.schema_skel()
         schema = {f: getattr(field_obj, f, val) for f, val in schema_skel.items()}
+
+        # 'default' could contain callable with no parameters
+        if callable(schema.get('default')):
+            schema['default'] = schema['default']()
+
         field_class = field_obj.__class__
         if field_class.__name__ in type_key_registry:
             schema['type_key'] = field_class.__name__

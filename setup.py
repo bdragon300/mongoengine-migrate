@@ -16,7 +16,7 @@ setuptools.setup(
     package_data={'mongoengine_migrate': ['migration_template.tpl']},
     long_description=long_description,
     long_description_content_type='text/markdown',
-    scripts=['bin/mongoengine-migrate.py'],
+    entry_points={"console_scripts": ["mongoengine_migrate=mongoengine_migrate.cli:cli"]},
     classifiers=[
         'Programming Language :: Python :: 3',
         'Development Status :: 2 - Pre-Alpha',

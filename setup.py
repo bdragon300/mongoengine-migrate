@@ -17,6 +17,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     entry_points={"console_scripts": ["mongoengine_migrate=mongoengine_migrate.cli:cli"]},
+    keywords=["mongo", "mongodb", "mongoengine", "migrate", "migration"],
     classifiers=[
         'Programming Language :: Python :: 3',
         'Development Status :: 2 - Pre-Alpha',

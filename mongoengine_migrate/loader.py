@@ -80,6 +80,8 @@ def collect_models_schema() -> dict:
             collection_name = f'{runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX}{model_cls.__name__}'
         else:
             collection_name = model_cls._get_collection_name()
+            if collection_name is None:
+                continue   # TODO: temporary skip for abstract documents
 
         if collection_name in schema:
             raise SchemaError(f'Models with the same collection names {collection_name!r} found')

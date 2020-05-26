@@ -13,6 +13,7 @@ setuptools.setup(
     license='Apache-2.0',
     python_requires='>=3',
     packages=setuptools.find_packages(exclude=['tests']),
+    package_data={'mongoengine_migrate': ['migration_template.tpl']},
     long_description=long_description,
     long_description_content_type='text/markdown',
     scripts=['bin/mongoengine-migrate.py'],

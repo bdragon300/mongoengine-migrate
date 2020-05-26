@@ -259,7 +259,7 @@ class MongoengineMigrate:
         # TODO: error handling
         for migration in graph.walk_down(graph.initial, unapplied_only=True):
             for action_object in migration.get_actions():
-                if not action_object.dummy_action:
+                if not action_object.dummy_action and not runtime_flags.schema_only:
                     action_object.prepare(self.db, current_schema)
                     action_object.run_forward()
                     if runtime_flags.dry_run:
@@ -311,7 +311,7 @@ class MongoengineMigrate:
             for action_object, action_diff in reversed(list(action_diffs)):
                 left_schema = patch(list(swap(action_diff)), left_schema)
 
-                if not action_object.dummy_action:
+                if not action_object.dummy_action and not runtime_flags.schema_only:
                     action_object.prepare(self.db, left_schema)
                     action_object.run_backward()
                     if runtime_flags.dry_run:

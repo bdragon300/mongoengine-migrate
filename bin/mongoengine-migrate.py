@@ -58,6 +58,13 @@ def migration_options(f):
             help='Dry run mode. Don\'t modify the database and print '
                  'modification commands which would get executed'
         ),
+        click.option(
+            '--schema-only',
+            default=False,
+            is_flag=True,
+            help='Migrate only schema, do not perform any modifications'
+                 'on database'
+        )
     ]
     for decorator in reversed(decorators):
         f = decorator(f)
@@ -78,24 +85,27 @@ def cli(uri, directory, collection, **kwargs):
 @click.command(short_help='Upgrade db to the given migration')
 @click.argument('migration', required=True)
 @migration_options
-def upgrade(migration, dry_run):
+def upgrade(migration, dry_run, schema_only):
     runtime_flags.dry_run = dry_run
+    runtime_flags.schema_only = schema_only
     mongoengine_migrate.upgrade(migration)
 
 
 @click.command(short_help='Downgrade db to the given migration')
 @click.argument('migration', required=True)
 @migration_options
-def downgrade(migration, dry_run):
+def downgrade(migration, dry_run, schema_only):
     runtime_flags.dry_run = dry_run
+    runtime_flags.schema_only = schema_only
     mongoengine_migrate.downgrade(migration)
 
 
 @click.command(short_help='Migrate db to the given migration. By default is to the last one')
 @click.argument('migration', required=False)
 @migration_options
-def migrate(migration, dry_run):
+def migrate(migration, dry_run, schema_only):
     runtime_flags.dry_run = dry_run
+    runtime_flags.schema_only = schema_only
     mongoengine_migrate.migrate(migration)
 
 

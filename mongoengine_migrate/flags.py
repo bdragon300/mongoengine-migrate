@@ -7,6 +7,10 @@ for example
 dry_run: bool = False
 
 
+#: Migrate only schema, do not perform any modifications on database
+schema_only: bool = False
+
+
 #: MongoDB server version
 mongo_version = None
 

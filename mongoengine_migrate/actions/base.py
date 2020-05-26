@@ -375,7 +375,7 @@ class BaseFieldAction(BaseAction):
 
     def prepare(self, db: Database, left_schema: dict):
         super().prepare(db, left_schema)
-        self.left_field_schema = left_schema[self.collection_name].get(self.field_name, {})
+        self.left_field_schema = left_schema[self.orig_collection_name].get(self.field_name, {})
 
     def to_python_expr(self) -> str:
         parameters = {
@@ -386,7 +386,7 @@ class BaseFieldAction(BaseAction):
             parameters['dummy_action'] = True
 
         kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
-        return f'{self.__class__.__name__}({self.collection_name!r}, {self.field_name!r}' \
+        return f'{self.__class__.__name__}({self.orig_collection_name!r}, {self.field_name!r}' \
                f'{kwargs_str})'
 
     def _get_field_handler(self, type_key: str, left_field_schema: dict, right_field_schema: dict):
@@ -453,7 +453,7 @@ class BaseDocumentAction(BaseAction):
             parameters['dummy_action'] = True
 
         kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
-        return f'{self.__class__.__name__}({self.collection_name!r}{kwargs_str})'
+        return f'{self.__class__.__name__}({self.orig_collection_name!r}{kwargs_str})'
 
 
 class BaseCreateDocument(BaseDocumentAction):
@@ -463,7 +463,7 @@ class BaseCreateDocument(BaseDocumentAction):
             return cls(collection_name=collection_name)
 
     def to_schema_patch(self, left_schema: dict):
-        return [('add', '', [(self.collection_name, self.DOCUMENT_SCHEMA_SKEL)])]
+        return [('add', '', [(self.orig_collection_name, self.DOCUMENT_SCHEMA_SKEL)])]
 
 
 class BaseDropDocument(BaseDocumentAction):
@@ -473,7 +473,7 @@ class BaseDropDocument(BaseDocumentAction):
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
     def to_schema_patch(self, left_schema: dict):
-        return [('remove', '', [(self.collection_name, self.DOCUMENT_SCHEMA_SKEL)])]
+        return [('remove', '', [(self.orig_collection_name, self.DOCUMENT_SCHEMA_SKEL)])]
 
 
 class BaseRenameDocument(BaseDocumentAction):
@@ -533,8 +533,8 @@ class BaseRenameDocument(BaseDocumentAction):
             return cls(collection_name=collection_name, new_name=candidates[0][0])
 
     def to_schema_patch(self, left_schema: dict):
-        item = left_schema[self.collection_name]
+        item = left_schema[self.orig_collection_name]
         return [
-            ('remove', '', [(self.collection_name, item)]),
+            ('remove', '', [(self.orig_collection_name, item)]),
             ('add', '', [(self.new_name, item)])
         ]

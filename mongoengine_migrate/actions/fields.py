@@ -42,7 +42,7 @@ class CreateField(BaseFieldAction):
         }
         return [(
             'add',
-            self.collection_name,
+            self.orig_collection_name,
             [(self.field_name, field_params)]
         )]
 
@@ -98,14 +98,14 @@ class DropField(BaseFieldAction):
 
     def to_schema_patch(self, left_schema: dict):
         try:
-            left_field_schema = left_schema[self.collection_name][self.field_name]
+            left_field_schema = left_schema[self.orig_collection_name][self.field_name]
         except KeyError:
-            raise ActionError(f'Cannot alter field {self.collection_name}.{self.field_name} '
-                              f'since the collection {self.collection_name} is not in schema')
+            raise ActionError(f'Cannot alter field {self.orig_collection_name}.{self.field_name} '
+                              f'since the collection {self.orig_collection_name} is not in schema')
 
         return [(
             'remove',
-            self.collection_name,
+            self.orig_collection_name,
             [(self.field_name, left_field_schema)]
         )]
 
@@ -173,10 +173,10 @@ class AlterField(BaseFieldAction):
 
     def to_schema_patch(self, left_schema: dict):
         try:
-            left_field_schema = left_schema[self.collection_name][self.field_name]
+            left_field_schema = left_schema[self.orig_collection_name][self.field_name]
         except KeyError:
-            raise ActionError(f'Cannot alter field {self.collection_name}.{self.field_name} '
-                              f'since the collection {self.collection_name} is not in schema')
+            raise ActionError(f'Cannot alter field {self.orig_collection_name}.{self.field_name} '
+                              f'since the collection {self.orig_collection_name} is not in schema')
 
         # Get schema skeleton for field type
         field_handler_cls = self.get_field_handler_cls(
@@ -192,13 +192,15 @@ class AlterField(BaseFieldAction):
         params = self.parameters
 
         # Remove params
-        d = [('remove', f'{self.collection_name}.{self.field_name}', [(key, ())])
+        d = [('remove', f'{self.orig_collection_name}.{self.field_name}', [(key, ())])
              for key in left.keys() - right_schema_skel.keys()]
         # Add new params
-        d += [('add', f'{self.collection_name}.{self.field_name}', [(key, params[key])])
+        d += [('add', f'{self.orig_collection_name}.{self.field_name}', [(key, params[key])])
               for key in params.keys() - left.keys()]
         # Change params if they are requested to be changed
-        d += [('change', f'{self.collection_name}.{self.field_name}.{key}', (left[key], params[key]))
+        d += [('change',
+               f'{self.orig_collection_name}.{self.field_name}.{key}',
+               (left[key], params[key]))
               for key in params.keys() & left.keys()
               if left[key] != params[key]]
 
@@ -343,14 +345,14 @@ class RenameField(BaseFieldAction):
 
     def to_schema_patch(self, left_schema: dict):
         try:
-            left_field_schema = left_schema[self.collection_name][self.field_name]
+            left_field_schema = left_schema[self.orig_collection_name][self.field_name]
         except KeyError:
-            raise ActionError(f'Cannot alter field {self.collection_name}.{self.field_name} '
-                              f'since the collection {self.collection_name} is not in schema')
+            raise ActionError(f'Cannot alter field {self.orig_collection_name}.{self.field_name} '
+                              f'since the collection {self.orig_collection_name} is not in schema')
 
         return [
-            ('remove', f'{self.collection_name}', [(self.field_name, left_field_schema)]),
-            ('add', f'{self.collection_name}', [(self.new_name, left_field_schema)])
+            ('remove', f'{self.orig_collection_name}', [(self.field_name, left_field_schema)]),
+            ('add', f'{self.orig_collection_name}', [(self.new_name, left_field_schema)])
         ]
 
     def run_forward(self):

@@ -88,9 +88,11 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         schema_skel = cls.schema_skel()
         schema = {f: getattr(field_obj, f, val) for f, val in schema_skel.items()}
 
-        # 'default' could contain callable with no parameters
-        if callable(schema.get('default')):
-            schema['default'] = schema['default']()
+        if 'default' in schema:
+            schema['default'] = cls._clear_default(schema['default'])
+
+        if 'choices' in schema:
+            schema['choices'] = cls._clear_choices(schema['choices'])
 
         field_class = field_obj.__class__
         if field_class.__name__ in type_key_registry:
@@ -193,9 +195,6 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         """
         self._check_diff(diff, True, Collection)
         choices = diff.new
-        if isinstance(next(iter(choices)), (list, tuple)):
-            # next(iter) is useful for sets
-            choices = [k for k, _ in choices]
 
         check_empty_result(self.collection, self.db_field, {self.db_field: {'$nin': choices}})
 
@@ -280,3 +279,31 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         if not can_be_none:
             if diff.old is None or diff.new is None:
                 raise MigrationError(f'{self.db_field} could not be None')
+
+    @classmethod
+    def _clear_default(cls, default):
+        if callable(default):
+            default = default()
+
+        # Check if the expression repr produces correct python expr
+        try:
+            eval(repr(default), {}, {})
+        except:
+            # FIXME: with required=True this leads to error (mongoengine will not raise error since default is specified)
+            default = None
+
+        return default
+
+    @classmethod
+    def _clear_choices(cls, choices):
+        if not isinstance(choices, Iterable):
+            return None
+
+        if isinstance(next(iter(choices)), (list, tuple)):
+            # next(iter) is useful for sets
+            choices = [k for k, _ in choices]
+        else:
+            # Make a tuple from any iterable type (e.g. dict_keys)
+            choices = tuple(choices)
+
+        return choices

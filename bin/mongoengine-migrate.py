@@ -39,13 +39,6 @@ def cli_options(f):
             show_default=True
         ),
         click.option(
-            '--dry-run',
-            default=False,
-            is_flag=True,
-            help='Dry run mode. Don\'t modify the database and print '
-                 'modification commands which would get executed'
-        ),
-        click.option(
             '--mongo-version',
             help="MongoDB server version",
             metavar="MONGO_VERSION"
@@ -56,12 +49,26 @@ def cli_options(f):
     return f
 
 
+def migration_options(f):
+    decorators = [
+        click.option(
+            '--dry-run',
+            default=False,
+            is_flag=True,
+            help='Dry run mode. Don\'t modify the database and print '
+                 'modification commands which would get executed'
+        ),
+    ]
+    for decorator in reversed(decorators):
+        f = decorator(f)
+    return f
+
+
 @click.group()
 @cli_options
-def cli(uri, directory, collection, dry_run, **kwargs):
+def cli(uri, directory, collection, **kwargs):
     global mongoengine_migrate
     runtime_flags.mongo_version = kwargs.get('mongo_version')
-    runtime_flags.dry_run = dry_run
 
     mongoengine_migrate = MongoengineMigrate(mongo_uri=uri,
                                              collection_name=collection,
@@ -70,19 +77,25 @@ def cli(uri, directory, collection, dry_run, **kwargs):
 
 @click.command(short_help='Upgrade db to the given migration')
 @click.argument('migration', required=True)
-def upgrade(migration):
+@migration_options
+def upgrade(migration, dry_run):
+    runtime_flags.dry_run = dry_run
     mongoengine_migrate.upgrade(migration)
 
 
 @click.command(short_help='Downgrade db to the given migration')
 @click.argument('migration', required=True)
-def downgrade(migration):
+@migration_options
+def downgrade(migration, dry_run):
+    runtime_flags.dry_run = dry_run
     mongoengine_migrate.downgrade(migration)
 
 
 @click.command(short_help='Migrate db to the given migration. By default is to the last one')
 @click.argument('migration', required=False)
-def migrate(migration):
+@migration_options
+def migrate(migration, dry_run):
+    runtime_flags.dry_run = dry_run
     mongoengine_migrate.migrate(migration)
 
 

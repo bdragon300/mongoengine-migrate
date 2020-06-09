@@ -383,5 +383,7 @@ class MongoengineMigrate:
         tpl = env.from_string(tpl_path.read_text())
         migration_source = tpl.render(tpl_ctx)
 
-        migration_file = Path(self.migration_dir) / str(datetime.now().isoformat() + '.py')
+        seq_number = str(len(graph.migrations)).zfill(4)
+        name = f'{seq_number}_auto_{datetime.now().strftime("%Y%m%d_%H%M")}.py'
+        migration_file = Path(self.migration_dir) / name
         migration_file.write_text(migration_source)

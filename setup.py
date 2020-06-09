@@ -26,9 +26,9 @@ setuptools.setup(
         'Topic :: Database'
     ],
     install_requires=[
-        'mongoengine>=0.20.0',
-        'pymongo>=3.9',
-        'dictdiffer>=0.8.1',
+        'mongoengine>=0.16.0',
+        'pymongo>=3.0',
+        'dictdiffer>=0.7.0',
         'jinja2',
         'click',
         'wrapt'

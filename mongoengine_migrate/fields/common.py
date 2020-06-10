@@ -4,12 +4,11 @@ from typing import Type, Collection
 import mongoengine.fields
 
 from mongoengine_migrate.exceptions import MigrationError
-from ..mongo import check_empty_result
 from .base import CommonFieldHandler
 from .converters import to_string, to_decimal
 from ..actions.diff import AlterDiff, UNSET
+from ..mongo import check_empty_result
 from ..mongo import mongo_version
-from bson import DBRef
 
 
 class NumberFieldHandler(CommonFieldHandler):
@@ -296,7 +295,25 @@ class ListFieldHandler(CommonFieldHandler):
         mongoengine.fields.ListField
     ]
 
-    schema_skel_keys = {'max_length'}  # TODO: implement "field"
+    schema_skel_keys = {}  # TODO: implement "field"
+
+    @classmethod
+    def schema_skel(cls) -> dict:
+        """
+        Return db schema skeleton dict, which contains keys taken from
+        `schema_skel_keys` and Nones as values
+        """
+        skel = CommonFieldHandler.schema_skel()
+
+        # Add optional keys to skel if they are set in field object
+        # * `max_length` was added in mongoengine 0.19.0
+        optional_keys = {'max_length'}
+        assert cls.field_classes == [mongoengine.fields.ListField], \
+            'If you wanna add field class then this code should be rewritten'
+        field_obj = mongoengine.fields.ListField()
+        skel.update({k: None for k in optional_keys if hasattr(field_obj, k)})
+
+        return skel
 
     @mongo_version(min_version='3.6')
     def change_max_length(self, diff: AlterDiff):

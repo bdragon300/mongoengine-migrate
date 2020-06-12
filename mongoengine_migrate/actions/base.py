@@ -43,11 +43,24 @@ class BaseAction(metaclass=BaseActionMeta):
     schema changes.
     """
 
-    #: `higher_priority = True` means that the action has high
-    #: priority in test for applicability for schema change.
+    #: Priority which this action will be tested with. The smaller
+    #: priority number, the higher priority this action has.
     #: This flag is suitable for rename actions which should get tested
-    #: before create/drop actions
-    higher_priority = False
+    #: before create/drop actions. Default is 5 which means normal
+    priority = 5
+
+    #: If True and if this action will be applicable during chain build
+    #: process then it's diff will be applied to the left schema
+    #: before next actions will get tested.
+    #: This is because some actions in chain could have parameters
+    #: related to state changed by the previous one.
+    #: For example: AlterField action accepts collection name as
+    #: parameter in migration. But it is a new name after renaming by
+    #: previous RenameCollection action.
+    #: Therefore the collection should get renamed in left schema just
+    #: after we got RenameCollection object in order the next
+    #: AlterField action would work with new collection name.
+    modify_test_schema = False
 
     def __init__(self, collection_name: str, dummy_action: bool = False, **kwargs):
         """
@@ -477,7 +490,8 @@ class BaseDropDocument(BaseDocumentAction):
 
 
 class BaseRenameDocument(BaseDocumentAction):
-    higher_priority = True
+    priority = 3
+    modify_test_schema = True
 
     #: How much percent of items in schema diff of two collections
     #: should be equal to consider such change as collection rename

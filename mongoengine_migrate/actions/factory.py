@@ -48,9 +48,7 @@ class FieldActionFactory(BaseActionFactory):
         # Take all fields to detect if they created, changed or dropped
         fields = old_collection_schema.keys() | new_collection_schema.keys()
         chain = []
-        # Exclusive actions first
-        registry = [a for a in actions_registry.values() if a.higher_priority] + \
-                   [a for a in actions_registry.values() if not a.higher_priority]
+        registry = list(sorted(actions_registry.values(), key=lambda x: x.priority))
 
         for action_cls in registry:
             for field in fields:
@@ -61,7 +59,7 @@ class FieldActionFactory(BaseActionFactory):
                                                      old_schema,
                                                      new_schema)
                 if action_obj is not None:
-                    if action_obj.higher_priority:
+                    if action_obj.modify_test_schema:
                         old_schema = patch(action_obj.to_schema_patch(old_schema), old_schema)
                     chain.append(action_obj)
 
@@ -74,9 +72,7 @@ class DocumentActionFactory(BaseActionFactory):
     def get_actions_chain(collection_name: str,
                           old_schema: dict,
                           new_schema: dict) -> Iterable[BaseDocumentAction]:
-        # Exclusive actions first
-        registry = [a for a in actions_registry.values() if a.higher_priority] + \
-                   [a for a in actions_registry.values() if not a.higher_priority]
+        registry = list(sorted(actions_registry.values(), key=lambda x: x.priority))
         chain = []
 
         for action_cls in registry:
@@ -86,7 +82,7 @@ class DocumentActionFactory(BaseActionFactory):
                                                  old_schema,
                                                  new_schema)
             if action_obj is not None:
-                if action_obj.higher_priority:
+                if action_obj.modify_test_schema:
                     old_schema = patch(action_obj.to_schema_patch(old_schema), old_schema)
                 chain.append(action_obj)
 

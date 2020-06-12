@@ -286,7 +286,8 @@ class AlterField(BaseFieldAction):
 
 class RenameField(BaseFieldAction):
     """Rename field"""
-    higher_priority = True
+    priority = 3
+    modify_test_schema = True
 
     #: How much percent of items in schema diff of two fields in the
     #: same collection should be equal to consider such change as

@@ -1,56 +1,185 @@
 from typing import List
+
 from pymongo.collection import Collection
 
 from mongoengine_migrate.mongo import check_empty_result, mongo_version
 
-
-@mongo_version(min_version='3.6')
-def geojson_to_legacy_coordinate_pairs(collection: Collection, db_field: str):
-    """
-    Convert GeoJSON Point field to a legacy geo coordinates
-    representation. Such field contains array of 2 elements: longitude,
-    latitude
-    https://docs.mongodb.com/manual/geospatial-queries/#legacy-coordinate-pairs
-    :param collection: pymongo collection object
-    :param db_field: field name
-    :return:
-    """
-    __check_geojson_objects(collection, db_field, ['Point'])
-    __check_legacy_point_coordinates(collection, db_field)
-    __check_value_types(collection, db_field, ['object', 'array'])
-
-    fltr = {
-        db_field: {"$ne": None},
-        f'{db_field}.type': "Point"
-    }
-    collection.update_many(fltr, {'$set': f'${db_field}.coordinates'})
+#: GeoJSON field convertions in order of increasing the nested array
+#  depth in `coordinates` subfield.
+#: The simplest is Point (`coordinates` contains array of numbers),
+#: the most complex is MultiPolygon (`coordinates` consists of array
+#: of arrays of arrays of arrays of numbers).
+__CONVERTIONS = (
+    ("Point", ),
+    ("MultiPoint", "LineString"),
+    ("Polygon", "MultiLineString"),
+    ("MultiPolygon", )
+)
 
 
 @mongo_version(min_version='3.6')
-def legacy_coordinate_pairs_to_geojson(collection: Collection, db_field: str):
-    """
-    Convert legacy geo coordinates representation to GeoJSON Point field
-    :param collection: pymongo collection object
-    :param db_field: field name
-    :return:
-    """
-    __check_geojson_objects(collection, db_field, ['Point'])
-    __check_legacy_point_coordinates(collection, db_field)
-    __check_value_types(collection, db_field, ['object', 'array'])
-
-    fltr = {"$and": [
-        {db_field: {"$ne": None}},
-        {"$expr": {"$eq": [{"$isArray": f"${db_field}"}, True]}}
-    ]}
-    collection.update_many(
-        fltr,
-        {'$set': {
-            db_field: {
-                "type": "Point",
-                "coordinates": f'${db_field}'
-            }
-        }}
+def convert_geojson(collection: Collection, db_field: str, from_type: str, to_type: str):
+    """Convert GeoJSON object from one type to another"""
+    from_ind, to_ind = None, None
+    __check_geojson_objects(
+        collection,
+        db_field,
+        [from_type, to_type]
     )
+    # There could be legacy coordinate pair arrays or GeoJSON objects
+    __check_legacy_point_coordinates(collection, db_field)
+    __check_value_types(collection, db_field, ['object', 'array'])
+
+    if from_type == to_type:
+        return
+
+    for ind, convertion in __CONVERTIONS:
+        if from_type in convertion:
+            from_ind = ind
+        if to_type in convertion:
+            to_ind = ind
+
+    if from_ind is None or to_ind is None:
+        raise ValueError(f"Unknown geo field type. Was requested: {from_type}, {to_type}")
+
+    depth = abs(from_ind - to_ind)
+    if from_ind <= to_ind:
+        __increase_geojson_nesting(collection, db_field, from_type, to_type, depth)
+    else:
+        __decrease_geojson_nesting(collection, db_field, from_type, to_type, depth)
+
+
+@mongo_version(min_version='3.6')
+def legacy_pairs_to_geojson(collection: Collection, db_field: str, to_type: str):
+    """Convert legacy coordinate pairs to GeoJSON objects of given type"""
+    __check_geojson_objects(
+        collection,
+        db_field,
+        ['Point', to_type]
+    )
+    __check_legacy_point_coordinates(collection, db_field)
+    __check_value_types(collection, db_field, ['object', 'array'])
+
+    # Convert to GeoJSON Point object
+    collection.aggregate([
+        {'$match': {
+            "$and": [
+                {db_field: {"$ne": None}},
+                # $expr >= 3.6
+                {"$expr": {"$eq": [{"$isArray": f"${db_field}"}, True]}}
+            ]}
+        },
+        {'$addFields': {  # >= 3.4
+            db_field: {
+                'type': 'Point',
+                'coordinates': f'${db_field}'
+            }
+        }},
+        {'$out': collection.name}  # >= 2.6
+    ])
+
+    convert_geojson(collection, db_field, 'Point', to_type)
+
+
+@mongo_version(min_version='3.6')
+def geojson_to_legacy_pairs(collection: Collection, db_field: str, from_type: str):
+    """Convert GeoJSON objects of given type to legacy coordinate pairs"""
+    __check_geojson_objects(
+        collection,
+        db_field,
+        ["Point", from_type]
+    )
+    __check_legacy_point_coordinates(collection, db_field)
+    __check_value_types(collection, db_field, ['object', 'array'])
+
+    convert_geojson(collection, db_field, from_type, 'Point')
+
+    collection.aggregate([
+        {'$match': {
+            db_field: {"$ne": None},
+            f'{db_field}.type': "Point"
+        }},
+        {'$addFields': {  # >= 3.4
+            db_field: f'${db_field}.coordinates'
+        }},
+        {'$out': collection.name}  # >= 2.6
+    ])
+
+
+@mongo_version(min_version='3.4', throw_error=True)
+def __increase_geojson_nesting(collection: Collection,
+                               db_field: str,
+                               from_type: str,
+                               to_type: str,
+                               depth: int = 1):
+    """
+    Wraps `coordinates` field into nested array on GeoJSON fields
+    with given type.
+    :param collection: collection object
+    :param db_field: collection field
+    :param from_type: GeoJSON type to change
+    :param to_type: this GeoJSON type will be set in changed records
+    :param depth: nested array depth to wrap in
+    :return:
+    """
+    assert depth > 0
+
+    add_fields = [
+        {'$addFields': {  # >= 3.4
+            f'{db_field}.coordinates': [f'${db_field}.coordinates']
+        }}
+    ] * depth
+
+    collection.aggregate([
+        {'$match': {
+            db_field: {"$ne": None},
+            f'{db_field}.type': from_type
+        }},
+        *add_fields,
+        {'$addFields': {  # >= 3.4
+            f'{db_field}.type': to_type
+        }},
+        {'$out': collection.name}  # >= 2.6
+    ])
+
+
+@mongo_version(min_version='3.4', throw_error=True)
+def __decrease_geojson_nesting(collection: Collection,
+                               db_field: str,
+                               from_type: str,
+                               to_type: str,
+                               depth: int = 1):
+    """
+    Extract the first element from nested arrays in `coordinates` field
+    on GeoJSON fields with given type
+    :param collection: collection object
+    :param db_field: collection field
+    :param from_type: GeoJSON type to change
+    :param to_type: this GeoJSON type will be set in changed records
+    :param depth: nested array depth to extract from
+    :return:
+    """
+    assert depth > 0
+
+    add_fields = [
+        {'$addFields': {  # >= 3.4
+            # $arrayElemAt >= 3.2
+            f'{db_field}.coordinates': {"$arrayElemAt": [f'${db_field}.coordinates', 0]}
+        }},
+    ] * depth
+
+    collection.aggregate([
+        {'$match': {
+            db_field: {"$ne": None},
+            f'{db_field}.type': from_type
+        }},
+        *add_fields,
+        {'$addFields': {  # >= 3.4
+            f'{db_field}.type': to_type
+        }},
+        {'$out': collection.name}  # >= 2.6
+    ])
+
 
 @mongo_version(min_version='3.6', throw_error=True)
 def __check_geojson_objects(collection: Collection, db_field: str, geojson_types: List[str]):

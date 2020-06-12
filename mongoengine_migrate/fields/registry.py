@@ -1,4 +1,5 @@
 import inspect
+from functools import partial
 from typing import Dict, Type, Optional, NamedTuple
 
 from mongoengine import fields
@@ -138,6 +139,44 @@ OBJECTID_CONVERTERS = {
     fields.CachedReferenceField: converters.ref_to_cached_reference
 }
 
+
+def get_geojson_converters(from_type):
+    return {
+        fields.DictField: converters.nothing,  # Also for MapField
+        fields.GeoPointField: partial(converters.geojson_to_legacy_pairs, from_type=from_type),
+        fields.PointField: partial(
+            converters.convert_geojson,
+            from_type=from_type,
+            to_type='Point'
+        ),
+        fields.LineStringField: partial(
+            converters.convert_geojson,
+            from_type=from_type,
+            to_type='LineString'
+        ),
+        fields.PolygonField: partial(
+            converters.convert_geojson,
+            from_type=from_type,
+            to_type='Polygon'
+        ),
+        fields.MultiPointField: partial(
+            converters.convert_geojson,
+            from_type=from_type,
+            to_type='MultiPoint'
+        ),
+        fields.MultiLineStringField: partial(
+            converters.convert_geojson,
+            from_type=from_type,
+            to_type='MultiLineString'
+        ),
+        fields.MultiPolygonField: partial(
+            converters.convert_geojson,
+            from_type=from_type,
+            to_type='MultiPolygon'
+        ),
+    }
+
+
 #: Field type convertion matrix
 #: Contains information which converter must be used to convert one
 #: mongoengine field type to another. Used by field handlers when
@@ -218,6 +257,23 @@ CONVERTION_MATRIX = {
     fields.SequenceField: {
         fields.BaseField: converters.nothing
     },
+    # Geo fields
+    fields.GeoPointField: {
+        fields.PointField: partial(converters.legacy_pairs_to_geojson, to_type='Point'),
+        fields.LineStringField: partial(converters.legacy_pairs_to_geojson, to_type='LineString'),
+        fields.PolygonField: partial(converters.legacy_pairs_to_geojson, to_type='Polygon'),
+        fields.MultiPointField: partial(converters.legacy_pairs_to_geojson, to_type='MultiPoint'),
+        fields.MultiLineStringField: partial(converters.legacy_pairs_to_geojson,
+                                             to_type='MultiLineString'),
+        fields.MultiPolygonField: partial(converters.legacy_pairs_to_geojson,
+                                          to_type='MultiPolygon'),
+    },
+    fields.PointField: get_geojson_converters('Point'),
+    fields.LineStringField: get_geojson_converters('LineString'),
+    fields.PolygonField: get_geojson_converters('Polygon'),
+    fields.MultiPointField: get_geojson_converters('MultiPoint'),
+    fields.MultiLineStringField: get_geojson_converters('MultiLineString'),
+    fields.MultiPolygonField: get_geojson_converters('MultiPolygonField'),
     # Leave field as is if field type is unknown
     fields.BaseField: {}
 }
@@ -225,13 +281,13 @@ CONVERTION_MATRIX = {
 
 for klass, converters_mapping in CONVERTION_MATRIX.items():
     # Add fallback converter for unknown fields
-    CONVERTION_MATRIX[klass][fields.BaseField] = converters.nothing
+    CONVERTION_MATRIX[klass].setdefault(fields.BaseField, converters.nothing)
 
     # Add boolean converter for all fields
-    CONVERTION_MATRIX[klass][fields.BooleanField] = converters.to_bool
+    CONVERTION_MATRIX[klass].setdefault(fields.BooleanField, converters.to_bool)
 
     # Drop field during convertion to SequenceField
-    CONVERTION_MATRIX[klass][fields.SequenceField] = converters.drop_field
+    CONVERTION_MATRIX[klass].setdefault(fields.SequenceField, converters.drop_field)
 
     # Add convertion between class and its parent/child class
     CONVERTION_MATRIX[klass][klass] = converters.nothing

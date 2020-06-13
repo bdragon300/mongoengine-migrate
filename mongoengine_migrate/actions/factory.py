@@ -1,4 +1,3 @@
-from abc import ABCMeta, abstractmethod
 from typing import Iterable, Type
 
 from dictdiffer import patch
@@ -12,118 +11,87 @@ from .base import (
 )
 
 
-class BaseActionFactory(metaclass=ABCMeta):
-    """
-    Base abstract class for Actions abstract factory. The main aim
-    is to produce actions chain suitable to handle change between
-    current schema and schema collected from mongoengine models.
-
-    Concrete factory produces actions with concrete kind of change
-    such as collection change or field change.
-    """
-    @staticmethod
-    @abstractmethod
-    def get_actions_chain(collection_name: str,
-                          old_schema: dict,
-                          new_schema: dict) -> Iterable[BaseAction]:
-        """
-        Produce Action objects iterable with actions suitable to
-        process changes between given schemas
-        :param collection_name: collection name to consider
-        :param old_schema: current schema
-        :param new_schema: schema collected from mongoengine models
-        :return: iterable of Action objects
-        """
-        pass
-
-
-class FieldActionFactory(BaseActionFactory):
-    """Factory of field Actions"""
-    @staticmethod
-    def get_actions_chain(collection_name: str,
-                          old_schema: dict,
-                          new_schema: dict) -> Iterable[BaseFieldAction]:
-        old_collection_schema = old_schema.get(collection_name, {})
-        new_collection_schema = new_schema.get(collection_name, {})
-        # Take all fields to detect if they created, changed or dropped
-        fields = old_collection_schema.keys() | new_collection_schema.keys()
-        chain = []
-        registry = list(sorted(actions_registry.values(), key=lambda x: x.priority))
-
-        for action_cls in registry:
-            for field in fields:
-                if not issubclass(action_cls, BaseFieldAction):
-                    continue
-                action_obj = action_cls.build_object(collection_name,
-                                                     field,
-                                                     old_schema,
-                                                     new_schema)
-                if action_obj is not None:
-                    if action_obj.modify_test_schema:
-                        old_schema = patch(action_obj.to_schema_patch(old_schema), old_schema)
-                    chain.append(action_obj)
-
-        return chain
-
-
-class DocumentActionFactory(BaseActionFactory):
-    """Factory of document Actions"""
-    @staticmethod
-    def get_actions_chain(collection_name: str,
-                          old_schema: dict,
-                          new_schema: dict) -> Iterable[BaseDocumentAction]:
-        registry = list(sorted(actions_registry.values(), key=lambda x: x.priority))
-        chain = []
-
-        for action_cls in registry:
-            if not issubclass(action_cls, BaseDocumentAction):
-                continue
-            action_obj = action_cls.build_object(collection_name,
-                                                 old_schema,
-                                                 new_schema)
-            if action_obj is not None:
-                if action_obj.modify_test_schema:
-                    old_schema = patch(action_obj.to_schema_patch(old_schema), old_schema)
-                chain.append(action_obj)
-
-        return chain
-
-
-def build_actions_chain(old_schema: dict, new_schema: dict) -> Iterable[BaseAction]:
+def build_actions_chain(left_schema: dict, right_schema: dict) -> Iterable[BaseAction]:
     """
     Build full Action objects chain which suitable for such schema
     change.
-    :param old_schema: current schema
-    :param new_schema: schema collected from mongoengine models
+    :param left_schema: current schema
+    :param right_schema: schema collected from mongoengine models
     :return: iterable of Action objects
     """
     action_chain = []
 
-    # Existed or dropped collections should be iterated before created
-    # ones in order to avoid triggering CreateCollection action before
-    # RenameCollection action
-    all_collections = list(old_schema.keys()) + list(new_schema.keys() - old_schema.keys())
-    current_schema = old_schema.copy()
-    for collection_name in all_collections:
-        for factory in (DocumentActionFactory, FieldActionFactory):
-            new_actions = list(factory.get_actions_chain(
-                collection_name,
-                current_schema,
-                new_schema
-            ))
+    # Actions registry sorted by priority
+    registry = list(sorted(actions_registry.values(), key=lambda x: x.priority))
 
-            # Apply actions changes to a temporary schema
-            for action_obj in new_actions:
-                # TODO: handle patch errors (if schema is corrupted)
-                current_schema = patch(action_obj.to_schema_patch(current_schema), current_schema)
-            action_chain.extend(new_actions)
+    left_schema = left_schema.copy()
+    for action_cls in registry:
+        if issubclass(action_cls, BaseDocumentAction):
+            new_actions = list(build_document_action_chain(action_cls, left_schema, right_schema))
+        elif issubclass(action_cls, BaseFieldAction):
+            new_actions = list(build_field_action_chain(action_cls, left_schema, right_schema))
+        else:
+            continue
 
-    if new_schema != current_schema:
+        for action in new_actions:
+            left_schema = patch(action.to_schema_patch(left_schema), left_schema)
+        action_chain.extend(new_actions)
+
+    if right_schema != left_schema:
         from dictdiffer import diff
-        print(list(diff(current_schema, new_schema)))
+        print(list(diff(left_schema, right_schema)))
         # TODO: ability to force process without error
         raise ActionError('Could not reach current schema after applying whole Action chain. '
                           'This could be a problem in some Action which does not react to schema'
                           ' change it should react or produces wrong schema diff')
 
     return action_chain
+
+
+def build_document_action_chain(action_cls: Type[BaseDocumentAction],
+                                left_schema: dict,
+                                right_schema: dict) -> Iterable[BaseAction]:
+    """
+    Walk through schema changes, and produce chain of Action objects
+    of given type which could handle schema changes from left to right
+    :param action_cls: Action type to consider
+    :param left_schema:
+    :param right_schema:
+    :return: iterable of suitable Action objects
+    """
+    all_collections = left_schema.keys() | right_schema.keys()
+
+    for collection_name in all_collections:
+        action_obj = action_cls.build_object(collection_name, left_schema, right_schema)
+        if action_obj is not None:
+            # TODO: handle patch errors (if schema is corrupted)
+            left_schema = patch(action_obj.to_schema_patch(left_schema), left_schema)
+            yield action_obj
+
+
+def build_field_action_chain(action_cls: Type[BaseFieldAction],
+                             left_schema: dict,
+                             right_schema: dict) -> Iterable[BaseAction]:
+    """
+    Walk through schema changes, and produce chain of Action objects
+    of given type which could handle schema changes from left to right
+    :param action_cls: Action type to consider
+    :param left_schema:
+    :param right_schema:
+    :return: iterable of suitable Action objects
+    """
+    all_collections = left_schema.keys() | right_schema.keys()
+
+    for collection_name in all_collections:
+        # Take all fields to detect if they created, changed or dropped
+        all_fields = left_schema.get(collection_name, {}).keys() | \
+                     right_schema.get(collection_name, {}).keys()
+        for field in all_fields:
+            action_obj = action_cls.build_object(collection_name,
+                                                 field,
+                                                 left_schema,
+                                                 right_schema)
+            if action_obj is not None:
+                # TODO: handle patch errors (if schema is corrupted)
+                left_schema = patch(action_obj.to_schema_patch(left_schema), left_schema)
+                yield action_obj

@@ -8,6 +8,8 @@ class CreateCollection(BaseCreateDocument):
     Ex.: `CreateCollection("collection1")`
     # FIXME: parameters (indexes, acl, etc.)
     """
+    priority = 8
+
     @classmethod
     def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
         if collection_name.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
@@ -33,6 +35,8 @@ class DropCollection(BaseDropDocument):
 
     Ex.: `DropCollection("collection1")`
     """
+    priority = 16
+
     @classmethod
     def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
         if collection_name.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
@@ -61,6 +65,8 @@ class RenameCollection(BaseRenameDocument):
 
     Ex.: `RenameCollection("collection1", new_name="collection2")`
     """
+    priority = 6
+
     @classmethod
     def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
         if collection_name.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):

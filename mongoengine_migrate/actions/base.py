@@ -47,7 +47,7 @@ class BaseAction(metaclass=BaseActionMeta):
     #: priority number, the higher priority this action has.
     #: This flag is suitable for rename actions which should get tested
     #: before create/drop actions. Default is 5 which means normal
-    priority = 5
+    priority = 12
 
     #: If True and if this action will be applicable during chain build
     #: process then it's diff will be applied to the left schema

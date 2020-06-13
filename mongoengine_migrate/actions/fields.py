@@ -286,7 +286,7 @@ class AlterField(BaseFieldAction):
 
 class RenameField(BaseFieldAction):
     """Rename field"""
-    priority = 3
+    priority = 10
     modify_test_schema = True
 
     #: How much percent of items in schema diff of two fields in the

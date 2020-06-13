@@ -315,28 +315,29 @@ class RenameField(BaseFieldAction):
         if not match:
             return
 
-        old_field_schema = left_schema[collection_name][field_name]
+        left_field_schema = left_schema[collection_name][field_name]
         candidates = []
-        for name, schema in right_schema[collection_name].items():
+        for right_field_name, right_field_schema in right_schema[collection_name].items():
             # Skip fields which was not renamed
             # Changing 'db_field' parameter is altering, not renaming
-            if name in left_schema[collection_name]:
+            if right_field_name in left_schema[collection_name]:
                 continue
 
             # Model field renamed, but db field is the same
-            db_field = schema.get('db_field')
-            if db_field == name:
-                candidates = [(name, schema)]
+            db_field = right_field_schema.get('db_field')
+            if db_field == right_field_name:
+                candidates = [(right_field_name, right_field_schema)]
                 break
 
             # Take only common keys to estimate similarity
             # 'type_key' may get changed which means that change of one
             # key leads to many changes in schema. These changes
             # should not be considered as valueable
-            keys = old_field_schema.keys() & schema.keys() - {'db_field'}
-            percent = sum(old_field_schema[k] == schema[k] for k in keys) / len(keys) * 100
+            keys = left_field_schema.keys() & right_field_schema.keys() - {'db_field'}
+            percent = sum(left_field_schema[k] == right_field_schema[k] for k in keys) / len(keys)
+            percent *= 100
             if percent >= cls.similarity_threshold:
-                candidates.append((name, schema))
+                candidates.append((right_field_name, right_field_schema))
 
         if len(candidates) == 1:
             return cls(collection_name=collection_name,

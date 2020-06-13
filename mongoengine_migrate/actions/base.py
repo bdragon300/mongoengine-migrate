@@ -499,35 +499,35 @@ class BaseRenameDocument(BaseDocumentAction):
         if not match:
             return
 
-        old_col_schema = left_schema[collection_name]
+        left_collection_schema = left_schema[collection_name]
         candidates = []
         matches = 0
         compares = 0
-        for name, schema in right_schema.items():
+        for right_collection_name, right_collection_schema in right_schema.items():
             # Skip collections which was not renamed
-            if name in left_schema:
+            if right_collection_name in left_schema:
                 continue
 
             # Exact match, collection was just renamed
-            if old_col_schema == schema:
-                candidates = [(name, schema)]
+            if left_collection_schema == right_collection_schema:
+                candidates = [(right_collection_name, right_collection_schema)]
                 break
 
             # Try to find collection by its schema similarity
             # Compares are counted as every field schema comparing
-            fields = old_col_schema.keys() | schema.keys()
-            for field_name in fields:
-                old_field_schema = old_col_schema.get(field_name, {})
-                field_schema = schema.get(field_name, {})
-                common_keys = old_field_schema.keys() & field_schema.keys()
+            common_fields = left_collection_schema.keys() | right_collection_schema.keys()
+            for field_name in common_fields:
+                left_field_schema = left_collection_schema.get(field_name, {})
+                right_field_schema = right_collection_schema.get(field_name, {})
+                common_keys = left_field_schema.keys() & right_field_schema.keys()
                 compares += len(common_keys)
                 matches += sum(
-                    old_field_schema[k] == field_schema[k]
+                    left_field_schema[k] == right_field_schema[k]
                     for k in common_keys
                 )
 
             if (matches / compares * 100) >= cls.similarity_threshold:
-                candidates.append((name, schema))
+                candidates.append((right_collection_name, right_collection_schema))
 
         if len(candidates) == 1:
             return cls(collection_name=collection_name, new_name=candidates[0][0])

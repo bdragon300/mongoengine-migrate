@@ -27,7 +27,7 @@ class CreateCollection(BaseCreateDocument):
 
     def run_backward(self):
         """Drop collection in backward direction"""
-        self.collection.drop()
+        self._run_ctx['collection'].drop()
 
 
 class DropCollection(BaseDropDocument):
@@ -50,7 +50,7 @@ class DropCollection(BaseDropDocument):
         Mongodb automatically creates collection on the first insert
         So, do nothing
         """
-        self.collection.drop()
+        self._run_ctx['collection'].drop()
 
     def run_backward(self):
         """
@@ -76,9 +76,11 @@ class RenameCollection(BaseRenameDocument):
         return super().build_object(collection_name, left_schema, right_schema)
 
     def run_forward(self):
-        if self.collection.name in self.collection.database.list_collection_names():
-            self.collection.rename(self.new_name)
+        collection_names = self._run_ctx['collection'].database.list_collection_names()
+        if self._run_ctx['collection'].name in collection_names:
+            self._run_ctx['collection'].rename(self.new_name)
 
     def run_backward(self):
-        if self.collection.name in self.collection.database.list_collection_names():
-            self.collection.rename(self.collection_name)
+        collection_names = self._run_ctx['collection'].database.list_collection_names()
+        if self._run_ctx['collection'].name in collection_names:
+            self._run_ctx['collection'].rename(self.collection_name)

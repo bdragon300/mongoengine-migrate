@@ -60,10 +60,10 @@ class CreateField(BaseFieldAction):
             if self.is_embedded:
                 self._update_embedded_doc_field(self.orig_collection_name,
                                                 db_field,
-                                                self.left_schema,
+                                                self._run_ctx['left_schema'],
                                                 set_to=default)
             else:
-                self.collection.update_many(
+                self._run_ctx['collection'].update_many(
                     {db_field: {'$exists': False}}, {'$set': {db_field: default}}
                 )
 
@@ -73,10 +73,10 @@ class CreateField(BaseFieldAction):
         if self.is_embedded:
             self._update_embedded_doc_field(self.orig_collection_name,
                                             db_field,
-                                            self.left_schema,
+                                            self._run_ctx['left_schema'],
                                             unset=True)
         else:
-            self.collection.update_many(
+            self._run_ctx['collection'].update_many(
                 {db_field: {'$exists': True}}, {'$unset': {db_field: ''}}
             )
 
@@ -115,10 +115,10 @@ class DropField(BaseFieldAction):
         if self.is_embedded:
             self._update_embedded_doc_field(self.orig_collection_name,
                                             db_field,
-                                            self.left_schema,
+                                            self._run_ctx['left_schema'],
                                             unset=True)
         else:
-            self.collection.update_many(
+            self._run_ctx['collection'].update_many(
                 {db_field: {'$exists': True}}, {'$unset': {db_field: ''}}
             )
 
@@ -135,10 +135,10 @@ class DropField(BaseFieldAction):
             if self.is_embedded:
                 self._update_embedded_doc_field(self.orig_collection_name,
                                                 db_field,
-                                                self.left_schema,
+                                                self._run_ctx['left_schema'],
                                                 set_to=default)
             else:
-                self.collection.update_many(
+                self._run_ctx['collection'].update_many(
                     {db_field: {'$exists': False}}, {'$set': {db_field: default}}
                 )
 

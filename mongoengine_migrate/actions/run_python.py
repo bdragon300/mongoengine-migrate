@@ -19,11 +19,15 @@ class RunPython(BaseAction):
 
     def run_forward(self):
         if self.forward_func is not None:
-            self.forward_func(self.db, self.collection, self.left_schema)
+            self.forward_func(self._run_ctx['db'],
+                              self._run_ctx['collection'],
+                              self._run_ctx['left_schema'])
 
     def run_backward(self):
         if self.backward_func is not None:
-            self.backward_func(self.db, self.collection, self.left_schema)
+            self.backward_func(self._run_ctx['db'],
+                               self._run_ctx['collection'],
+                               self._run_ctx['left_schema'])
 
     def to_schema_patch(self, left_schema: dict):
         """

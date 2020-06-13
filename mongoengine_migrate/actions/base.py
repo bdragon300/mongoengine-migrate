@@ -63,15 +63,12 @@ class BaseAction(metaclass=BaseActionMeta):
         self.dummy_action = dummy_action
         self.parameters = kwargs
         self.is_embedded = False
+        self._run_ctx = None  # Run context, filled by `prepare()`
 
         _prefix = runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX
         if collection_name.startswith(_prefix):
             self.collection_name = collection_name[len(_prefix):]
             self.is_embedded = True
-
-        self.left_schema = None
-        self.db = None
-        self.collection = None
 
     def prepare(self, db: Database, left_schema: dict):
         """
@@ -80,16 +77,20 @@ class BaseAction(metaclass=BaseActionMeta):
         :param left_schema: db schema before migration (left side)
         :return:
         """
-        self.left_schema = left_schema
-        self.db = db
-        self.collection = db[self.collection_name]
+        collection = db[self.collection_name]
         if runtime_flags.dry_run:
-            self.collection = CollectionQueryTracer(self.collection)
+            collection = CollectionQueryTracer(collection)
+
+        self._run_ctx = {
+            'left_schema': left_schema,
+            'db': db,
+            'collection': collection
+        }
 
     def cleanup(self):
         """Cleanup after Action run (both forward and backward)"""
         if runtime_flags.dry_run:
-            self.collection.call_history.clear()
+            self._run_ctx['collection'].call_history.clear()
 
     @abstractmethod
     def run_forward(self):
@@ -135,7 +136,7 @@ class BaseAction(metaclass=BaseActionMeta):
     def get_call_history(self) -> List[HistoryCall]:
         """Return call history of collection modification methods"""
         if runtime_flags.dry_run:
-            return self.collection.call_history
+            return self._run_ctx['collection'].call_history
 
         return []
 
@@ -275,9 +276,9 @@ class BaseAction(metaclass=BaseActionMeta):
         :param unset: unset field
         :return:
         """
-        def _new_collection(x): return self.db[x]
+        def _new_collection(x): return self._run_ctx['db'][x]
         if runtime_flags.dry_run:
-            def _new_collection(x): return CollectionQueryTracer(self.db[x])
+            def _new_collection(x): return CollectionQueryTracer(self._run_ctx['db'][x])
 
         for collection_name, collection_schema in self._filter_collection_items(db_schema):
             collection = _new_collection(collection_name)
@@ -400,7 +401,7 @@ class BaseFieldAction(BaseAction):
         :return: concrete FieldHandler object
         """
         handler_cls = self.get_field_handler_cls(type_key)
-        handler = handler_cls(self.collection, left_field_schema, right_field_schema)
+        handler = handler_cls(self._run_ctx['collection'], left_field_schema, right_field_schema)
         return handler
 
 

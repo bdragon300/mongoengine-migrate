@@ -61,6 +61,10 @@ def build_document_action_chain(action_cls: Type[BaseDocumentAction],
     """
     all_collections = left_schema.keys() | right_schema.keys()
 
+    # Handle embedded documents before collections
+    all_collections = [c for c in all_collections if c.startswith('~')] + \
+                      [c for c in all_collections if not c.startswith('~')]
+
     for collection_name in all_collections:
         action_obj = action_cls.build_object(collection_name, left_schema, right_schema)
         if action_obj is not None:
@@ -81,6 +85,10 @@ def build_field_action_chain(action_cls: Type[BaseFieldAction],
     :return: iterable of suitable Action objects
     """
     all_collections = left_schema.keys() | right_schema.keys()
+
+    # Handle embedded documents before collections
+    all_collections = [c for c in all_collections if c.startswith('~')] + \
+                      [c for c in all_collections if not c.startswith('~')]
 
     for collection_name in all_collections:
         # Take all fields to detect if they created, changed or dropped

@@ -526,7 +526,7 @@ class BaseRenameDocument(BaseDocumentAction):
                     for k in common_keys
                 )
 
-            if (matches / compares * 100) >= cls.similarity_threshold:
+            if compares > 0 and (matches / compares * 100) >= cls.similarity_threshold:
                 candidates.append((right_collection_name, right_collection_schema))
 
         if len(candidates) == 1:

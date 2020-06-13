@@ -334,10 +334,10 @@ class RenameField(BaseFieldAction):
             # key leads to many changes in schema. These changes
             # should not be considered as valueable
             keys = left_field_schema.keys() & right_field_schema.keys() - {'db_field'}
-            percent = sum(left_field_schema[k] == right_field_schema[k] for k in keys) / len(keys)
-            percent *= 100
-            if percent >= cls.similarity_threshold:
-                candidates.append((right_field_name, right_field_schema))
+            if keys:
+                p = sum(left_field_schema[k] == right_field_schema[k] for k in keys) / len(keys)
+                if p * 100 >= cls.similarity_threshold:
+                    candidates.append((right_field_name, right_field_schema))
 
         if len(candidates) == 1:
             return cls(collection_name=collection_name,

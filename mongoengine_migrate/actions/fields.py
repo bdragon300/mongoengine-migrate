@@ -1,6 +1,6 @@
 from typing import Mapping, Any
 
-from mongoengine_migrate.exceptions import ActionError, SchemaError
+from mongoengine_migrate.exceptions import ActionError
 from .base import BaseFieldAction
 from .diff import AlterDiff, UNSET
 
@@ -111,7 +111,7 @@ class DropField(BaseFieldAction):
 
     def run_forward(self):
         """Drop field"""
-        db_field = self.left_field_schema['db_field']
+        db_field = self._run_ctx['left_field_schema']['db_field']
         if self.is_embedded:
             self._update_embedded_doc_field(self.orig_collection_name,
                                             db_field,
@@ -128,10 +128,10 @@ class DropField(BaseFieldAction):
         default value. Otherwise do nothing since mongoengine creates
         fields automatically on value set
         """
-        is_required = self.left_field_schema.get('required')
-        default = self.left_field_schema.get('default')
+        is_required = self._run_ctx['left_field_schema'].get('required')
+        default = self._run_ctx['left_field_schema'].get('default')
         if is_required:
-            db_field = self.left_field_schema['db_field']
+            db_field = self._run_ctx['left_field_schema']['db_field']
             if self.is_embedded:
                 self._update_embedded_doc_field(self.orig_collection_name,
                                                 db_field,
@@ -207,10 +207,10 @@ class AlterField(BaseFieldAction):
         return d
 
     def run_forward(self):
-        self._run_migration(self.left_field_schema, self.parameters, swap=False)
+        self._run_migration(self._run_ctx['left_field_schema'], self.parameters, swap=False)
 
     def run_backward(self):
-        self._run_migration(self.left_field_schema, self.parameters, swap=True)
+        self._run_migration(self._run_ctx['left_field_schema'], self.parameters, swap=True)
 
     def _run_migration(self, left_field_schema: dict, parameters: Mapping[str, Any], swap=False):
         type_key = left_field_schema['type_key']

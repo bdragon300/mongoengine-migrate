@@ -327,7 +327,6 @@ class BaseFieldAction(BaseAction):
         """
         super().__init__(collection_name, **kwargs)
         self.field_name = field_name
-        self.left_field_schema = None
 
         db_field = kwargs.get('db_field')
         if db_field and '.' in db_field:
@@ -376,7 +375,9 @@ class BaseFieldAction(BaseAction):
 
     def prepare(self, db: Database, left_schema: dict):
         super().prepare(db, left_schema)
-        self.left_field_schema = left_schema[self.orig_collection_name].get(self.field_name, {})
+
+        self._run_ctx['left_field_schema'] = \
+            left_schema[self.orig_collection_name].get(self.field_name, {})
 
     def to_python_expr(self) -> str:
         parameters = {

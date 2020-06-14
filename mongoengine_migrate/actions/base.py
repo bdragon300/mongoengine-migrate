@@ -411,7 +411,7 @@ class BaseDocumentAction(BaseAction):
     embedded document) at whole such as renaming, creating, dropping, etc.
     """
 
-    #: Empty docuemnt schema contents skeleton
+    #: Empty document schema contents skeleton
     DOCUMENT_SCHEMA_SKEL = {}
 
     @classmethod
@@ -474,7 +474,8 @@ class BaseDropDocument(BaseDocumentAction):
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
     def to_schema_patch(self, left_schema: dict):
-        return [('remove', '', [(self.orig_collection_name, self.DOCUMENT_SCHEMA_SKEL)])]
+        item = left_schema[self.orig_collection_name]
+        return [('remove', '', [(self.orig_collection_name, item)])]
 
 
 class BaseRenameDocument(BaseDocumentAction):

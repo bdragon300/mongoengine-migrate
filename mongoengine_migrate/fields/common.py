@@ -1,5 +1,5 @@
 import re
-from typing import Type, Collection
+from typing import Type, Collection, Union
 
 import mongoengine.fields
 
@@ -367,7 +367,7 @@ class SequenceFieldHandler(CommonFieldHandler):
     schema_skel_keys = {'link_collection', 'sequence_name'}
 
     @classmethod
-    def build_schema(cls, field_obj: mongoengine.fields.BaseField) -> dict:
+    def build_schema(cls, field_obj: mongoengine.fields.SequenceField) -> dict:
         schema = super().build_schema(field_obj)
         schema['link_collection'] = field_obj.collection_name
 
@@ -458,7 +458,12 @@ class ReferenceFieldHandler(CommonFieldHandler):
         ])
 
     @classmethod
-    def build_schema(cls, field_obj: mongoengine.fields.BaseField) -> dict:
+    def build_schema(
+            cls,
+            field_obj: Union[
+                mongoengine.fields.ReferenceField,
+                mongoengine.fields.LazyReferenceField
+            ]) -> dict:
         schema = super().build_schema(field_obj)
 
         # 'document_type' is restricted to use only Document class
@@ -486,6 +491,51 @@ class CachedReferenceFieldHandler(CommonFieldHandler):
                 {self.db_field: {'$ne': None}},
                 {'$unset': paths}
             )
+
+
+class FileFieldHandler(CommonFieldHandler):
+    field_classes = [
+        mongoengine.fields.FileField
+    ]
+
+    # TODO: db_alias
+    schema_skel_keys = {'link_collection'}
+
+    @classmethod
+    def build_schema(cls, field_obj: mongoengine.fields.FileField) -> dict:
+        schema = super().build_schema(field_obj)
+        schema['link_collection'] = field_obj.collection_name
+
+        return schema
+
+    def change_link_collection(self, diff: AlterDiff):
+        """Typically changing the collection name should not require
+        to do any changes
+        """
+        self._check_diff(diff, False, str)
+        pass
+
+
+class ImageFieldHandler(FileFieldHandler):
+    field_classes = [
+        mongoengine.fields.ImageField
+    ]
+
+    schema_skel_keys = {'size', 'thumbnail_size'}
+
+    def change_thumbnail_size(self, diff: AlterDiff):
+        """Typically changing the attribute should not require
+        to do any changes
+        """
+        self._check_diff(diff, False, (list, tuple))
+        pass
+
+    def change_size(self, diff: AlterDiff):
+        """Typically changing the attribute should not require
+        to do any changes
+        """
+        self._check_diff(diff, False, (list, tuple))
+        pass
 
 
 # class EmbeddedDocumentFieldHandler(CommonFieldHandler):

@@ -133,9 +133,11 @@ OBJECTID_CONVERTERS = {
     fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
     fields.ListField: converters.item_to_list,
     fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded documents
-    fields.ReferenceField: converters.nothing,
-    fields.LazyReferenceField: converters.nothing,
+    fields.ReferenceField: converters.nothing,  # FIXME: it could be dbref
+    fields.LazyReferenceField: converters.nothing,  # FIXME: it could be dbref
     fields.ObjectIdField: converters.nothing,
+    fields.FileField: converters.nothing,
+    fields.ImageField: converters.nothing,
     fields.CachedReferenceField: converters.ref_to_cached_reference
 }
 
@@ -242,6 +244,8 @@ CONVERTION_MATRIX = {
     fields.ReferenceField: OBJECTID_CONVERTERS.copy(),
     fields.LazyReferenceField: OBJECTID_CONVERTERS.copy(),
     fields.ObjectIdField: OBJECTID_CONVERTERS.copy(),
+    fields.FileField: OBJECTID_CONVERTERS.copy(),
+    fields.ImageField: OBJECTID_CONVERTERS.copy(),
     fields.CachedReferenceField: {
         fields.EmbeddedDocumentField: converters.nothing,
         fields.ListField: converters.item_to_list,
@@ -289,5 +293,5 @@ for klass, converters_mapping in CONVERTION_MATRIX.items():
     # Drop field during convertion to SequenceField
     CONVERTION_MATRIX[klass].setdefault(fields.SequenceField, converters.drop_field)
 
-    # Add convertion between class and its parent/child class
+    # Force set convertion between class and its parent/child class
     CONVERTION_MATRIX[klass][klass] = converters.nothing

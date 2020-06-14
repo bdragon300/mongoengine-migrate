@@ -87,10 +87,10 @@ mongoengine-migrate migrate my_migration
 - [x] Reference fields support
 - [x] Embedded documents support + actions
 - [x] Geo fields support
+- [x] GridFS fields support
 - [ ] Altering fields in embedded documents
 - [ ] Document inheritance support
 - [ ] Index support
-- [ ] GridFS fields support
 - [ ] Generic* fields support
 - [ ] Interactive mode
 - [ ] Schema repair tools

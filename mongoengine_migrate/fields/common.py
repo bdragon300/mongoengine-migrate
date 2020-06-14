@@ -295,7 +295,7 @@ class ListFieldHandler(CommonFieldHandler):
         mongoengine.fields.ListField
     ]
 
-    schema_skel_keys = {}  # TODO: implement "field"
+    schema_skel_keys = set()  # TODO: implement "field"
 
     @classmethod
     def schema_skel(cls) -> dict:
@@ -363,9 +363,17 @@ class SequenceFieldHandler(CommonFieldHandler):
     ]
 
     # TODO: warning on using non-default value_decorator
-    schema_skel_keys = {'collection_name', 'sequence_name'}
+    # TODO: db_alias
+    schema_skel_keys = {'link_collection', 'sequence_name'}
 
-    def change_collection_name(self, diff: AlterDiff):
+    @classmethod
+    def build_schema(cls, field_obj: mongoengine.fields.BaseField) -> dict:
+        schema = super().build_schema(field_obj)
+        schema['link_collection'] = field_obj.collection_name
+
+        return schema
+
+    def change_link_collection(self, diff: AlterDiff):
         """Typically changing the collection name should not require
         to do any changes
         """

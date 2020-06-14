@@ -18,6 +18,9 @@ class FieldHandlerMeta(type):
         me_classes_attr = 'field_classes'
         me_classes = attrs.get(me_classes_attr)
 
+        assert not {'field_name', 'collection_name'} & attrs.get('schema_skel_keys', set()), \
+            "Handler schema_skel_keys shouldn't have keys matched with BaseAction parameters"
+
         assert isinstance(me_classes, (List, Tuple)) or me_classes is None, \
             f'{me_classes_attr} must be mongoengine field classes list'
 

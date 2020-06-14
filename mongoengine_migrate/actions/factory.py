@@ -3,6 +3,7 @@ from typing import Iterable, Type
 from dictdiffer import patch
 
 from mongoengine_migrate.exceptions import ActionError
+import mongoengine_migrate.flags as flags
 from .base import (
     actions_registry,
     BaseFieldAction,
@@ -62,8 +63,10 @@ def build_document_action_chain(action_cls: Type[BaseDocumentAction],
     all_collections = left_schema.keys() | right_schema.keys()
 
     # Handle embedded documents before collections
-    all_collections = [c for c in all_collections if c.startswith('~')] + \
-                      [c for c in all_collections if not c.startswith('~')]
+    all_collections = [c for c in all_collections
+                       if c.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)] + \
+                      [c for c in all_collections
+                       if not c.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)]
 
     for collection_name in all_collections:
         action_obj = action_cls.build_object(collection_name, left_schema, right_schema)
@@ -87,8 +90,10 @@ def build_field_action_chain(action_cls: Type[BaseFieldAction],
     all_collections = left_schema.keys() | right_schema.keys()
 
     # Handle embedded documents before collections
-    all_collections = [c for c in all_collections if c.startswith('~')] + \
-                      [c for c in all_collections if not c.startswith('~')]
+    all_collections = [c for c in all_collections
+                       if c.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)] + \
+                      [c for c in all_collections
+                       if not c.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)]
 
     for collection_name in all_collections:
         # Take all fields to detect if they created, changed or dropped

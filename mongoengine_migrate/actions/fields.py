@@ -224,11 +224,12 @@ class AlterField(BaseFieldAction):
             type_key = left_field_schema['type_key']
 
         field_handler = self._get_field_handler(type_key, left_field_schema, right_field_schema)
+        db_field = left_field_schema['db_field']
 
         # Change field type first, obtain new field handler object
         # and process other parameters with it
         if type_key != right_field_schema['type_key']:
-            field_handler.change_param('type_key')
+            field_handler.change_param(db_field, 'type_key')
             field_handler = self._get_field_handler(right_field_schema['type_key'],
                                                     left_field_schema,
                                                     right_field_schema)
@@ -241,7 +242,11 @@ class AlterField(BaseFieldAction):
             if name == 'type_key' or new_value == old_value:
                 continue
 
-            field_handler.change_param(name)
+            field_handler.change_param(db_field, name)
+
+            # If `db_field` was changed then work with new name further
+            if name == 'db_field':
+                db_field = right_field_schema['db_field']
 
     @classmethod
     def _fix_field_params(cls,

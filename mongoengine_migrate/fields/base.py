@@ -1,6 +1,6 @@
 import inspect
 import weakref
-from typing import Type, Iterable, List, Tuple, Collection, Any
+from typing import Type, Iterable, List, Tuple, Collection
 
 import mongoengine.fields
 from pymongo.collection import Collection as MongoCollection
@@ -61,9 +61,6 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         self.left_field_schema = left_field_schema
         self.right_field_schema = right_field_schema
         self.collection = collection
-        self.db_field = left_field_schema.get('db_field')
-        if self.db_field is None:
-            raise SchemaError(f"Missed 'db_field' key in schema of collection {collection.name}")
 
     @classmethod
     def schema_skel(cls) -> dict:
@@ -113,13 +110,14 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         return schema
 
-    def change_param(self, name: str):
+    def change_param(self, db_field: str, name: str):
         """
         DB commands to be run in order to change given parameter
 
         This is a facade method which calls concrete method which
         changes given parameter. Such methods should have name
         'change_NAME' where NAME is a parameter name.
+        :param db_field: db field name to change
         :param name: parameter name to change
         :return:
         """
@@ -129,15 +127,16 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             self.left_field_schema.get(name, UNSET),
             self.right_field_schema.get(name, UNSET)
         )
-        return getattr(self, method_name)(diff)
+        return getattr(self, method_name)(db_field, diff)
 
-    def change_db_field(self, diff: AlterDiff):
+    def change_db_field(self, db_field: str, diff: AlterDiff):
         """
         Change db field name of a field. Simply rename this field
+        :param db_field:
         :param diff:
         :return:
         """
-        self._check_diff(diff, False, str)
+        self._check_diff(db_field, diff, False, str)
         if not diff.new or not diff.old:
             raise MigrationError("db_field must be a non-empty string")
 
@@ -145,75 +144,78 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             {diff.old: {'$exists': True}},
             {'$rename': {diff.old: diff.new}}
         )
-        self.db_field = diff.new
 
-    def change_required(self, diff: AlterDiff):
+    def change_required(self, db_field: str, diff: AlterDiff):
         """
         Make field required, which means to add this field to all
         documents. Reverting of this doesn't require smth to do
+        :param db_field:
         :param diff:
         :return:
         """
-        self._check_diff(diff, False, bool)
+        self._check_diff(db_field, diff, False, bool)
 
         if diff.old is not True and diff.new is True:
             default = self.right_field_schema.get('default')
             # None and UNSET default has the same meaning here
             if default is None:
-                raise MigrationError(f'Cannot mark field {self.collection.name}.{self.db_field} '
+                raise MigrationError(f'Cannot mark field {self.collection.name}.{db_field} '
                                      f'as required because default value is not set')
             self.collection.update_many(
-                {self.db_field: None},  # Both null and nonexistent field
-                {'$set': {self.db_field: default}}
+                {db_field: None},  # Both null and nonexistent field
+                {'$set': {db_field: default}}
             )
 
-    def change_default(self, diff: AlterDiff):
+    def change_default(self, db_field: str, diff: AlterDiff):
         """Stub method. No need to do smth on default change"""
         pass
 
-    def change_unique(self, diff: AlterDiff):
+    def change_unique(self, db_field: str, diff: AlterDiff):
         # TODO
         pass
 
-    def change_unique_with(self, diff: AlterDiff):
+    def change_unique_with(self, db_field: str, diff: AlterDiff):
         # TODO
         pass
 
-    def change_primary_key(self, diff: AlterDiff):
+    def change_primary_key(self, db_field: str, diff: AlterDiff):
         """
         Setting field as primary key means to set it required and unique
+        :param db_field:
         :param diff:
         :return:
         """
-        self._check_diff(diff, False, bool)
-        self.change_required(diff),  # FIXME: should not consider default value, but check if field is required
+        self._check_diff(db_field, diff, False, bool)
+        self.change_required(db_field, diff),  # FIXME: should not consider default value, but check if field is required
         # self.change_unique([], []) or []  # TODO
 
     # TODO: consider Document, EmbeddedDocument as choices
-    def change_choices(self, diff: AlterDiff):
+    def change_choices(self, db_field: str, diff: AlterDiff):
         """
         Set choices for a field
         :param diff:
+        :param db_field:
         :return:
         """
-        self._check_diff(diff, True, Collection)
+        self._check_diff(db_field, diff, True, Collection)
         choices = diff.new
 
-        check_empty_result(self.collection, self.db_field, {self.db_field: {'$nin': choices}})
+        check_empty_result(self.collection, db_field, {db_field: {'$nin': choices}})
 
-    def change_null(self, diff: AlterDiff):
+    def change_null(self, db_field: str, diff: AlterDiff):
         pass
 
-    def change_sparse(self, diff: AlterDiff):
+    def change_sparse(self, db_field: str, diff: AlterDiff):
         pass
 
-    def change_type_key(self, diff: AlterDiff):
+    def change_type_key(self, db_field: str, diff: AlterDiff):
         """
         Change type of field. Try to convert value in db
         :param diff:
+        :param db_field:
         :return:
         """
-        self._check_diff(diff, False, str)
+        self._check_diff(db_field, diff, False, str)
         if not diff.old or not diff.new:
             raise MigrationError(f"'type_key' has empty values: {diff!r}")
 
@@ -231,6 +233,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         new_handler.convert_type(*field_classes)
 
     def convert_type(self,
+                     db_field: str,
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
         """
@@ -246,6 +249,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         not exist already, the BaseField will be sent.
 
         New field will always have target mongoengine field type
+        :param db_field: db field to convert
         :param from_field_cls: mongoengine field class which was used
          before
         :param to_field_cls: mongoengine field class which will be used
@@ -267,21 +271,21 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             raise MigrationError(f'Type converter not found for convertion '
                                  f'{from_field_cls!r} -> {to_field_cls!r}')
 
-        type_converter(self.collection, self.db_field)
+        type_converter(self.collection, db_field)
 
-    def _check_diff(self, diff: AlterDiff, can_be_none=True, check_type=None):
+    def _check_diff(self, db_field: str, diff: AlterDiff, can_be_none=True, check_type=None):
         if diff.new == diff.old:
-            raise MigrationError(f'Diff of field {self.db_field} has the equal old and new values')
+            raise MigrationError(f'Diff of field {db_field} has the equal old and new values')
 
         if check_type is not None:
             if diff.old not in (UNSET, None) and not isinstance(diff.old, check_type) \
                     or diff.new not in (UNSET, None) and not isinstance(diff.new, check_type):
-                raise MigrationError(f'Field {self.db_field}, diff {diff!s} values must be of type '
+                raise MigrationError(f'Field {db_field}, diff {diff!s} values must be of type '
                                      f'{check_type!r}')
 
         if not can_be_none:
             if diff.old is None or diff.new is None:
-                raise MigrationError(f'{self.db_field} could not be None')
+                raise MigrationError(f'{db_field} could not be None')
 
     @classmethod
     def _clear_default(cls, default):

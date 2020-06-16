@@ -19,32 +19,32 @@ class NumberFieldHandler(CommonFieldHandler):
     ]
     schema_skel_keys = {'min_value', 'max_value'}
 
-    def change_min_value(self, diff: AlterDiff):
+    def change_min_value(self, db_field: str, diff: AlterDiff):
         """
         Change min_value of field. Force set to minimum if value is
         less than limitation (if any)
         """
-        self._check_diff(diff, True, (int, float))
+        self._check_diff(db_field, diff, True, (int, float))
         if diff.new in (UNSET, None):
             return
 
         self.collection.update_many(
-            {self.db_field: {'$lt': diff.new}},
-            {'$set': {self.db_field: diff.new}}
+            {db_field: {'$lt': diff.new}},
+            {'$set': {db_field: diff.new}}
         )
 
-    def change_max_value(self, diff: AlterDiff):
+    def change_max_value(self, db_field: str, diff: AlterDiff):
         """
         Change max_value of field. Force set to maximum if value is
         more than limitation (if any)
         """
-        self._check_diff(diff, True, (int, float))
+        self._check_diff(db_field, diff, True, (int, float))
         if diff.new in (UNSET, None):
             return
 
         self.collection.update_many(
-            {self.db_field: {'$gt': diff.new}},
-            {'$set': {self.db_field: diff.new}}
+            {db_field: {'$gt': diff.new}},
+            {'$set': {db_field: diff.new}}
         )
 
 
@@ -56,9 +56,9 @@ class StringFieldHandler(CommonFieldHandler):
     schema_skel_keys = {'max_length', 'min_length', 'regex'}
 
     @mongo_version(min_version='3.6')
-    def change_max_length(self, diff: AlterDiff):
+    def change_max_length(self, db_field: str, diff: AlterDiff):
         """Cut off a string if it longer than limitation (if any)"""
-        self._check_diff(diff, True, int)
+        self._check_diff(db_field, diff, True, int)
         if diff.new in (UNSET, None):
             return
         if diff.new < 0:
@@ -67,19 +67,19 @@ class StringFieldHandler(CommonFieldHandler):
         # Cut too long strings
         self.collection.aggregate([
             {'$match': {
-                self.db_field: {"$ne": None},
-                "$expr": {"$gt": [{"$strLenCP": f"${self.db_field}"}, diff.new]},  # >= 3.6
+                db_field: {"$ne": None},
+                "$expr": {"$gt": [{"$strLenCP": f"${db_field}"}, diff.new]},  # >= 3.6
             }},
             {'$addFields': {  # >= 3.4
-                self.db_field: {"$substr": [f'${self.db_field}', 0, diff.new]}
+                db_field: {"$substr": [f'${db_field}', 0, diff.new]}
             }},
             {'$out': self.collection.name}  # >= 2.6
         ])
 
     @mongo_version(min_version='3.6')
-    def change_min_length(self, diff: AlterDiff):
+    def change_min_length(self, db_field: str, diff: AlterDiff):
         """Raise error if string is shorter than limitation (if any)"""
-        self._check_diff(diff, True, int)
+        self._check_diff(db_field, diff, True, int)
         if diff.new in (UNSET, None):
             return
         if diff.new < 0:
@@ -88,19 +88,19 @@ class StringFieldHandler(CommonFieldHandler):
         # We can't to increase string length, so raise error if
         # there was found strings which are shorter than should be
         fltr = {
-            self.db_field: {'$ne': None},
-            "$where": f"this.{self.db_field}.length < {diff.new}"  # >=3.6
+            db_field: {'$ne': None},
+            "$where": f"this.{db_field}.length < {diff.new}"  # >=3.6
         }
-        check_empty_result(self.collection, self.db_field, fltr)
+        check_empty_result(self.collection, db_field, fltr)
 
-    def change_regex(self, diff: AlterDiff):
+    def change_regex(self, db_field: str, diff: AlterDiff):
         """Raise error if string does not match regex (if any)"""
-        self._check_diff(diff, True, (str, type(re.compile('.'))))
+        self._check_diff(db_field, diff, True, (str, type(re.compile('.'))))
         if diff.new in (UNSET, None):
             return
 
-        fltr = {self.db_field: {'$not': re.compile(diff.new), '$ne': None}}
-        check_empty_result(self.collection, self.db_field, fltr)
+        fltr = {db_field: {'$not': re.compile(diff.new), '$ne': None}}
+        check_empty_result(self.collection, db_field, fltr)
 
 
 class URLFieldHandler(StringFieldHandler):
@@ -110,16 +110,16 @@ class URLFieldHandler(StringFieldHandler):
 
     schema_skel_keys = {'schemes'}  # TODO: implement url_regex
 
-    def change_schemes(self, diff: AlterDiff):
+    def change_schemes(self, db_field: str, diff: AlterDiff):
         """Raise error if url has scheme not from list"""
-        self._check_diff(diff, False, Collection)
+        self._check_diff(db_field, diff, False, Collection)
         if not diff.new or diff.new == UNSET:
             return
 
         # Check if some records contains non-url values in db_field
         scheme_regex = re.compile(rf'\A(?:({"|".join(re.escape(x) for x in diff.new)}))://')
-        fltr = {self.db_field: {'$not': scheme_regex, '$ne': None}}
-        check_empty_result(self.collection, self.db_field, fltr)
+        fltr = {db_field: {'$not': scheme_regex, '$ne': None}}
+        check_empty_result(self.collection, db_field, fltr)
 
 
 class EmailFieldHandler(StringFieldHandler):
@@ -165,24 +165,24 @@ class EmailFieldHandler(StringFieldHandler):
         be skipped. So, do nothing here
         """
 
-    def change_allow_utf8_user(self, diff: AlterDiff):
+    def change_allow_utf8_user(self, db_field: str, diff: AlterDiff):
         """Raise error if email address has wrong user name"""
-        self._check_diff(diff, False, bool)
+        self._check_diff(db_field, diff, False, bool)
         if diff.new == UNSET:
             return
 
         regex = self.UTF8_USER_REGEX if diff.new is True else self.USER_REGEX
 
         # Find records which doesn't match to the regex
-        fltr = {self.db_field: {'$not': regex, '$ne': None}}
-        check_empty_result(self.collection, self.db_field, fltr)
+        fltr = {db_field: {'$not': regex, '$ne': None}}
+        check_empty_result(self.collection, db_field, fltr)
 
-    def change_allow_ip_domain(self, diff: AlterDiff):
+    def change_allow_ip_domain(self, db_field: str, diff: AlterDiff):
         """
         Raise error if email has domain which not in `domain_whitelist`
         when `allow_ip_domain` is True. Otherwise do nothing
         """
-        self._check_diff(diff, False, bool)
+        self._check_diff(db_field, diff, False, bool)
         if diff.new is True or diff.new == UNSET:
             return
 
@@ -191,28 +191,29 @@ class EmailFieldHandler(StringFieldHandler):
             re.escape(x) for x in self.left_field_schema.get('domain_whitelist', [])
         ) or '.*'
         fltr = {"$and": [
-            {self.db_field: {'$ne': None}},
-            {self.db_field: self.IP_DOMAIN_REGEX},
-            {self.db_field: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
+            {db_field: {'$ne': None}},
+            {db_field: self.IP_DOMAIN_REGEX},
+            {db_field: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
         ]}
-        check_empty_result(self.collection, self.db_field, fltr)
+        check_empty_result(self.collection, db_field, fltr)
 
     def convert_type(self,
+                     db_field: str,
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
-        to_string(self.collection, self.db_field)
+        to_string(self.collection, db_field)
 
         # Find records with ip domains and raise error if found
         whitelist_regex = '|'.join(
             re.escape(x) for x in self.left_field_schema.get('domain_whitelist', [])
         ) or '.*'
         fltr = {'$and': [
-            {self.db_field: {'$ne': None}},
-            {self.db_field: {'$not': self.DOMAIN_REGEX}},
-            {self.db_field: {'$not': self.IP_DOMAIN_REGEX}},
-            {self.db_field: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
+            {db_field: {'$ne': None}},
+            {db_field: {'$not': self.DOMAIN_REGEX}},
+            {db_field: {'$not': self.IP_DOMAIN_REGEX}},
+            {db_field: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
         ]}
-        check_empty_result(self.collection, self.db_field, fltr)
+        check_empty_result(self.collection, db_field, fltr)
 
 
 class DecimalFieldHandler(NumberFieldHandler):
@@ -220,34 +221,35 @@ class DecimalFieldHandler(NumberFieldHandler):
 
     schema_skel_keys = {'force_string', 'precision', 'rounding'}
 
-    def change_force_string(self, diff: AlterDiff):
+    def change_force_string(self, db_field: str, diff: AlterDiff):
         """
         Convert to string or decimal depending on `force_string` flag
         """
-        self._check_diff(diff, False, bool)
+        self._check_diff(db_field, diff, False, bool)
         if diff.new == UNSET:
             return
 
         if diff.new is True:
-            to_string(self.collection, self.db_field)
+            to_string(self.collection, db_field)
         else:
-            to_decimal(self.collection, self.db_field)
+            to_decimal(self.collection, db_field)
 
-    def change_precision(self, diff: AlterDiff):
+    def change_precision(self, db_field: str, diff: AlterDiff):
         """This one is related only for python. Nothing to do"""
         pass
 
-    def change_rounding(self, diff: AlterDiff):
+    def change_rounding(self, db_field: str, diff: AlterDiff):
         """This one is related only for python. Nothing to do"""
         pass
 
     def convert_type(self,
+                     db_field: str,
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
         if self.left_field_schema.get('force_string', True):
-            to_string(self.collection, self.db_field)
+            to_string(self.collection, db_field)
         else:
-            to_decimal(self.collection, self.db_field)
+            to_decimal(self.collection, db_field)
 
 
 class ComplexDateTimeFieldHandler(StringFieldHandler):
@@ -256,9 +258,9 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
     schema_skel_keys = {'separator'}
 
     @mongo_version(min_version='3.4')
-    def change_separator(self, diff: AlterDiff):
+    def change_separator(self, db_field: str, diff: AlterDiff):
         """Change separator in datetime strings"""
-        self._check_diff(diff, False, str)
+        self._check_diff(db_field, diff, False, str)
         if not diff.new or not diff.old:
             raise MigrationError('Empty separator specified')
         if diff.new == UNSET:
@@ -270,21 +272,21 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
         self.collection.aggregate([
             {'$match': {
                 '$and': [
-                    {self.db_field: {"$ne": None}},
-                    {self.db_field: re.compile(old_regex)},
+                    {db_field: {"$ne": None}},
+                    {db_field: re.compile(old_regex)},
                 ]
             }},
             {'$addFields': {  # >=3.4
-                self.db_field: {
+                db_field: {
                     '$reduce': {  # >=3.4
-                        'input': {'$split': [f'${self.db_field}', diff.old]},  # $split >=3.4
+                        'input': {'$split': [f'${db_field}', diff.old]},  # $split >=3.4
                         'initialValue': '',
                         'in': {'$concat': ['$$value', diff.new, '$$this']}
                     }
                 }
             }},
             {'$addFields': {  # >=3.4
-                self.db_field: {"$substr": [f'${self.db_field}', 1, -1]}
+                db_field: {"$substr": [f'${db_field}', 1, -1]}
             }},
             {'$out': self.collection.name}  # >= 2.6
         ])
@@ -316,19 +318,19 @@ class ListFieldHandler(CommonFieldHandler):
         return skel
 
     @mongo_version(min_version='3.6')
-    def change_max_length(self, diff: AlterDiff):
+    def change_max_length(self, db_field: str, diff: AlterDiff):
         """Cut off a list if it longer than limitation (if any)"""
-        self._check_diff(diff, True, int)
+        self._check_diff(db_field, diff, True, int)
         if diff.new in (UNSET, None):
             return
 
         self.collection.aggregate([
             {'$match': {
-                self.db_field: {"$ne": None},
-                "$expr": {"$gt": [{"$size": f"${self.db_field}"}, diff.new]},  # $expr >= 3.6
+                db_field: {"$ne": None},
+                "$expr": {"$gt": [{"$size": f"${db_field}"}, diff.new]},  # $expr >= 3.6
             }},
             {'$addFields': {  # >=3.4
-                self.db_field: {"$slice": [f'${self.db_field}', diff.new]}  # $slice >=3.2
+                db_field: {"$slice": [f'${db_field}', diff.new]}  # $slice >=3.2
             }},
             {'$out': self.collection.name}  # >= 2.6
         ])
@@ -345,12 +347,12 @@ class BinaryFieldHandler(CommonFieldHandler):
 
     schema_skel_keys = {'max_bytes'}
 
-    def change_max_bytes(self, diff: AlterDiff):
+    def change_max_bytes(self, db_field: str, diff: AlterDiff):
         """
         $binarySize expression is not available in MongoDB yet,
         so do nothing
         """
-        self._check_diff(diff, True, int)
+        self._check_diff(db_field, diff, True, int)
         if diff.new in (UNSET, None):
             return
 
@@ -373,18 +375,18 @@ class SequenceFieldHandler(CommonFieldHandler):
 
         return schema
 
-    def change_link_collection(self, diff: AlterDiff):
+    def change_link_collection(self, db_field: str, diff: AlterDiff):
         """Typically changing the collection name should not require
         to do any changes
         """
-        self._check_diff(diff, False, str)
+        self._check_diff(db_field, diff, False, str)
         pass
 
-    def change_sequence_name(self, diff: AlterDiff):
+    def change_sequence_name(self, db_field: str, diff: AlterDiff):
         """Typically changing the sequence name should not require
         to do any changes
         """
-        self._check_diff(diff, False, str)
+        self._check_diff(db_field, diff, False, str)
         pass
 
 
@@ -395,8 +397,8 @@ class UUIDFieldHandler(CommonFieldHandler):
 
     schema_skel_keys = {'binary'}
 
-    def change_binary(self, diff: AlterDiff):
-        self._check_diff(diff, False, bool)
+    def change_binary(self, db_field: str, diff: AlterDiff):
+        self._check_diff(db_field, diff, False, bool)
 
         if diff.new is True:
             pass
@@ -414,46 +416,46 @@ class ReferenceFieldHandler(CommonFieldHandler):
 
     schema_skel_keys = {'link_collection', 'dbref'}
 
-    def change_link_collection(self, diff: AlterDiff):
+    def change_link_collection(self, db_field: str, diff: AlterDiff):
         """Collection could be not existed in db, so do nothing"""
-        self._check_diff(diff, False, str)
+        self._check_diff(db_field, diff, False, str)
 
-    def change_dbref(self, diff: AlterDiff):
+    def change_dbref(self, db_field: str, diff: AlterDiff):
         """Change reference storing format: ObjectId or DBRef"""
-        self._check_diff(diff, False, bool)
+        self._check_diff(db_field, diff, False, bool)
 
         if diff.new is True:
-            self._objectid_to_dbref()
+            self._objectid_to_dbref(db_field)
         else:
-            self._dbref_to_objectid()
+            self._dbref_to_objectid(db_field)
 
     @mongo_version(min_version='3.6')
-    def _objectid_to_dbref(self):
+    def _objectid_to_dbref(self, db_field: str):
         self.collection.aggregate([
             {'$match': {
-                self.db_field: {"$ne": None},
+                db_field: {"$ne": None},
                 # $expr >= 3.6, $type >= 3.4
-                "$expr": {"$eq": [{"$type": f'${self.db_field}'}, 'objectId']}
+                "$expr": {"$eq": [{"$type": f'${db_field}'}, 'objectId']}
             }},
             {'$addFields': {  # >= 3.4
-                self.db_field: {
+                db_field: {
                     '$ref': self.collection.name,
-                    '$id': f"${self.db_field}"
+                    '$id': f"${db_field}"
                 }
             }},
             {'$out': self.collection.name}  # >= 2.6
         ])
 
     @mongo_version(min_version='3.6')
-    def _dbref_to_objectid(self):
+    def _dbref_to_objectid(self, db_field: str):
         self.collection.aggregate([
             {'$match': {
-                f'{self.db_field}.$id': {"$ne": None},
-                f'{self.db_field}.$ref': {"$ne": None},
+                f'{db_field}.$id': {"$ne": None},
+                f'{db_field}.$ref': {"$ne": None},
                 # $expr >= 3.6, $type >= 3.4
-                "$expr": {"$eq": [{"$type": f'${self.db_field}.$id'}, 'objectId']}
+                "$expr": {"$eq": [{"$type": f'${db_field}.$id'}, 'objectId']}
             }},
-            {'$addFields': {self.db_field: f"${self.db_field}.$id"}},  # >= 3.4
+            {'$addFields': {db_field: f"${db_field}.$id"}},  # >= 3.4
             {'$out': self.collection.name}  # >= 2.6
         ])
 
@@ -481,14 +483,14 @@ class CachedReferenceFieldHandler(CommonFieldHandler):
 
     schema_skel_keys = {'fields'}
 
-    def change_fields(self, diff: AlterDiff):
-        self._check_diff(diff, False, (list, tuple))
+    def change_fields(self, db_field: str, diff: AlterDiff):
+        self._check_diff(db_field, diff, False, (list, tuple))
 
         to_remove = set(diff.old) - set(diff.new)
         if to_remove:
-            paths = {f'{self.db_field}.{f}': '' for f in to_remove}
+            paths = {f'{db_field}.{f}': '' for f in to_remove}
             self.collection.update_many(
-                {self.db_field: {'$ne': None}},
+                {db_field: {'$ne': None}},
                 {'$unset': paths}
             )
 
@@ -508,11 +510,11 @@ class FileFieldHandler(CommonFieldHandler):
 
         return schema
 
-    def change_link_collection(self, diff: AlterDiff):
+    def change_link_collection(self, db_field: str, diff: AlterDiff):
         """Typically changing the collection name should not require
         to do any changes
         """
-        self._check_diff(diff, False, str)
+        self._check_diff(db_field, diff, False, str)
         pass
 
 
@@ -523,18 +525,18 @@ class ImageFieldHandler(FileFieldHandler):
 
     schema_skel_keys = {'size', 'thumbnail_size'}
 
-    def change_thumbnail_size(self, diff: AlterDiff):
+    def change_thumbnail_size(self, db_field: str, diff: AlterDiff):
         """Typically changing the attribute should not require
         to do any changes
         """
-        self._check_diff(diff, False, (list, tuple))
+        self._check_diff(db_field, diff, False, (list, tuple))
         pass
 
-    def change_size(self, diff: AlterDiff):
+    def change_size(self, db_field: str, diff: AlterDiff):
         """Typically changing the attribute should not require
         to do any changes
         """
-        self._check_diff(diff, False, (list, tuple))
+        self._check_diff(db_field, diff, False, (list, tuple))
         pass
 
 
@@ -545,13 +547,13 @@ class ImageFieldHandler(FileFieldHandler):
 #
 #     schema_skel_keys = {'document_type'}
 #
-#     def change_document_type(self, diff: AlterDiff):
-#         self._check_diff(diff, False, str)
+#     def change_document_type(self, db_field: str, diff: AlterDiff):
+#         self._check_diff(db_field, diff, False, str)
 #
 #         try:
 #             document = get_document(diff.new)
 #         except mongoengine.errors.NotRegistered as e:
-#             raise MigrationError(f'Could not find document {diff.new}, field: {self.db_field}, '
+#             raise MigrationError(f'Could not find document {diff.new}, field: {db_field}, '
 #                                  f'diff: {diff!s}') from e
 #
 #     def build_schema(cls, field_obj: mongoengine.fields.BaseField) -> dict:

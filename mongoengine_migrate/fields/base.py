@@ -110,7 +110,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         return schema
 
-    def change_param(self, db_field: str, name: str):
+    def change_param(self, db_field: str, name: str, is_embedded: bool = False):
         """
         DB commands to be run in order to change given parameter
 
@@ -119,15 +119,27 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         'change_NAME' where NAME is a parameter name.
         :param db_field: db field name to change
         :param name: parameter name to change
+        :param is_embedded: True if db_field is dotpath to an
+         embedded document field
         :return:
         """
         assert name != 'param', "Schema key could not be 'param'"
-        method_name = f'change_{name}'
+
+        # Get document type specific method
+        if is_embedded:
+            method = getattr(self, f'embedded_change_{name}', None)
+        else:
+            method = getattr(self, f'document_change_{name}', None)
+
+        # Use common method if specific one was not found
+        if method is None:
+            method = getattr(self, f'change_{name}')
+
         diff = AlterDiff(
             self.left_field_schema.get(name, UNSET),
             self.right_field_schema.get(name, UNSET)
         )
-        return getattr(self, method_name)(db_field, diff)
+        return method(db_field, diff)
 
     def change_db_field(self, db_field: str, diff: AlterDiff):
         """

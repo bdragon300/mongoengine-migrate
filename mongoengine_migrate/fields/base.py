@@ -89,10 +89,10 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         schema = {f: getattr(field_obj, f, val) for f, val in schema_skel.items()}
 
         if 'default' in schema:
-            schema['default'] = cls._clear_default(schema['default'])
+            schema['default'] = cls._normalize_default(schema['default'])
 
         if 'choices' in schema:
-            schema['choices'] = cls._clear_choices(schema['choices'])
+            schema['choices'] = cls._normalize_choices(schema['choices'])
 
         field_class = field_obj.__class__
         if field_class.__name__ in type_key_registry:
@@ -288,7 +288,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                 raise MigrationError(f'{db_field} could not be None')
 
     @classmethod
-    def _clear_default(cls, default):
+    def _normalize_default(cls, default):
         if callable(default):
             default = default()
 
@@ -302,7 +302,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         return default
 
     @classmethod
-    def _clear_choices(cls, choices):
+    def _normalize_choices(cls, choices):
         if not isinstance(choices, Iterable):
             return None
 

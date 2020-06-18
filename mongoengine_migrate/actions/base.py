@@ -3,13 +3,12 @@ from abc import ABCMeta, abstractmethod
 from typing import Dict, Type, Optional, List, Tuple, Iterable, Any
 
 from pymongo.database import Database
-from pymongo.collection import Collection
 
 import mongoengine_migrate.flags as runtime_flags
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.query_tracer import CollectionQueryTracer, HistoryCall
 from mongoengine_migrate.exceptions import MigrationError, ActionError
-from mongoengine_migrate.mongo import mongo_version
+from mongoengine_migrate.mongo import mongo_version, find_embedded_fields
 
 #: Migration Actions registry. Mapping of class name and its class
 actions_registry: Dict[str, Type['BaseAction']] = {}
@@ -140,113 +139,6 @@ class BaseAction(metaclass=BaseActionMeta):
 
         return []
 
-    def _find_embedded_fields(self,
-                              collection: Collection,
-                              document_type: str,
-                              db_schema: dict,
-                              _base_path: Optional[list] = None,
-                              _document_name: Optional[str] = None) -> Iterable[list]:
-        """
-        Perform recursive search for embedded document fields of given
-        type in given collection and return key paths to them. Paths
-        for fields which are contained objects and arrays in database
-        are returned separately: ['a', 'b', 'c'] and
-        ['a', 'b', '$[]', 'c', '$[]'] (b and c are arrays) appropriately
-
-        Each key path is returned if it actually exists in db. This
-        check is needed to break recursion since embedded documents
-        may refer to each other or even themselves.
-        :param collection: collection object where to search given
-         embedded document
-        :param document_type: embedded document name to search
-        :param db_schema: db schema
-        :return:
-        """
-        if _base_path is None:
-            _base_path = []
-
-        # Restrict recursion depth
-        max_path_len = 64
-        if len(_base_path) >= max_path_len:
-            return
-
-        # Begin the search from a passed collection
-        if _document_name is None:
-            _document_name = collection.name
-
-        # Return every field nested path if it has a needed type_key.
-        # Next also overlook in depth to each embedded document field
-        # (including fields with another type_keys) if they have nested
-        # embedded documents which we also should to check. Recursion
-        # stops when we found that nested field is not exists in db.
-        # Keep in mind that embedded documents could refer to each
-        # other or even to itself.
-        #
-        # Fields may contain embedded docs and/or array of embedded docs
-        # Because of limitations of MongoDB we're checking type
-        # (object/array) and update a field further separately.
-        for field, field_schema in db_schema.get(_document_name, {}).items():
-            path = _base_path + [field]
-            filter_path = [p for p in path if p != '$[]']
-
-            # Check if field is EmbeddedField or EmbeddedFieldList
-            doc_name = field_schema.get('document_type')
-            if doc_name and doc_name.startswith(runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-                # Check if field type is object or array.
-                # Dotpath field resolving always takes the first
-                # element type if it is an array
-                # So do the {"field.path.0": {$exists: true}} in
-                # order to ensure that field contains array (non-empty)
-                array_dotpath = '.'.join(filter_path + ['.0'])
-
-                is_object = collection.find(
-                    {
-                        array_dotpath: {'$exists': False},
-                        '.'.join(filter_path): {'$type': "object"}
-                    },
-                    limit=1
-                )
-                if is_object.retrieved > 0:
-                    if doc_name == document_type:
-                        yield path
-                    yield from self._find_embedded_fields(collection,
-                                                          document_type,
-                                                          db_schema,
-                                                          path,
-                                                          doc_name)
-                    # Return if field contains objects
-                    # It's better to have ability to handle situation
-                    # when the same field has both array and object
-                    # values at the same time.
-                    # But this function tests field existence using
-                    # dotpath. Dotpath resolving makes no distinction
-                    # between array and object, so it can be generated
-                    # extra paths.
-                    # For example, a field could contain array which
-                    # contains objects only and also could contain
-                    # object which contains arrays only. Function must
-                    # return two paths: object->arrays, array->objects.
-                    # But because of dotpath resolving thing we'll
-                    # got all 4 path combinations.
-                    # For a while I leave return here. It's better to
-                    # remove it and solve the problem somehow.
-                    # TODO: I'll be back
-                    return
-
-                # TODO: return also empty array fields
-                is_nonempty_array = collection.find(
-                    {array_dotpath: {'$exists': True}},
-                    limit=1
-                )
-                if is_nonempty_array.retrieved > 0:
-                    if doc_name == document_type:
-                        yield path + ['$[]']
-                    yield from self._find_embedded_fields(collection,
-                                                          document_type,
-                                                          db_schema,
-                                                          path + ['$[]'],
-                                                          doc_name)
-
     # TODO: move method to Schema class
     @staticmethod
     def _filter_collection_items(db_schema: dict) -> Iterable[Tuple[str, dict]]:
@@ -282,7 +174,7 @@ class BaseAction(metaclass=BaseActionMeta):
 
         for collection_name, collection_schema in self._filter_collection_items(db_schema):
             collection = _new_collection(collection_name)
-            for path in self._find_embedded_fields(collection, document_type, db_schema):
+            for path in find_embedded_fields(collection, document_type, db_schema):
                 update_path = path + [field_name]
                 filter_path = [p for p in path if p != '$[]']
 

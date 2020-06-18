@@ -1,6 +1,7 @@
 from typing import Mapping, Any
 
 from mongoengine_migrate.exceptions import ActionError
+from mongoengine_migrate.mongo import MongoEmbeddedDocumentUpdater
 from .base import BaseFieldAction
 from .diff import AlterDiff, UNSET
 
@@ -58,10 +59,11 @@ class CreateField(BaseFieldAction):
         if is_required:
             db_field = self.parameters['db_field']
             if self.is_embedded:
-                self._update_embedded_doc_field(self.orig_collection_name,
-                                                db_field,
-                                                self._run_ctx['left_schema'],
-                                                set_to=default)
+                updater = MongoEmbeddedDocumentUpdater(self._run_ctx['db'],
+                                                       self.orig_collection_name,
+                                                       db_field,
+                                                       self._run_ctx['left_schema'])
+                updater.set_value(default)
             else:
                 self._run_ctx['collection'].update_many(
                     {db_field: {'$exists': False}}, {'$set': {db_field: default}}
@@ -71,10 +73,11 @@ class CreateField(BaseFieldAction):
         """Drop field"""
         db_field = self.parameters['db_field']
         if self.is_embedded:
-            self._update_embedded_doc_field(self.orig_collection_name,
-                                            db_field,
-                                            self._run_ctx['left_schema'],
-                                            unset=True)
+            updater = MongoEmbeddedDocumentUpdater(self._run_ctx['db'],
+                                                   self.orig_collection_name,
+                                                   db_field,
+                                                   self._run_ctx['left_schema'])
+            updater.unset()
         else:
             self._run_ctx['collection'].update_many(
                 {db_field: {'$exists': True}}, {'$unset': {db_field: ''}}
@@ -113,10 +116,11 @@ class DropField(BaseFieldAction):
         """Drop field"""
         db_field = self._run_ctx['left_field_schema']['db_field']
         if self.is_embedded:
-            self._update_embedded_doc_field(self.orig_collection_name,
-                                            db_field,
-                                            self._run_ctx['left_schema'],
-                                            unset=True)
+            updater = MongoEmbeddedDocumentUpdater(self._run_ctx['db'],
+                                                   self.orig_collection_name,
+                                                   db_field,
+                                                   self._run_ctx['left_schema'])
+            updater.unset()
         else:
             self._run_ctx['collection'].update_many(
                 {db_field: {'$exists': True}}, {'$unset': {db_field: ''}}
@@ -133,10 +137,11 @@ class DropField(BaseFieldAction):
         if is_required:
             db_field = self._run_ctx['left_field_schema']['db_field']
             if self.is_embedded:
-                self._update_embedded_doc_field(self.orig_collection_name,
-                                                db_field,
-                                                self._run_ctx['left_schema'],
-                                                set_to=default)
+                updater = MongoEmbeddedDocumentUpdater(self._run_ctx['db'],
+                                                       self.orig_collection_name,
+                                                       db_field,
+                                                       self._run_ctx['left_schema'])
+                updater.set_value(default)
             else:
                 self._run_ctx['collection'].update_many(
                     {db_field: {'$exists': False}}, {'$set': {db_field: default}}
@@ -229,7 +234,7 @@ class AlterField(BaseFieldAction):
         # Change field type first, obtain new field handler object
         # and process other parameters with it
         if type_key != right_field_schema['type_key']:
-            field_handler.change_param(db_field, 'type_key')
+            field_handler.change_param(db_field, 'type_key')  # FIXME: is_embedded
             field_handler = self._get_field_handler(right_field_schema['type_key'],
                                                     left_field_schema,
                                                     right_field_schema)
@@ -242,7 +247,7 @@ class AlterField(BaseFieldAction):
             if name == 'type_key' or new_value == old_value:
                 continue
 
-            field_handler.change_param(db_field, name)
+            field_handler.change_param(db_field, name)  # FIXME: is_embedded
 
             # If `db_field` was changed then work with new name further
             if name == 'db_field':

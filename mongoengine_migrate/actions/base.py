@@ -1,14 +1,13 @@
 import weakref
 from abc import ABCMeta, abstractmethod
-from typing import Dict, Type, Optional, List, Tuple, Iterable, Any
+from typing import Dict, Type, Optional, List
 
 from pymongo.database import Database
 
 import mongoengine_migrate.flags as runtime_flags
+from mongoengine_migrate.exceptions import MigrationError, ActionError
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.query_tracer import CollectionQueryTracer, HistoryCall
-from mongoengine_migrate.exceptions import MigrationError, ActionError
-from mongoengine_migrate.mongo import mongo_version, find_embedded_fields
 
 #: Migration Actions registry. Mapping of class name and its class
 actions_registry: Dict[str, Type['BaseAction']] = {}

@@ -20,4 +20,6 @@ EMBEDDED_DOCUMENT_NAME_PREFIX = '~'
 
 
 #: Maximum memory items buffer size on bulk write operations
+#: Pay attention: max BSON size is 16Mb
+#: https://docs.mongodb.com/manual/reference/limits/#bson-documents
 BULK_BUFFER_LENGTH=10000

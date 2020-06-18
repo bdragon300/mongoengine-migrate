@@ -14,9 +14,6 @@ from mongoengine_migrate.mongo import mongo_version, find_embedded_fields
 actions_registry: Dict[str, Type['BaseAction']] = {}
 
 
-_sentinel = object()
-
-
 class BaseActionMeta(ABCMeta):
     def __new__(mcs, name, bases, attrs):
         attrs['_meta'] = weakref.proxy(mcs)
@@ -138,73 +135,6 @@ class BaseAction(metaclass=BaseActionMeta):
             return self._run_ctx['collection'].call_history
 
         return []
-
-    # TODO: move method to Schema class
-    @staticmethod
-    def _filter_collection_items(db_schema: dict) -> Iterable[Tuple[str, dict]]:
-        """
-        Return collection names only from db schema
-        :param db_schema:
-        :return:
-        """
-        for colname, colschema in db_schema.items():
-            if not colname.startswith(runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-                yield colname, colschema
-
-    @mongo_version(min_version='3.6')
-    def _update_embedded_doc_field(self,
-                                   document_type: str,
-                                   field_name: str,
-                                   db_schema: dict,
-                                   set_to: Any = _sentinel,
-                                   unset=False):
-        """
-        Recursively perform update a field in embedded documents of
-        given document type in all collections
-        :param document_type: embedded document name to be updated
-        :param field_name: field name to be updated
-        :param db_schema:
-        :param set_to: set field value to this value
-        :param unset: unset field
-        :return:
-        """
-        def _new_collection(x): return self._run_ctx['db'][x]
-        if runtime_flags.dry_run:
-            def _new_collection(x): return CollectionQueryTracer(self._run_ctx['db'][x])
-
-        for collection_name, collection_schema in self._filter_collection_items(db_schema):
-            collection = _new_collection(collection_name)
-            for path in find_embedded_fields(collection, document_type, db_schema):
-                update_path = path + [field_name]
-                filter_path = [p for p in path if p != '$[]']
-
-                # Inject array filters for each array field path
-                array_filters = {}
-                for num, item in enumerate(update_path):
-                    if item == '$[]':
-                        update_path[num] = f'$[elem{num}]'
-                        array_filters[f'elem{num}.{update_path[num + 1]}'] = {"$exists": True}
-
-                array_filters = [{k: v} for k, v in array_filters] or None
-
-                update_dotpath = '.'.join(update_path)
-                if set_to is not _sentinel:
-                    # Check if we deal with object where we are
-                    # supposed to set a field (both field value and
-                    # array item)
-                    filter_expr = {'.'.join(filter_path[:-1]): {"$type": "object"}}
-                    update_expr = {"$set": {update_dotpath: set_to}},
-                elif unset:
-                    filter_expr = {'.'.join(filter_path): {"$exists": True}}
-                    update_expr = {"$unset": {update_dotpath: ''}}
-                else:
-                    raise ValueError("No update command was specified in function parameters")
-
-                collection.update_many(
-                    filter_expr,
-                    update_expr,
-                    array_filters=array_filters
-                )
 
 
 class BaseFieldAction(BaseAction):

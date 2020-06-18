@@ -17,3 +17,7 @@ mongo_version = None
 #: If this prefix contains in collection name then this document
 #: is considered as embedded
 EMBEDDED_DOCUMENT_NAME_PREFIX = '~'
+
+
+#: Maximum memory items buffer size on bulk write operations
+BULK_BUFFER_LENGTH=10000

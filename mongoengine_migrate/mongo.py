@@ -1,15 +1,15 @@
 import functools
-from typing import Iterable, Optional, Any, Tuple
+from abc import ABCMeta, abstractmethod
+from typing import Iterable, Optional, Any, Callable, Tuple
 
+import jsonpath_rw
+from pymongo import ReplaceOne
 from pymongo.collection import Collection
 from pymongo.database import Database
 
 from mongoengine_migrate.exceptions import MigrationError
 from . import flags
 from .query_tracer import CollectionQueryTracer
-
-
-_sentinel = object()
 
 
 def check_empty_result(collection: Collection, db_field: str, find_filter: dict):
@@ -67,162 +67,232 @@ def mongo_version(min_version: str = None, max_version:str = None, throw_error: 
     return dec
 
 
-def find_embedded_fields(collection: Collection,
-                         document_type: str,
-                         db_schema: dict,
-                         _base_path: Optional[list] = None,
-                         _document_name: Optional[str] = None) -> Iterable[list]:
+class BaseEmbeddedDocumentUpdater(metaclass=ABCMeta):
+    """Class used to update certain field of embedded documents in
+    all documents or other embedded documents which use it
     """
-    Perform recursive search for embedded document fields of given
-    type in given collection and return key paths to them. Paths
-    for fields which are contained objects and arrays in database
-    are returned separately: ['a', 'b', 'c'] and
-    ['a', 'b', '$[]', 'c', '$[]'] (b and c are arrays) appropriately
+    def __init__(self, db: Database, document_type: str, field_name: str, db_schema: dict):
+        """
+        :param db: pymongo database object
+        :param document_type: embedded document name
+        :param field_name: field to work with
+        :param db_schema: current db schema
+        """
+        self.db = db
+        self.document_type = document_type
+        self.field_name = field_name
+        self.db_schema = db_schema
 
-    Each key path is returned if it actually exists in db. This
-    check is needed to break recursion since embedded documents
-    may refer to each other or even themselves.
-    :param collection: collection object where to search given
-     embedded document
-    :param document_type: embedded document name to search
-    :param db_schema: db schema
-    :return:
-    """
-    if _base_path is None:
-        _base_path = []
+    @abstractmethod
+    def set_value(self, value: Any):
+        """
+        Set a value to a field
+        :param value:
+        :return:
+        """
 
-    # Restrict recursion depth
-    max_path_len = 64
-    if len(_base_path) >= max_path_len:
-        return
+    @abstractmethod
+    def unset(self):
+        """
+        Remove a field
+        :return:
+        """
 
-    # Begin the search from a passed collection
-    if _document_name is None:
-        _document_name = collection.name
+    @abstractmethod
+    def rename(self, new_name: str):
+        """
+        Rename a field
+        :param new_name:
+        :return:
+        """
 
-    # Return every field nested path if it has a needed type_key.
-    # Next also overlook in depth to each embedded document field
-    # (including fields with another type_keys) if they have nested
-    # embedded documents which we also should to check. Recursion
-    # stops when we found that nested field is not exists in db.
-    # Keep in mind that embedded documents could refer to each
-    # other or even to itself.
-    #
-    # Fields may contain embedded docs and/or array of embedded docs
-    # Because of limitations of MongoDB we're checking type
-    # (object/array) and update a field further separately.
-    for field, field_schema in db_schema.get(_document_name, {}).items():
-        path = _base_path + [field]
-        filter_path = [p for p in path if p != '$[]']
+    def update_with_change_method(self, change_method: Callable, diff):
+        """
+        Perform given `change_field` method of field handler for every
+        field of embedded document found in db.
 
-        # Check if field is EmbeddedField or EmbeddedFieldList
-        doc_name = field_schema.get('document_type')
-        if doc_name and doc_name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-            # Check if field type is object or array.
-            # Dotpath field resolving always takes the first
-            # element type if it is an array
-            # So do the {"field.path.0": {$exists: true}} in
-            # order to ensure that field contains array (non-empty)
-            array_dotpath = '.'.join(filter_path + ['.0'])
+        Given method should be able to perform an update both for field
+        paths with and without arrays (with `$[]' in path and without).
+        Some of mongo functions work differently (or work with only
+        one) with paths if they has or has not arrays.
 
-            is_object = collection.find(
-                {
-                    array_dotpath: {'$exists': False},
-                    '.'.join(filter_path): {'$type': "object"}
-                },
-                limit=1
-            )
-            if is_object.retrieved > 0:
-                if doc_name == document_type:
-                    yield path
-                yield from find_embedded_fields(collection,
-                                                document_type,
-                                                db_schema,
-                                                path,
-                                                doc_name)
-                # Return if field contains objects
-                # It's better to have ability to handle situation
-                # when the same field has both array and object
-                # values at the same time.
-                # But this function tests field existence using
-                # dotpath. Dotpath resolving makes no distinction
-                # between array and object, so it can be generated
-                # extra paths.
-                # For example, a field could contain array which
-                # contains objects only and also could contain
-                # object which contains arrays only. Function must
-                # return two paths: object->arrays, array->objects.
-                # But because of dotpath resolving thing we'll
-                # got all 4 path combinations.
-                # For a while I leave return here. It's better to
-                # remove it and solve the problem somehow.
-                # TODO: I'll be back
-                return
+        Return value of method is ignored
+        :param change_method:
+        :param diff: AlterDiff object, passes to method on call
+        :return:
+        """
+        for collection, update_path, filter_path in self._get_update_paths():
+            update_dotpath = '.'.join(update_path)
+            change_method(update_dotpath, diff)
 
-            # TODO: return also empty array fields
-            is_nonempty_array = collection.find(
-                {array_dotpath: {'$exists': True}},
-                limit=1
-            )
-            if is_nonempty_array.retrieved > 0:
-                if doc_name == document_type:
-                    yield path + ['$[]']
-                yield from find_embedded_fields(collection,
-                                                document_type,
-                                                db_schema,
-                                                path + ['$[]'],
-                                                doc_name)
-
-
-@mongo_version(min_version='3.6')
-def update_embedded_doc_field(db: Database,
+    def _find_embedded_fields(self,
+                              collection: Collection,
                               document_type: str,
-                              field_name: str,
                               db_schema: dict,
-                              set_to: Any = _sentinel,
-                              unset=False):
-    """
-    Recursively perform update a field in embedded documents of
-    given document type in all collections
-    :param db: database object
-    :param document_type: embedded document name to be updated
-    :param field_name: field name to be updated
-    :param db_schema:
-    :param set_to: set field value to this value
-    :param unset: unset field
-    :return:
-    """
-    def _new_collection(x): return db[x]
-    if flags.dry_run:
-        def _new_collection(x): return CollectionQueryTracer(db[x])
+                              _base_path: Optional[list] = None,
+                              _document_name: Optional[str] = None) -> Iterable[list]:
+        """
+        Perform recursive search for embedded document fields of given
+        type in given collection and return key paths to them. Paths
+        for fields which are contained objects and arrays in database
+        are returned separately: ['a', 'b', 'c'] and
+        ['a', 'b', '$[]', 'c', '$[]'] (b and c are arrays) appropriately
 
-    for collection_name, collection_schema in get_collections_only(db_schema):
-        collection = _new_collection(collection_name)
-        for path in find_embedded_fields(collection, document_type, db_schema):
-            update_path = path + [field_name]
+        Each key path is returned if it actually exists in db. This
+        check is needed to break recursion since embedded documents
+        may refer to each other or even themselves.
+        :param collection: collection object where to search given
+         embedded document
+        :param document_type: embedded document name to search
+        :param db_schema: db schema
+        :return:
+        """
+        if _base_path is None:
+            _base_path = []
+
+        # Restrict recursion depth
+        max_path_len = 64
+        if len(_base_path) >= max_path_len:
+            return
+
+        # Begin the search from a passed collection
+        if _document_name is None:
+            _document_name = collection.name
+
+        # Return every field nested path if it has a needed type_key.
+        # Next also overlook in depth to each embedded document field
+        # (including fields with another type_keys) if they have nested
+        # embedded documents which we also should to check. Recursion
+        # stops when we found that nested field is not exists in db.
+        # Keep in mind that embedded documents could refer to each
+        # other or even to itself.
+        #
+        # Fields may contain embedded docs and/or array of embedded docs
+        # Because of limitations of MongoDB we're checking type
+        # (object/array) and update a field further separately.
+        for field, field_schema in db_schema.get(_document_name, {}).items():
+            path = _base_path + [field]
             filter_path = [p for p in path if p != '$[]']
 
-            # Inject array filters for each array field path
-            array_filters = {}
-            for num, item in enumerate(update_path):
-                if item == '$[]':
-                    update_path[num] = f'$[elem{num}]'
-                    array_filters[f'elem{num}.{update_path[num + 1]}'] = {"$exists": True}
+            # Check if field is EmbeddedField or EmbeddedFieldList
+            doc_name = field_schema.get('document_type')
+            if doc_name and doc_name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
+                # Check if field type is object or array.
+                # Dotpath field resolving always takes the first
+                # element type if it is an array
+                # So do the {"field.path.0": {$exists: true}} in
+                # order to ensure that field contains array (non-empty)
+                array_dotpath = '.'.join(filter_path + ['.0'])
 
-            array_filters = [{k: v} for k, v in array_filters] or None
+                is_object = collection.find(
+                    {
+                        array_dotpath: {'$exists': False},
+                        '.'.join(filter_path): {'$type': "object"}
+                    },
+                    limit=1
+                )
+                if is_object.retrieved > 0:
+                    if doc_name == document_type:
+                        yield path
+                    yield from self._find_embedded_fields(collection,
+                                                          document_type,
+                                                          db_schema,
+                                                          path,
+                                                          doc_name)
+                    # Return if field contains objects
+                    # It's better to have ability to handle situation
+                    # when the same field has both array and object
+                    # values at the same time.
+                    # But this function tests field existence using
+                    # dotpath. Dotpath resolving makes no distinction
+                    # between array and object, so it can be generated
+                    # extra paths.
+                    # For example, a field could contain array which
+                    # contains objects only and also could contain
+                    # object which contains arrays only. Function must
+                    # return two paths: object->arrays, array->objects.
+                    # But because of dotpath resolving thing we'll
+                    # got all 4 path combinations.
+                    # For a while I leave return here. It's better to
+                    # remove it and solve the problem somehow.
+                    # TODO: I'll be back
+                    return
 
+                # TODO: return also empty array fields
+                is_nonempty_array = collection.find(
+                    {array_dotpath: {'$exists': True}},
+                    limit=1
+                )
+                if is_nonempty_array.retrieved > 0:
+                    if doc_name == document_type:
+                        yield path + ['$[]']
+                    yield from self._find_embedded_fields(collection,
+                                                          document_type,
+                                                          db_schema,
+                                                          path + ['$[]'],
+                                                          doc_name)
+
+    def _get_update_paths(self):
+        """
+        Return dotpaths to fields of embedded documents found in db and
+        collection object where they was found.
+        Returned dotpaths are filter expressions (pure dotpath)
+        and update expressions (dotpath with `$[]` expressions)
+        :return: tuple(collection_object, update_dotpath, filter_dotpath)
+        """
+        collections = ((k, v) for k, v in self.db_schema.items()
+                       if not k.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX))
+
+        for collection_name, collection_schema in collections:
+            collection = self._get_collection(collection_name)
+            for path in self._find_embedded_fields(collection, self.document_type, self.db_schema):
+                update_path = path + [self.field_name]
+                filter_path = [p for p in path if p != '$[]']
+
+                yield collection, update_path, filter_path
+
+    def _get_collection(self, name: str) -> Collection:
+        if flags.dry_run:
+            return CollectionQueryTracer(self.db[name])
+        return self.db[name]
+
+
+class MongoEmbeddedDocumentUpdater(BaseEmbeddedDocumentUpdater):
+    """Updating embedded fields using mongodb update functions only.
+
+    This implementation is fastest and doesn't require extra memory
+    and network traffic since operations are performed on a server side
+    """
+    def set_value(self, value: Any):
+        def get_expr(update_dotpath, *_):
+            return {"$set": {update_dotpath: value}}
+
+        return self._update_with_expr(get_expr)
+
+    def unset(self):
+        def get_expr(update_dotpath, *_):
+            return {"$unset": {update_dotpath: ''}}
+
+        return self._update_with_expr(get_expr)
+
+    def rename(self, new_name: str):
+        def get_expr(update_dotpath, update_path, *_):
+            if '$[]' in update_path:
+                raise MigrationError(f'Cannot rename a field using update mongo query. '
+                                     f'Path: {update_dotpath}')
+            return {'$rename': {self.field_name: new_name}}
+
+        return self._update_with_expr(get_expr)
+
+    def _update_with_expr(self, expr_callback: Callable):
+        for collection, update_path, filter_path in self._get_update_paths():
+            update_path, array_filters = self._attach_array_filters(update_path)
             update_dotpath = '.'.join(update_path)
-            if set_to is not _sentinel:
-                # Check if we deal with object where we are
-                # supposed to set a field (both field value and
-                # array item)
-                filter_expr = {'.'.join(filter_path[:-1]): {"$type": "object"}}
-                update_expr = {"$set": {update_dotpath: set_to}},
-            elif unset:
-                filter_expr = {'.'.join(filter_path): {"$exists": True}}
-                update_expr = {"$unset": {update_dotpath: ''}}
-            else:
-                raise ValueError("No update command was specified in function parameters")
+
+            # Check if we deal with object where we are
+            # supposed to set a field (both field value and array item)
+            filter_expr = {'.'.join(filter_path[:-1]): {"$type": "object"}}
+            update_expr = expr_callback(update_dotpath, update_path, array_filters),
 
             collection.update_many(
                 filter_expr,
@@ -230,14 +300,75 @@ def update_embedded_doc_field(db: Database,
                 array_filters=array_filters
             )
 
+    def _attach_array_filters(self, update_path: list) -> Tuple[list, Optional[list]]:
+        """
+        Inject array filters for each array field path.
+        Return modified update path and appropriate array filters
+        :param update_path:
+        :return: tuple(update_path, array_filters)
+        """
+        #
+        array_filters = {}
+        update_path = update_path.copy()
+        for num, item in enumerate(update_path):
+            if item == '$[]':
+                update_path[num] = f'$[elem{num}]'
+                array_filters[f'elem{num}.{update_path[num + 1]}'] = {"$exists": True}
 
-# TODO: move method to Schema class
-def get_collections_only(db_schema: dict) -> Iterable[Tuple[str, dict]]:
+        return update_path, [{k: v} for k, v in array_filters] or None
+
+
+class PythonEmbeddedDocumentUpdater(BaseEmbeddedDocumentUpdater):
+    """Update embedded fields using python code.
+
+    Such implementation is slower (expeciall for large collections),
+    requires extra memory to keep items before bulk update,
+    and requires more network traffic since all updating documents
+    are transferred from/to the database
+
+    This implementation is exists because some operations (such as
+    `$rename` a field in array of embedded documents with any nesting
+    depth) could not be executed using only mongo update functions.
     """
-    Return collection names only from db schema
-    :param db_schema:
-    :return:
-    """
-    for colname, colschema in db_schema.items():
-        if not colname.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-            yield colname, colschema
+    def set_value(self, value: Any):
+        def update(document):
+            if isinstance(document, dict):
+                document[self.field_name] = value
+
+        return self._update_with_callback(update)
+
+    def unset(self):
+        def update(document):
+            if isinstance(document, dict) and self.field_name in document:
+                del document[self.field_name]
+
+        return self._update_with_callback(update)
+
+    def rename(self, new_name: str):
+        def update(document):
+            if isinstance(document, dict) and self.field_name in document:
+                document[new_name] = document.pop(self.field_name)
+
+        return self._update_with_callback(update)
+
+    def _update_with_callback(self, update_callback: Callable):
+        for collection, update_path, filter_path in self._get_update_paths():
+            json_path = '.'.join(f.replace('$[]', '[*]') for f in update_path)
+            json_path = json_path.replace('.[*]', '[*]')
+            parser = jsonpath_rw.parse(json_path)
+
+            buf = []
+            for doc in collection.find({'.'.join(filter_path): {'$exists': True}}):
+                # Recursively apply the callback to every embedded doc
+                for embedded_doc in parser.find(doc):
+                    update_callback(embedded_doc)
+                buf.append(ReplaceOne({'_id': doc['_id']}, doc, upsert=False))
+
+                # Flush buffer
+                if len(buf) >= flags.BULK_BUFFER_LENGTH:
+                    collection.bulk_write(buf, ordered=False)  # FIXME: separate db session?
+                    buf.clear()
+
+            if buf:
+                collection.bulk_write(buf, ordered=False)
+                buf.clear()

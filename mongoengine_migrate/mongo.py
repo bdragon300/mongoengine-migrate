@@ -122,12 +122,8 @@ class BaseEmbeddedDocumentUpdater(metaclass=ABCMeta):
         Perform given `change_field` method of field handler for every
         field of embedded document found in db.
 
-        Given method should be able to perform an update both for field
-        paths with and without arrays (with `$[]' in path and without).
-        Some of mongo functions work differently (or work with only
-        one) with paths if they has or has not arrays.
-
-        Return value of method is ignored
+        Given method should be able to perform an update by a field
+        dotpath. Returned value is ignored
         :param change_method:
         :param diff: AlterDiff object, passes to method on call
         :return:

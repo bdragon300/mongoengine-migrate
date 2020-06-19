@@ -82,6 +82,7 @@ class BaseEmbeddedDocumentUpdater(metaclass=ABCMeta):
         self.document_type = document_type
         self.field_name = field_name
         self.db_schema = db_schema
+        self._filter = None
 
     @abstractmethod
     def set_value(self, value: Any):
@@ -105,6 +106,16 @@ class BaseEmbeddedDocumentUpdater(metaclass=ABCMeta):
         :param new_name:
         :return:
         """
+
+    def filter(self, fltr: Optional[Any]):
+        """
+        Set a filter which will be applied to updates.
+        Typical usage: `updater.filter({'field': x}).set_value(y)`
+        :param fltr:
+        :return:
+        """
+        self._filter = fltr
+        return self
 
     def update_with_change_method(self, change_method: Callable, diff):
         """
@@ -284,6 +295,12 @@ class MongoEmbeddedDocumentUpdater(BaseEmbeddedDocumentUpdater):
 
         return self._update_with_expr(get_expr)
 
+    def filter(self, fltr: Optional[Any]):
+        """Set filtering by a mongo filter expression"""
+        if not isinstance(fltr, dict):
+            raise TypeError('Mongo updater filter must be a dict')
+        super().filter(fltr)
+
     def _update_with_expr(self, expr_callback: Callable):
         for collection, update_path, filter_path in self._get_update_paths():
             update_path, array_filters = self._attach_array_filters(update_path)
@@ -292,6 +309,11 @@ class MongoEmbeddedDocumentUpdater(BaseEmbeddedDocumentUpdater):
             # Check if we deal with object where we are
             # supposed to set a field (both field value and array item)
             filter_expr = {'.'.join(filter_path[:-1]): {"$type": "object"}}
+            if self._filter is not None:
+                filter_expr = {'$and': [
+                    filter_expr,
+                    self._filter
+                ]}
             update_expr = expr_callback(update_dotpath, update_path, array_filters),
 
             collection.update_many(
@@ -351,6 +373,17 @@ class PythonEmbeddedDocumentUpdater(BaseEmbeddedDocumentUpdater):
 
         return self._update_with_callback(update)
 
+    def filter(self, fltr: Optional[Any]):
+        """Set filtering by a filter callback function.
+
+        Callback is called for every document which contains a field
+        which we're working with. As a single argument it accepts
+        contents of this field. Callback should return boolean
+        """
+        if not callable(fltr):
+            raise TypeError('Python updater filter must be a callback function')
+        super().filter(fltr)
+
     def _update_with_callback(self, update_callback: Callable):
         for collection, update_path, filter_path in self._get_update_paths():
             json_path = '.'.join(f.replace('$[]', '[*]') for f in update_path)
@@ -361,7 +394,8 @@ class PythonEmbeddedDocumentUpdater(BaseEmbeddedDocumentUpdater):
             for doc in collection.find({'.'.join(filter_path): {'$exists': True}}):
                 # Recursively apply the callback to every embedded doc
                 for embedded_doc in parser.find(doc):
-                    update_callback(embedded_doc)
+                    if self._filter is None or self._filter(embedded_doc):
+                        update_callback(embedded_doc)
                 buf.append(ReplaceOne({'_id': doc['_id']}, doc, upsert=False))
 
                 # Flush buffer

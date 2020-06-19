@@ -122,8 +122,8 @@ class BaseEmbeddedDocumentUpdater(metaclass=ABCMeta):
         :return:
         """
         for collection, update_path, filter_path in self._get_update_paths():
-            update_dotpath = '.'.join(update_path)
-            change_method(update_dotpath, diff)
+            filter_dotpath = '.'.join(filter_path)
+            change_method(filter_dotpath, diff)
 
     def _find_embedded_fields(self,
                               collection: Collection,

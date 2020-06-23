@@ -321,7 +321,8 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             raise MigrationError(f'Type converter not found for convertion '
                                  f'{from_field_cls!r} -> {to_field_cls!r}')
 
-        type_converter(self.collection, db_field)
+        updater = DocumentUpdater(self.db, self.collection_name, db_field, self.left_schema)
+        type_converter(updater)
 
     def _check_diff(self, db_field: str, diff: AlterDiff, can_be_none=True, check_type=None):
         if diff.new == diff.old:

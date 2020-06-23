@@ -1,8 +1,7 @@
+import functools
 from typing import List
 
-from pymongo.collection import Collection
-
-from mongoengine_migrate.mongo import check_empty_result, mongo_version
+from mongoengine_migrate.mongo import check_empty_result, mongo_version, DocumentUpdater
 
 #: GeoJSON field convertions in order of increasing the nested array
 #  depth in `coordinates` subfield.
@@ -18,17 +17,13 @@ __CONVERTIONS = (
 
 
 @mongo_version(min_version='3.6')
-def convert_geojson(collection: Collection, db_field: str, from_type: str, to_type: str):
+def convert_geojson(updater: DocumentUpdater, from_type: str, to_type: str):
     """Convert GeoJSON object from one type to another"""
     from_ind, to_ind = None, None
-    __check_geojson_objects(
-        collection,
-        db_field,
-        [from_type, to_type]
-    )
+    __check_geojson_objects(updater, [from_type, to_type])
     # There could be legacy coordinate pair arrays or GeoJSON objects
-    __check_legacy_point_coordinates(collection, db_field)
-    __check_value_types(collection, db_field, ['object', 'array'])
+    __check_legacy_point_coordinates(updater)
+    __check_value_types(updater, ['object', 'array'])
 
     if from_type == to_type:
         return
@@ -44,79 +39,83 @@ def convert_geojson(collection: Collection, db_field: str, from_type: str, to_ty
 
     depth = abs(from_ind - to_ind)
     if from_ind <= to_ind:
-        __increase_geojson_nesting(collection, db_field, from_type, to_type, depth)
+        __increase_geojson_nesting(updater, from_type, to_type, depth)
     else:
-        __decrease_geojson_nesting(collection, db_field, from_type, to_type, depth)
+        __decrease_geojson_nesting(updater, from_type, to_type, depth)
 
 
 @mongo_version(min_version='3.6')
-def legacy_pairs_to_geojson(collection: Collection, db_field: str, to_type: str):
+def legacy_pairs_to_geojson(updater: DocumentUpdater, to_type: str):
     """Convert legacy coordinate pairs to GeoJSON objects of given type"""
-    __check_geojson_objects(
-        collection,
-        db_field,
-        ['Point', to_type]
-    )
-    __check_legacy_point_coordinates(collection, db_field)
-    __check_value_types(collection, db_field, ['object', 'array'])
+    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+        # Convert to GeoJSON Point object
+        col.aggregate([
+            {'$match': {
+                "$and": [
+                    {filter_dotpath: {"$ne": None}},
+                    # $expr >= 3.6
+                    {"$expr": {"$eq": [{"$isArray": f"${filter_dotpath}"}, True]}}
+                ]}
+            },
+            {'$addFields': {  # >= 3.4
+                filter_dotpath: {
+                    'type': 'Point',
+                    'coordinates': f'${filter_dotpath}'
+                }
+            }},
+            {'$out': col.name}  # >= 2.6
+        ])
 
-    # Convert to GeoJSON Point object
-    collection.aggregate([
-        {'$match': {
-            "$and": [
-                {db_field: {"$ne": None}},
-                # $expr >= 3.6
-                {"$expr": {"$eq": [{"$isArray": f"${db_field}"}, True]}}
-            ]}
-        },
-        {'$addFields': {  # >= 3.4
-            db_field: {
-                'type': 'Point',
-                'coordinates': f'${db_field}'
-            }
-        }},
-        {'$out': collection.name}  # >= 2.6
-    ])
+    def upd_embedded(col, doc, filter_dotpath):
+        if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), (list, tuple)):
+            doc[updater.field_name] = {'type': 'Point', 'coordinates': doc[updater.field_name]}
 
-    convert_geojson(collection, db_field, 'Point', to_type)
+    __check_geojson_objects(updater, ['Point', to_type])
+    __check_legacy_point_coordinates(updater)
+    __check_value_types(updater, ['object', 'array'])
+
+    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
+    convert_geojson(updater, 'Point', to_type)
 
 
 @mongo_version(min_version='3.6')
-def geojson_to_legacy_pairs(collection: Collection, db_field: str, from_type: str):
+def geojson_to_legacy_pairs(updater: DocumentUpdater, from_type: str):
     """Convert GeoJSON objects of given type to legacy coordinate pairs"""
-    __check_geojson_objects(
-        collection,
-        db_field,
-        ["Point", from_type]
-    )
-    __check_legacy_point_coordinates(collection, db_field)
-    __check_value_types(collection, db_field, ['object', 'array'])
+    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+        col.aggregate([
+            {'$match': {
+                filter_dotpath: {"$ne": None},
+                f'{filter_dotpath}.type': "Point"
+            }},
+            {'$addFields': {  # >= 3.4
+                filter_dotpath: f'${filter_dotpath}.coordinates'
+            }},
+            {'$out': col.name}  # >= 2.6
+        ])
 
-    convert_geojson(collection, db_field, from_type, 'Point')
+    def upd_embedded(col, doc, filter_dotpath):
+        if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
+            if 'Point' in doc[updater.field_name]:
+                doc[updater.field_name] = doc[updater.field_name].get('coordinates')
 
-    collection.aggregate([
-        {'$match': {
-            db_field: {"$ne": None},
-            f'{db_field}.type': "Point"
-        }},
-        {'$addFields': {  # >= 3.4
-            db_field: f'${db_field}.coordinates'
-        }},
-        {'$out': collection.name}  # >= 2.6
-    ])
+    __check_geojson_objects(updater, ["Point", from_type])
+    __check_legacy_point_coordinates(updater)
+    __check_value_types(updater, ['object', 'array'])
+
+    convert_geojson(updater, from_type, 'Point')
+
+    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
 
 
 @mongo_version(min_version='3.4', throw_error=True)
-def __increase_geojson_nesting(collection: Collection,
-                               db_field: str,
+def __increase_geojson_nesting(updater: DocumentUpdater,
                                from_type: str,
                                to_type: str,
                                depth: int = 1):
     """
     Wraps `coordinates` field into nested array on GeoJSON fields
     with given type.
-    :param collection: collection object
-    :param db_field: collection field
+    :param updater: DocumentUpdater object
     :param from_type: GeoJSON type to change
     :param to_type: this GeoJSON type will be set in changed records
     :param depth: nested array depth to wrap in
@@ -124,36 +123,48 @@ def __increase_geojson_nesting(collection: Collection,
     """
     assert depth > 0
 
-    add_fields = [
-        {'$addFields': {  # >= 3.4
-            f'{db_field}.coordinates': [f'${db_field}.coordinates']
-        }}
-    ] * depth
+    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+        add_fields = [
+            {'$addFields': {  # >= 3.4
+                f'{filter_dotpath}.coordinates': [f'${filter_dotpath}.coordinates']
+            }}
+        ] * depth
 
-    collection.aggregate([
-        {'$match': {
-            db_field: {"$ne": None},
-            f'{db_field}.type': from_type
-        }},
-        *add_fields,
-        {'$addFields': {  # >= 3.4
-            f'{db_field}.type': to_type
-        }},
-        {'$out': collection.name}  # >= 2.6
-    ])
+        col.aggregate([
+            {'$match': {
+                filter_dotpath: {"$ne": None},
+                f'{filter_dotpath}.type': from_type
+            }},
+            *add_fields,
+            {'$addFields': {  # >= 3.4
+                f'{filter_dotpath}.type': to_type
+            }},
+            {'$out': col.name}  # >= 2.6
+        ])
+
+    def upd_embedded(col, doc, filter_dotpath):
+        if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
+            match = doc[updater.field_name].get('type') == from_type \
+                    and doc[updater.field_name].get('coordinates')
+            if match:
+                doc[updater.field_name]['coordinates'] = functools.reduce(
+                    lambda x, y: [x],
+                    range(depth),
+                    doc[updater.field_name].get('coordinates', [.0, .0])
+                )
+
+    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
 
 
 @mongo_version(min_version='3.4', throw_error=True)
-def __decrease_geojson_nesting(collection: Collection,
-                               db_field: str,
+def __decrease_geojson_nesting(updater: DocumentUpdater,
                                from_type: str,
                                to_type: str,
                                depth: int = 1):
     """
     Extract the first element from nested arrays in `coordinates` field
     on GeoJSON fields with given type
-    :param collection: collection object
-    :param db_field: collection field
+    :param updater: DocumentUpdater object
     :param from_type: GeoJSON type to change
     :param to_type: this GeoJSON type will be set in changed records
     :param depth: nested array depth to extract from
@@ -161,78 +172,100 @@ def __decrease_geojson_nesting(collection: Collection,
     """
     assert depth > 0
 
-    add_fields = [
-        {'$addFields': {  # >= 3.4
-            # $arrayElemAt >= 3.2
-            f'{db_field}.coordinates': {"$arrayElemAt": [f'${db_field}.coordinates', 0]}
-        }},
-    ] * depth
+    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+        add_fields = [
+            {'$addFields': {  # >= 3.4
+                # $arrayElemAt >= 3.2
+                f'{filter_dotpath}.coordinates': {
+                    "$arrayElemAt": [f'${filter_dotpath}.coordinates', 0]
+                }
+            }},
+        ] * depth
 
-    collection.aggregate([
-        {'$match': {
-            db_field: {"$ne": None},
-            f'{db_field}.type': from_type
-        }},
-        *add_fields,
-        {'$addFields': {  # >= 3.4
-            f'{db_field}.type': to_type
-        }},
-        {'$out': collection.name}  # >= 2.6
-    ])
+        col.aggregate([
+            {'$match': {
+                filter_dotpath: {"$ne": None},
+                f'{filter_dotpath}.type': from_type
+            }},
+            *add_fields,
+            {'$addFields': {  # >= 3.4
+                f'{filter_dotpath}.type': to_type
+            }},
+            {'$out': col.name}  # >= 2.6
+        ])
+
+    def upd_embedded(col, doc, filter_dotpath):
+        if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
+            match = doc[updater.field_name].get('type') == from_type \
+                    and doc[updater.field_name].get('coordinates')
+            if match:
+                doc[updater.field_name]['coordinates'] = functools.reduce(
+                    lambda x, y: x[0] if x and isinstance(x, (list, tuple)) else None,
+                    range(depth),
+                    doc[updater.field_name].get('coordinates', [.0, .0])
+                )
+
+    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
 
 
 @mongo_version(min_version='3.6', throw_error=True)
-def __check_geojson_objects(collection: Collection, db_field: str, geojson_types: List[str]):
+def __check_geojson_objects(updater: DocumentUpdater, geojson_types: List[str]):
     """
     Check if all object values in field are GeoJSON objects of given
     types. Raise MigrationError if other objects found
-    :param collection:
-    :param db_field:
+    :param updater:
     :param geojson_types:
     :return:
     """
-    fltr = {"$and": [
-        {db_field: {"$ne": None}},
-        {f'{db_field}.type': {'$nin': geojson_types}},
-        # $expr >= 3.6
-        {"$expr": {"$eq": [{"$type": f'${db_field}'}, 'object']}}
-    ]}
-    check_empty_result(collection, db_field, fltr)
+    def upd(col, filter_dotpath, update_dotpath, array_filters):
+        fltr = {"$and": [
+            {filter_dotpath: {"$ne": None}},
+            {f'{filter_dotpath}.type': {'$nin': geojson_types}},
+            # $expr >= 3.6
+            {"$expr": {"$eq": [{"$type": f'${filter_dotpath}'}, 'object']}}
+        ]}
+        check_empty_result(col, filter_dotpath, fltr)
+
+    updater.update_by_path(upd)
 
 
 @mongo_version(min_version='3.6', throw_error=True)
-def __check_legacy_point_coordinates(collection: Collection, db_field: str):
+def __check_legacy_point_coordinates(updater: DocumentUpdater):
     """
     Check if all array values in field has legacy geo point
     coordinates type. Raise MigrationError if other arrays was found
-    :param collection:
-    :param db_field:
+    :param updater:
     :return:
     """
-    fltr = {"$and": [
-        {db_field: {"$ne": None}},
-        # $expr >= 3.6, $isArray >= 3.2
-        {"$expr": {"$eq": [{"$isArray": f"${db_field}"}, True]}},
-        {"$expr": {"$ne": [{"$size": f"${db_field}"}, 2]}},  # $expr >= 3.6
-        # TODO: add element type check
-    ]}
-    check_empty_result(collection, db_field, fltr)
+    def upd(col, filter_dotpath, update_dotpath, array_filters):
+        fltr = {"$and": [
+            {filter_dotpath: {"$ne": None}},
+            # $expr >= 3.6, $isArray >= 3.2
+            {"$expr": {"$eq": [{"$isArray": f"${filter_dotpath}"}, True]}},
+            {"$expr": {"$ne": [{"$size": f"${filter_dotpath}"}, 2]}},  # $expr >= 3.6
+            # TODO: add element type check
+        ]}
+        check_empty_result(col, filter_dotpath, fltr)
+
+    updater.update_by_path(upd)
 
 
 @mongo_version(min_version='3.6', throw_error=True)
-def __check_value_types(collection: Collection, db_field: str, allowed_types: List[str]):
+def __check_value_types(updater: DocumentUpdater, allowed_types: List[str]):
     """
     Check if given field contains only given types of value.
     Raise if other value types was found
-    :param collection:
-    :param db_field:
+    :param updater:
     :param allowed_types:
     :return:
     """
-    # Check for data types other than objects or arrays
-    fltr = {"$and": [
-        {db_field: {"$ne": None}},
-        # $expr >= 3.6, $type >= 3.4
-        {"$expr": {"$not": [{"$in": [{"$type": f'${db_field}'}, allowed_types]}]}}
-    ]}
-    check_empty_result(collection, db_field, fltr)
+    def upd(col, filter_dotpath, update_dotpath, array_filters):
+        # Check for data types other than objects or arrays
+        fltr = {"$and": [
+            {filter_dotpath: {"$ne": None}},
+            # $expr >= 3.6, $type >= 3.4
+            {"$expr": {"$not": [{"$in": [{"$type": f'${filter_dotpath}'}, allowed_types]}]}}
+        ]}
+        check_empty_result(col, filter_dotpath, fltr)
+
+    updater.update_by_path(upd)

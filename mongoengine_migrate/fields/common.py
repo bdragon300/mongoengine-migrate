@@ -276,19 +276,24 @@ class EmailFieldHandler(StringFieldHandler):
                      db_field: str,
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
-        to_string(self.collection, db_field)
+        def upd(col, filter_dotpath, update_dotpath, array_filters):
+            fltr = {'$and': [
+                {filter_dotpath: {'$ne': None}},
+                {filter_dotpath: {'$not': self.DOMAIN_REGEX}},
+                {filter_dotpath: {'$not': self.IP_DOMAIN_REGEX}},
+                {filter_dotpath: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
+            ]}
+            check_empty_result(col, filter_dotpath, fltr)
+
+        updater = DocumentUpdater(self.db, self.collection_name, db_field, self.left_schema)
+        to_string(updater)
 
         # Find records with ip domains and raise error if found
         whitelist_regex = '|'.join(
             re.escape(x) for x in self.left_field_schema.get('domain_whitelist', [])
         ) or '.*'
-        fltr = {'$and': [
-            {db_field: {'$ne': None}},
-            {db_field: {'$not': self.DOMAIN_REGEX}},
-            {db_field: {'$not': self.IP_DOMAIN_REGEX}},
-            {db_field: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
-        ]}
-        check_empty_result(self.collection, db_field, fltr)
+
+        updater.update_by_path(upd)
 
 
 class DecimalFieldHandler(NumberFieldHandler):
@@ -304,10 +309,12 @@ class DecimalFieldHandler(NumberFieldHandler):
         if diff.new == UNSET:
             return
 
+        updater = DocumentUpdater(self.db, self.collection_name, db_field, self.left_schema)
+
         if diff.new is True:
-            to_string(self.collection, db_field)
+            to_string(updater)
         else:
-            to_decimal(self.collection, db_field)
+            to_decimal(updater)
 
     def change_precision(self, db_field: str, diff: AlterDiff):
         """This one is related only for python. Nothing to do"""
@@ -321,10 +328,11 @@ class DecimalFieldHandler(NumberFieldHandler):
                      db_field: str,
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
+        updater = DocumentUpdater(self.db, self.collection_name, db_field, self.left_schema)
         if self.left_field_schema.get('force_string', True):
-            to_string(self.collection, db_field)
+            to_string(updater)
         else:
-            to_decimal(self.collection, db_field)
+            to_decimal(updater)
 
 
 class ComplexDateTimeFieldHandler(StringFieldHandler):

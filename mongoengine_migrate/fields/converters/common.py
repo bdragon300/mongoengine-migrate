@@ -1,11 +1,12 @@
 import re
-from typing import Type
+from datetime import date
+from decimal import Decimal
 
-from mongoengine.fields import BaseField
-from pymongo.collection import Collection
+import bson
+from dateutil.parser import parse as dateutil_parse
 
 from mongoengine_migrate.exceptions import MigrationError
-from mongoengine_migrate.mongo import check_empty_result, mongo_version
+from mongoengine_migrate.mongo import check_empty_result, mongo_version, DocumentUpdater
 
 
 def nothing(*args, **kwargs):
@@ -13,214 +14,293 @@ def nothing(*args, **kwargs):
     pass
 
 
-def deny(collection: Collection, db_field: str, from_cls: Type[BaseField], to_cls: Type[BaseField]):
+def deny(updater: DocumentUpdater):
     """Convertion is denied"""
-    raise MigrationError(f"Unable to convert field {collection.name}.{db_field} "
-                         f"from {from_cls.__name__!r} to {to_cls.__name__!r}. You can use "
-                         f"error_policy for 'type_key' diff to override this")
+    raise MigrationError(f"Convertion of field {updater.document_name}.{updater.field_name} "
+                         f"is forbidden")
 
 
-def drop_field(collection: Collection, db_field: str):
+def drop_field(updater: DocumentUpdater):
     """Drop field"""
-    collection.update_many({db_field: {'$exists': True}}, {'$unset': {db_field: ''}})
+    def upd(col, filter_dotpath, update_dotpath, array_filters):
+        col.update_many({filter_dotpath: {'$exists': True}}, {'$unset': {update_dotpath: ''}})
+
+    updater.update_by_path(upd)
 
 
 @mongo_version(min_version='3.6')
-def item_to_list(collection: Collection, db_field: str):
+def item_to_list(updater: DocumentUpdater):
     """Make a list with single element from every non-array value"""
-    collection.aggregate([
-        {'$match': {
-            db_field: {"$exists": True},
-            "$expr": {"$ne": [{"$type": f'${db_field}'}, 'array']}  # $expr >= 3.6, $type >= 3.4
-        }},
-        {'$addFields': {db_field: [f"${db_field}"]}},  # >=3.4
-        {'$out': collection.name}  # >= 2.6
-    ])
+    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+        col.aggregate([
+            {'$match': {
+                filter_dotpath: {"$exists": True},
+                # $expr >= 3.6, $type >= 3.4
+                "$expr": {"$ne": [{"$type": f'${filter_dotpath}'}, 'array']}
+            }},
+            {'$addFields': {filter_dotpath: [f"${filter_dotpath}"]}},  # >=3.4
+            {'$out': col.name}  # >= 2.6
+        ])
+
+    def upd_embedded(col, doc, filter_dotpath):
+        if isinstance(doc, dict) and updater.field_name in doc:
+            doc[updater.field_name] = [doc[updater.field_name]]
+
+    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
 
 
 @mongo_version(min_version='3.6')
-def extract_from_list(collection: Collection, db_field: str):
+def extract_from_list(updater: DocumentUpdater):
     """Replace every list which was met with its first element"""
-    collection.aggregate([
-        {'$match': {
-            db_field: {"$ne": None},
-            # FIXME: what if nested list (not idempotent query)
-            "$expr": {"$eq": [{"$type": f'${db_field}'}, 'array']}  # $expr >= 3.6, $type >= 3.4
-        }},
-        {'$addFields': {db_field: {"$arrayElemAt": [f"${db_field}", 0]}}},  # >=3.4
-        {'$out': collection.name}  # >= 2.6
-    ])
+    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+        col.aggregate([
+            {'$match': {
+                filter_dotpath: {"$ne": None},
+                # $expr >= 3.6, $type >= 3.4
+                # FIXME: what if nested list (not idempotent query)
+                "$expr": {"$eq": [{"$type": f'${filter_dotpath}'}, 'array']}
+            }},
+            {'$addFields': {filter_dotpath: {"$arrayElemAt": [f"${filter_dotpath}", 0]}}},  # >=3.4
+            {'$out': col.name}  # >= 2.6
+        ])
+
+    def upd_embedded(col, doc, filter_dotpath):
+        if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), (list, tuple)):
+            doc[updater.field_name] = doc[updater.field_name][0]
+
+    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
 
 
-def to_string(collection: Collection, db_field: str):
-    __mongo_convert(collection, db_field, 'string')
+def to_string(updater: DocumentUpdater):
+    __mongo_convert(updater, 'string')
 
 
-def to_int(collection: Collection, db_field: str):
-    __mongo_convert(collection, db_field, 'int')
+def to_int(updater: DocumentUpdater):
+    __mongo_convert(updater, 'int')
 
 
-def to_long(collection: Collection, db_field: str):
-    __mongo_convert(collection, db_field, 'long')
+def to_long(updater: DocumentUpdater):
+    __mongo_convert(updater, 'long')
 
 
-def to_double(collection: Collection, db_field: str):
-    __mongo_convert(collection, db_field, 'double')
+def to_double(updater: DocumentUpdater):
+    __mongo_convert(updater, 'double')
 
 
-def to_decimal(collection: Collection, db_field: str):
-    __mongo_convert(collection, db_field, 'decimal')
+def to_decimal(updater: DocumentUpdater):
+    __mongo_convert(updater, 'decimal')
 
 
-def to_date(collection: Collection, db_field: str):
-    __mongo_convert(collection, db_field, 'date')
+def to_date(updater: DocumentUpdater):
+    __mongo_convert(updater, 'date')
 
 
-def to_bool(collection: Collection, db_field: str):
-    __mongo_convert(collection, db_field, 'bool')
+def to_bool(updater: DocumentUpdater):
+    __mongo_convert(updater, 'bool')
 
 
-def to_object_id(collection: Collection, db_field: str):
-    __mongo_convert(collection, db_field, 'objectId')
+def to_object_id(updater: DocumentUpdater):
+    __mongo_convert(updater, 'objectId')
 
 
 @mongo_version(min_version='4.0')
-def to_uuid(collection: Collection, db_field: str):
+def to_uuid(updater: DocumentUpdater):
     """Don't touch fields with 'binData' type. Convert values with
     other types to a string. Then verify if these strings contain
     UUIDs. Raise error if not
     """
-    # Convert fields to string where value has type other than binData
-    collection.aggregate([
-        {'$match': {
-            db_field: {'$ne': None}, # Field exists and not null
-            '$expr': {  # >= 3.6
-                '$not': [
-                    # $type >= 3.4, $in >= 3.4
-                    {'$in': [{'$type': f'${db_field}'}, ['binData', 'string']]}
-                ]
+    def post_check(col, filter_dotpath):
+        # Verify strings. There are only binData and string values now in db
+        fltr = {
+            filter_dotpath: {
+                '$not': re.compile(r'\A[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}\Z'),
+                '$ne': None,
+                '$type': "string"
             }
-        }},
-        {'$addFields': {  # >= 3.4
-            '$convert': {  # >= 4.0
-                'input': f'${db_field}',
-                'to': 'string'
-            }
-        }},
-        {'$out': collection.name}  # >= 2.6
-    ])
-
-    # Verify strings. There are only binData and string values now in db
-    fltr = {
-        db_field: {
-            '$not': re.compile(r'\A[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}\Z'),
-            '$ne': None,
-            '$type': "string"
         }
-    }
-    check_empty_result(collection, db_field, fltr)
+        check_empty_result(col, filter_dotpath, fltr)
+
+    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+        # Convert fields to string where value has type other than binData
+        col.aggregate([
+            {'$match': {
+                filter_dotpath: {'$ne': None}, # Field exists and not null
+                '$expr': {  # >= 3.6
+                    '$not': [
+                        # $type >= 3.4, $in >= 3.4
+                        {'$in': [{'$type': f'${filter_dotpath}'}, ['binData', 'string']]}
+                    ]
+                }
+            }},
+            {'$addFields': {  # >= 3.4
+                '$convert': {  # >= 4.0
+                    'input': f'${filter_dotpath}',
+                    'to': 'string'
+                }
+            }},
+            {'$out': col.name}  # >= 2.6
+        ])
+
+    def upd_embedded(col, doc, filter_dotpath):
+        if not isinstance(doc, dict):
+            return
+        item = doc.get(updater.field_name)
+
+        if item is not None and not isinstance(item, (bson.Binary, str)):
+            doc[updater.field_name] = str(doc)
+        # FIXME: call post_check for every filter_dotpath, not for doc
+
+    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
+    updater.update_by_path(post_check)
 
 
-def to_url_string(collection: Collection, db_field: str):
+def to_url_string(updater: DocumentUpdater):
     """Cast fields to string and then verify if they contain URLs"""
-    to_string(collection, db_field)
+    def upd(col, filter_dotpath, update_dotpath, array_filters):
+        fltr = {filter_dotpath: {'$not': url_regex, '$ne': None}}
+        check_empty_result(col, filter_dotpath, fltr)
+
+    to_string(updater)
 
     url_regex = re.compile(
         r"\A[A-Z]{3,}://[A-Z0-9\-._~:/?#\[\]@!$&'()*+,;%=]\Z",
         re.IGNORECASE
     )
-    fltr = {db_field: {'$not': url_regex, '$ne': None}}
-    check_empty_result(collection, db_field, fltr)
+    updater.update_by_path(upd)
 
 
-def to_complex_datetime(collection: Collection, db_field: str):
+def to_complex_datetime(updater: DocumentUpdater):
+    def upd(col, filter_dotpath, update_dotpath, array_filters):
+        fltr = {filter_dotpath: {'$not': regex, '$ne': None}}
+        check_empty_result(col, filter_dotpath, fltr)
+
+    to_string(updater)
+
     # We should not know which separator is used, so use '.+'
-    # Separator change is handled by appropriate method
-    to_string(collection, db_field)
-
+    # Separator change is handled by appropriate field method
     regex = r'\A' + str('.+'.join([r"\d{4}"] + [r"\d{2}"] * 5 + [r"\d{6}"])) + r'\Z'
-    fltr = {db_field: {'$not': regex, '$ne': None}}
-    check_empty_result(collection, db_field, fltr)
+    updater.update_by_path(upd)
 
 
 @mongo_version(min_version='3.6')
-def ref_to_cached_reference(collection: Collection, db_field: str):
+def ref_to_cached_reference(updater: DocumentUpdater):
     """Convert ObjectId values to Manual Reference SON object.
     Leave DBRef objects as is.
     """
-    collection.aggregate([
-        {'$match': {
-            db_field: {"$ne": None},
-            # $expr >= 3.6, $type >= 3.4
-            "$expr": {"$eq": [{"$type": f'${db_field}'}, 'objectId']}
-        }},
-        {'$addFields': {db_field: {'_id': f"${db_field}"}}},  # >= 3.4
-        {'$out': collection.name}  # >= 2.6
-    ])
+    def post_check(col, filter_dotpath, update_dotpath, array_filters):
+        # Check if all values in collection are DBRef or Manual reference
+        # objects because we could miss other value types on a previous step
+        fltr = {
+            filter_dotpath: {"$ne": None},
+            f'{filter_dotpath}.$id': {"$exists": False},  # Exclude DBRef objects
+            f'{filter_dotpath}._id': {"$exists": False},  # Exclude Manual refs
+        }
+        check_empty_result(col, filter_dotpath, fltr)
 
-    # Check if all values in collection are DBRef or Manual reference
-    # objects because we could miss other value types on a previous step
-    fltr = {
-        db_field: {"$ne": None},
-        f'{db_field}.$id': {"$exists": False},  # Exclude DBRef objects
-        f'{db_field}._id': {"$exists": False},  # Exclude Manual refs
-    }
-    check_empty_result(collection, db_field, fltr)
+    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+        col.aggregate([
+            {'$match': {
+                filter_dotpath: {"$ne": None},
+                # $expr >= 3.6, $type >= 3.4
+                "$expr": {"$eq": [{"$type": f'${filter_dotpath}'}, 'objectId']}
+            }},
+            {'$addFields': {filter_dotpath: {'_id': f"${filter_dotpath}"}}},  # >= 3.4
+            {'$out': col.name}  # >= 2.6
+        ])
+
+    def upd_embedded(col, doc, filter_dotpath):
+        if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), bson.ObjectId):
+            doc[updater.field_name] = {'_id': doc[updater.field_name]}
+
+    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
+    updater.update_by_path(post_check)
 
 
 @mongo_version(min_version='3.6')
-def cached_reference_to_ref(collection: Collection, db_field: str):
+def cached_reference_to_ref(updater: DocumentUpdater):
     """Convert Manual Reference SON object to ObjectId value.
     Leave DBRef objects as is.
     """
-    collection.aggregate([
-        {'$match': {
-            f'{db_field}._id': {"$ne": None},
-            # $expr >= 3.6, $type >= 3.4
-            "$expr": {"$eq": [{"$type": f'${db_field}'}, 'object']}
-        }},
-        {'$addFields': {db_field: f"${db_field}._id"}},  # >= 3.4
-        {'$out': collection.name}  # >= 2.6
-    ])
-
-    # Check if all values in collection are DBRef or ObjectId because
-    # we could miss other value types on a previous step
-    fltr = {
-        db_field: {"$ne": None},
-        f'{db_field}.$id': {"$exists": False},  # Exclude DBRef objects
-        "$expr": {  # >= 3.6
-            "$ne": [{"$type": "$key"}, 'objectId']
+    def post_check(col, filter_dotpath, update_dotpath, array_filters):
+        # Check if all values in collection are DBRef or ObjectId because
+        # we could miss other value types on a previous step
+        fltr = {
+            filter_dotpath: {"$ne": None},
+            f'{filter_dotpath}.$id': {"$exists": False},  # Exclude DBRef objects
+            "$expr": {  # >= 3.6
+                "$ne": [{"$type": "$key"}, 'objectId']
+            }
         }
-    }
-    check_empty_result(collection, db_field, fltr)
+        check_empty_result(col, filter_dotpath, fltr)
+
+    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+        col.aggregate([
+            {'$match': {
+                f'{filter_dotpath}._id': {"$ne": None},
+                # $expr >= 3.6, $type >= 3.4
+                "$expr": {"$eq": [{"$type": f'${filter_dotpath}'}, 'object']}
+            }},
+            {'$addFields': {filter_dotpath: f"${filter_dotpath}._id"}},  # >= 3.4
+            {'$out': col.name}  # >= 2.6
+        ])
+
+    def upd_embedded(col, doc, filter_dotpath):
+        if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
+            doc[updater.field_name] = doc[updater.field_name].get('_id')
+
+    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
+    updater.update_by_path(post_check)
 
 
 @mongo_version(min_version='4.0')
-def __mongo_convert(collection: Collection, db_field: str, target_type: str):
+def __mongo_convert(updater: DocumentUpdater, target_type: str):
     """
     Convert field to a given type in a given collection. `target_type`
     contains MongoDB type name, such as 'string', 'decimal', etc.
 
     https://docs.mongodb.com/manual/reference/operator/aggregation/convert/
-    :param collection: pymongo collection object
-    :param db_field: field name
+    :param updater: DocumentUpdater object
     :param target_type: MongoDB type name
     :return:
     """
-    # TODO: implement also for mongo 3.x
-    # TODO: use $convert with onError and onNull
-    collection.aggregate([
-        # Field exists and not null
-        {'$match': {
-            db_field: {'$ne': None},  # Field exists and not null
-            # $expr >= 3.6, $type >= 3.4
-            "$expr": {"$ne": [{"$type": f'${db_field}'}, target_type]}
-        }},
-        {'$addFields': {
-            '$convert': {  # >= 4.0
-                'input': f'${db_field}',
-                'to': target_type
-            }
-        }},
-        {'$out': collection.name}  # >= 2.6
-    ])
+    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+        # TODO: implement also for mongo 3.x
+        # TODO: use $convert with onError and onNull
+        col.aggregate([
+            # Field exists and not null
+            {'$match': {
+                filter_dotpath: {'$ne': None},  # Field exists and not null
+                # $expr >= 3.6, $type >= 3.4
+                "$expr": {"$ne": [{"$type": f'${filter_dotpath}'}, target_type]}
+            }},
+            {'$addFields': {
+                '$convert': {  # >= 4.0
+                    'input': f'${filter_dotpath}',
+                    'to': target_type
+                }
+            }},
+            {'$out': col.name}  # >= 2.6
+        ])
+
+    def upd_embedded(col, doc, filter_dotpath):
+        # https://docs.mongodb.com/manual/reference/operator/aggregation/convert/
+        type_map = {
+            'double': float,
+            'string': str,
+            'objectId': bson.ObjectId,
+            'bool': bool,
+            'date': date,
+            'int': int,
+            'long': int,
+            'decimal': Decimal
+        }
+        assert target_type in type_map
+
+        if isinstance(doc, dict) \
+                and not isinstance(doc.get(updater.field_name), type_map[target_type]):
+            if target_type == 'date':
+                doc[updater.field_name] = dateutil_parse(str(doc[updater.field_name]))
+            else:
+                doc[updater.field_name] = type_map[target_type]()
+
+    updater.update_by_path_or_by_document(upd_doc, upd_embedded)

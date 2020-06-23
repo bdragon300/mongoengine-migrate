@@ -31,7 +31,8 @@ setuptools.setup(
         'dictdiffer>=0.7.0',
         'jinja2',
         'click',
-        'wrapt'
+        'wrapt',
+        'python-dateutil'
     ],
     tests_require=['pytest'],
     setup_requires=['pytest-runner'],

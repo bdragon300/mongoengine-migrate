@@ -117,20 +117,21 @@ class BaseEmbeddedDocumentUpdater(metaclass=ABCMeta):
         self._filter = fltr
         return self
 
-    def update_with_change_method(self, change_method: Callable, diff):
+    @abstractmethod
+    def update_with_method(self, callback: Callable, diff):
         """
-        Perform given `change_field` method of field handler for every
+        Perform given callback of field handler for every
         field of embedded document found in db.
 
         Given method should be able to perform an update by a field
         dotpath. Returned value is ignored
-        :param change_method:
+        :param callback:
         :param diff: AlterDiff object, passes to method on call
         :return:
         """
         for collection, update_path, filter_path in self._get_update_paths():
             filter_dotpath = '.'.join(filter_path)
-            change_method(filter_dotpath, diff)
+            callback(filter_dotpath, diff)
 
     def _find_embedded_fields(self,
                               collection: Collection,
@@ -271,7 +272,7 @@ class MongoEmbeddedDocumentUpdater(BaseEmbeddedDocumentUpdater):
     and network traffic since operations are performed on a server side
     """
     def set_value(self, value: Any):
-        def get_expr(update_dotpath, *_):
+        def get_expr(filter_dotpath, update_dotpath, *_):
             return {"$set": {update_dotpath: value}}
 
         return self._update_with_expr(get_expr)
@@ -283,8 +284,8 @@ class MongoEmbeddedDocumentUpdater(BaseEmbeddedDocumentUpdater):
         return self._update_with_expr(get_expr)
 
     def rename(self, new_name: str):
-        def get_expr(update_dotpath, update_path, *_):
-            if '$[]' in update_path:
+        def get_expr(filter_dotpath, update_dotpath, *_):
+            if '$[]' in update_dotpath:
                 raise MigrationError(f'Cannot rename a field using update mongo query. '
                                      f'Path: {update_dotpath}')
             return {'$rename': {self.field_name: new_name}}
@@ -297,10 +298,39 @@ class MongoEmbeddedDocumentUpdater(BaseEmbeddedDocumentUpdater):
             raise TypeError('Mongo updater filter must be a dict')
         super().filter(fltr)
 
+    def update_with_method(self, callback: Callable, diff):
+        """
+        Call given callback for for every field of embedded document
+        with given type found in db.
+
+        Given method should be able to perform an update by a field
+        dotpath. Returned value is ignored
+
+        Callback parameters are:
+        * collection -- pymongo collection object
+        * filter_expr -- string dotpath of field which is used in
+          filter expressions
+        * update_expr -- string dotpath of field (with $[]) which
+          is used for pointing
+        * array_filters - dict with array filters which could be
+          passed to update_many method for instance
+        * diff -- passed diff value
+        :param callback:
+        :param diff: AlterDiff object, passes to method on call
+        :return:
+        """
+        for collection, update_path, filter_path in self._get_update_paths():
+            update_path, array_filters = self._attach_array_filters(update_path)
+            filter_dotpath = '.'.join(filter_path)
+            update_dotpath = '.'.join(update_path)
+
+            callback(collection, filter_dotpath, update_dotpath, array_filters, diff)
+
     def _update_with_expr(self, expr_callback: Callable):
         for collection, update_path, filter_path in self._get_update_paths():
             update_path, array_filters = self._attach_array_filters(update_path)
             update_dotpath = '.'.join(update_path)
+            filter_dotpath = '.'.join(filter_path)
 
             # Check if we deal with object where we are
             # supposed to set a field (both field value and array item)
@@ -310,7 +340,7 @@ class MongoEmbeddedDocumentUpdater(BaseEmbeddedDocumentUpdater):
                     filter_expr,
                     self._filter
                 ]}
-            update_expr = expr_callback(update_dotpath, update_path, array_filters),
+            update_expr = expr_callback(filter_dotpath, update_dotpath, array_filters),
 
             collection.update_many(
                 filter_expr,
@@ -349,21 +379,21 @@ class PythonEmbeddedDocumentUpdater(BaseEmbeddedDocumentUpdater):
     depth) could not be executed using only mongo update functions.
     """
     def set_value(self, value: Any):
-        def update(document):
+        def update(collection, document, filter_path):
             if isinstance(document, dict):
                 document[self.field_name] = value
 
         return self._update_with_callback(update)
 
     def unset(self):
-        def update(document):
+        def update(collection, document, filter_path):
             if isinstance(document, dict) and self.field_name in document:
                 del document[self.field_name]
 
         return self._update_with_callback(update)
 
     def rename(self, new_name: str):
-        def update(document):
+        def update(collection, document, filter_path):
             if isinstance(document, dict) and self.field_name in document:
                 document[new_name] = document.pop(self.field_name)
 
@@ -380,6 +410,29 @@ class PythonEmbeddedDocumentUpdater(BaseEmbeddedDocumentUpdater):
             raise TypeError('Python updater filter must be a callback function')
         super().filter(fltr)
 
+    def update_with_method(self, callback: Callable, diff):
+        """
+        Call given callback for for every embedded document
+        with given type found in db.
+
+        Given method may modify a given embedded document in-place.
+        Returned value is ignored
+
+        Callback parameters are:
+        * collection -- pymongo Collection object
+        * embedded_document -- field contents, which should contain
+          embedded document
+        * filter_path -- dotpath of field
+        * diff -- passed diff value
+        :param callback:
+        :param diff: AlterDiff object, passes to method on call
+        :return:
+        """
+        def wrapper(collection, embedded_doc, filter_path):
+            callback(collection, embedded_doc, filter_path, diff)
+
+        return self._update_with_callback(wrapper)
+
     def _update_with_callback(self, update_callback: Callable):
         for collection, update_path, filter_path in self._get_update_paths():
             json_path = '.'.join(f.replace('$[]', '[*]') for f in update_path)
@@ -391,7 +444,7 @@ class PythonEmbeddedDocumentUpdater(BaseEmbeddedDocumentUpdater):
                 # Recursively apply the callback to every embedded doc
                 for embedded_doc in parser.find(doc):
                     if self._filter is None or self._filter(embedded_doc):
-                        update_callback(embedded_doc)
+                        update_callback(collection, embedded_doc, filter_path)
                 buf.append(ReplaceOne({'_id': doc['_id']}, doc, upsert=False))
 
                 # Flush buffer

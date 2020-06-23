@@ -2,14 +2,21 @@ import inspect
 import weakref
 from typing import Type, Iterable, List, Tuple, Collection
 
+import jsonpath_rw
 import mongoengine.fields
-from pymongo.collection import Collection as MongoCollection
+from pymongo import ReplaceOne
+from pymongo.database import Database
 
+import mongoengine_migrate.flags as flags
 from mongoengine_migrate.actions.diff import AlterDiff, UNSET
 from mongoengine_migrate.exceptions import SchemaError, MigrationError
 from mongoengine_migrate.fields.registry import type_key_registry, add_field_handler
+from mongoengine_migrate.mongo import (
+    check_empty_result,
+    MongoEmbeddedDocumentUpdater,
+    PythonEmbeddedDocumentUpdater
+)
 from mongoengine_migrate.utils import get_closest_parent
-from ..mongo import check_empty_result
 from .registry import CONVERTION_MATRIX
 
 
@@ -55,12 +62,27 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
     }
 
     def __init__(self,
-                 collection: MongoCollection,
-                 left_field_schema: dict,
+                 db: Database,
+                 collection_name: str,
+                 left_schema: dict,
+                 left_field_schema: dict,  # FIXME: get rid of
                  right_field_schema: dict):
+        """
+        :param db: pymongo Database object
+        :param collection_name: collection name. Could contain
+         collection name or embedded document name
+        :param left_field_schema:
+        :param right_field_schema:
+        :param left_schema:
+        """
+        self.db = db
+        self.collection_name = collection_name
         self.left_field_schema = left_field_schema
         self.right_field_schema = right_field_schema
-        self.collection = collection
+        self.left_schema = left_schema
+
+        self.is_embedded = self.collection_name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
+        self.collection = None if self.is_embedded else db[collection_name]  # FIXME: make db query tracer
 
     @classmethod
     def schema_skel(cls) -> dict:
@@ -110,7 +132,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         return schema
 
-    def change_param(self, db_field: str, name: str, is_embedded: bool = False):
+    def change_param(self, db_field: str, name: str):
         """
         DB commands to be run in order to change given parameter
 
@@ -119,26 +141,16 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         'change_NAME' where NAME is a parameter name.
         :param db_field: db field name to change
         :param name: parameter name to change
-        :param is_embedded: True if db_field is dotpath to an
-         embedded document field
         :return:
         """
         assert name != 'param', "Schema key could not be 'param'"
-
-        # Get document type specific method
-        if is_embedded:
-            method = getattr(self, f'embedded_change_{name}', None)
-        else:
-            method = getattr(self, f'document_change_{name}', None)
-
-        # Use common method if specific one was not found
-        if method is None:
-            method = getattr(self, f'change_{name}')
 
         diff = AlterDiff(
             self.left_field_schema.get(name, UNSET),
             self.right_field_schema.get(name, UNSET)
         )
+
+        method = getattr(self, f'change_{name}')
         return method(db_field, diff)
 
     def change_db_field(self, db_field: str, diff: AlterDiff):
@@ -152,10 +164,17 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         if not diff.new or not diff.old:
             raise MigrationError("db_field must be a non-empty string")
 
-        self.collection.update_many(
-            {diff.old: {'$exists': True}},
-            {'$rename': {diff.old: diff.new}}
-        )
+        if self.is_embedded:
+            updater = PythonEmbeddedDocumentUpdater(self.db,
+                                                    self.collection_name,
+                                                    db_field,
+                                                    self.left_schema)
+            updater.filter(lambda d: isinstance(d, dict) and db_field in d).rename(diff.new)
+        else:
+            self.collection.update_many(
+                {diff.old: {'$exists': True}},
+                {'$rename': {diff.old: diff.new}}
+            )
 
     def change_required(self, db_field: str, diff: AlterDiff):
         """
@@ -165,6 +184,13 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
+        def cb(col, filter_dotpath, update_dotpath, array_filters, diff):
+            col.update_many(
+                {filter_dotpath: None},  # Both null and nonexistent field
+                {'$set': {update_dotpath: default}},
+                array_filters=array_filters
+            )
+
         self._check_diff(db_field, diff, False, bool)
 
         if diff.old is not True and diff.new is True:
@@ -173,10 +199,15 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             if default is None:
                 raise MigrationError(f'Cannot mark field {self.collection.name}.{db_field} '
                                      f'as required because default value is not set')
-            self.collection.update_many(
-                {db_field: None},  # Both null and nonexistent field
-                {'$set': {db_field: default}}
-            )
+
+            if self.is_embedded:
+                updater = MongoEmbeddedDocumentUpdater(self.db,
+                                                       self.collection_name,
+                                                       db_field,
+                                                       self.left_schema)
+                updater.update_with_method(cb, diff)
+            else:
+                cb(self.collection, db_field, db_field, None, diff)
 
     def change_default(self, db_field: str, diff: AlterDiff):
         """Stub method. No need to do smth on default change"""
@@ -209,10 +240,20 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param db_field:
         :return:
         """
-        self._check_diff(db_field, diff, True, Collection)
-        choices = diff.new
+        def cb(col, filter_dotpath, update_dotpath, array_filters, diff):
+            choices = diff.new
+            check_empty_result(col, filter_dotpath, {filter_dotpath: {'$nin': choices}})
 
-        check_empty_result(self.collection, db_field, {db_field: {'$nin': choices}})
+        self._check_diff(db_field, diff, True, Collection)
+
+        if self.is_embedded:
+            updater = MongoEmbeddedDocumentUpdater(self.db,
+                                                   self.collection_name,
+                                                   db_field,
+                                                   self.left_schema)
+            updater.update_with_method(cb, diff)
+        else:
+            cb(self.collection, db_field, db_field, None, diff)
 
     def change_null(self, db_field: str, diff: AlterDiff):
         pass
@@ -239,10 +280,12 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             field_classes.append(type_key_registry[val].field_cls)
 
         new_handler_cls = type_key_registry[diff.new].field_handler_cls
-        new_handler = new_handler_cls(self.collection,
+        new_handler = new_handler_cls(self.db,
+                                      self.collection_name,
+                                      self.left_schema,
                                       self.left_field_schema,
                                       self.right_field_schema)
-        new_handler.convert_type(*field_classes)
+        new_handler.convert_type(db_field, *field_classes)  # FIXME: embedded
 
     def convert_type(self,
                      db_field: str,

@@ -11,7 +11,7 @@ from mongoengine_migrate.exceptions import SchemaError, MigrationError
 from mongoengine_migrate.fields.registry import type_key_registry, add_field_handler
 from mongoengine_migrate.mongo import (
     check_empty_result,
-    EmbeddedDocumentUpdater
+    DocumentUpdater
 )
 from mongoengine_migrate.utils import get_closest_parent
 from .registry import CONVERTION_MATRIX
@@ -166,10 +166,10 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             raise MigrationError("db_field must be a non-empty string")
 
         if self.is_embedded:
-            updater = EmbeddedDocumentUpdater(self.db,
-                                              self.collection_name,
-                                              db_field,
-                                              self.left_schema)
+            updater = DocumentUpdater(self.db,
+                                      self.collection_name,
+                                      db_field,
+                                      self.left_schema)
             updater.update_by_document(upd)
         else:
             self.collection.update_many(
@@ -201,14 +201,11 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                 raise MigrationError(f'Cannot mark field {self.collection.name}.{db_field} '
                                      f'as required because default value is not set')
 
-            if self.is_embedded:
-                updater = EmbeddedDocumentUpdater(self.db,
-                                                  self.collection_name,
-                                                  db_field,
-                                                  self.left_schema)
-                updater.update_by_path(upd)
-            else:
-                upd(self.collection, db_field, db_field, None)
+            updater = DocumentUpdater(self.db,
+                                      self.collection_name,
+                                      db_field,
+                                      self.left_schema)
+            updater.update_by_path(upd)
 
     def change_default(self, db_field: str, diff: AlterDiff):
         """Stub method. No need to do smth on default change"""
@@ -247,14 +244,11 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         self._check_diff(db_field, diff, True, Collection)
 
-        if self.is_embedded:
-            updater = EmbeddedDocumentUpdater(self.db,
-                                              self.collection_name,
-                                              db_field,
-                                              self.left_schema)
-            updater.update_by_path(upd)
-        else:
-            upd(self.collection, db_field, db_field, None)
+        updater = DocumentUpdater(self.db,
+                                  self.collection_name,
+                                  db_field,
+                                  self.left_schema)
+        updater.update_by_path(upd)
 
     def change_null(self, db_field: str, diff: AlterDiff):
         pass

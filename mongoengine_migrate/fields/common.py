@@ -11,7 +11,7 @@ from mongoengine_migrate.actions.diff import AlterDiff, UNSET
 from mongoengine_migrate.mongo import (
     check_empty_result,
     mongo_version,
-    EmbeddedDocumentUpdater
+    DocumentUpdater
 )
 
 
@@ -39,14 +39,11 @@ class NumberFieldHandler(CommonFieldHandler):
         if diff.new in (UNSET, None):
             return
 
-        if self.is_embedded:
-            updater = EmbeddedDocumentUpdater(self.db,
-                                              self.collection_name,
-                                              db_field,
-                                              self.left_schema)
-            updater.update_by_path(upd)
-        else:
-            upd(self.collection, db_field, db_field, None)
+        updater = DocumentUpdater(self.db,
+                                  self.collection_name,
+                                  db_field,
+                                  self.left_schema)
+        updater.update_by_path(upd)
 
     def change_max_value(self, db_field: str, diff: AlterDiff):
         """
@@ -64,14 +61,11 @@ class NumberFieldHandler(CommonFieldHandler):
         if diff.new in (UNSET, None):
             return
 
-        if self.is_embedded:
-            updater = EmbeddedDocumentUpdater(self.db,
-                                              self.collection_name,
-                                              db_field,
-                                              self.left_schema)
-            updater.update_by_path(upd)
-        else:
-            upd(self.collection, db_field, db_field, None)
+        updater = DocumentUpdater(self.db,
+                                  self.collection_name,
+                                  db_field,
+                                  self.left_schema)
+        updater.update_by_path(upd)
 
 
 class StringFieldHandler(CommonFieldHandler):
@@ -96,10 +90,10 @@ class StringFieldHandler(CommonFieldHandler):
                 if isinstance(doc, dict) and db_field in doc and len(doc[db_field]) > diff.new:
                     doc[db_field] = doc[db_field][:diff.new]
 
-            updater = EmbeddedDocumentUpdater(self.db,
-                                              self.collection_name,
-                                              db_field,
-                                              self.left_schema)
+            updater = DocumentUpdater(self.db,
+                                      self.collection_name,
+                                      db_field,
+                                      self.left_schema)
             updater.update_by_document(upd)
         else:
             self.collection.aggregate([
@@ -133,10 +127,10 @@ class StringFieldHandler(CommonFieldHandler):
                             f"String field {col.name}.{filter_path} on one of records "
                             f"has length less than minimum: {doc}")
 
-            updater = EmbeddedDocumentUpdater(self.db,
-                                              self.collection_name,
-                                              db_field,
-                                              self.left_schema)
+            updater = DocumentUpdater(self.db,
+                                      self.collection_name,
+                                      db_field,
+                                      self.left_schema)
             updater.update_by_document(upd)
         else:
             fltr = {
@@ -155,14 +149,11 @@ class StringFieldHandler(CommonFieldHandler):
         if diff.new in (UNSET, None):
             return
 
-        if self.is_embedded:
-            updater = EmbeddedDocumentUpdater(self.db,
-                                              self.collection_name,
-                                              db_field,
-                                              self.left_schema)
-            updater.update_by_path(upd)
-        else:
-            upd(self.collection, db_field, db_field, None)
+        updater = DocumentUpdater(self.db,
+                                  self.collection_name,
+                                  db_field,
+                                  self.left_schema)
+        updater.update_by_path(upd)
 
 
 class URLFieldHandler(StringFieldHandler):
@@ -185,14 +176,11 @@ class URLFieldHandler(StringFieldHandler):
         # Check if some records contains non-url values in db_field
         scheme_regex = re.compile(rf'\A(?:({"|".join(re.escape(x) for x in diff.new)}))://')
 
-        if self.is_embedded:
-            updater = EmbeddedDocumentUpdater(self.db,
-                                              self.collection_name,
-                                              db_field,
-                                              self.left_schema)
-            updater.update_by_path(upd)
-        else:
-            upd(self.collection, db_field, db_field, None)
+        updater = DocumentUpdater(self.db,
+                                  self.collection_name,
+                                  db_field,
+                                  self.left_schema)
+        updater.update_by_path(upd)
 
 class EmailFieldHandler(StringFieldHandler):
     field_classes = [
@@ -250,14 +238,11 @@ class EmailFieldHandler(StringFieldHandler):
 
         regex = self.UTF8_USER_REGEX if diff.new is True else self.USER_REGEX
 
-        if self.is_embedded:
-            updater = EmbeddedDocumentUpdater(self.db,
-                                              self.collection_name,
-                                              db_field,
-                                              self.left_schema)
-            updater.update_by_path(upd)
-        else:
-            upd(self.collection, db_field, db_field, None)
+        updater = DocumentUpdater(self.db,
+                                  self.collection_name,
+                                  db_field,
+                                  self.left_schema)
+        updater.update_by_path(upd)
 
     def change_allow_ip_domain(self, db_field: str, diff: AlterDiff):
         """
@@ -281,14 +266,11 @@ class EmailFieldHandler(StringFieldHandler):
             re.escape(x) for x in self.left_field_schema.get('domain_whitelist', [])
         ) or '.*'
 
-        if self.is_embedded:
-            updater = EmbeddedDocumentUpdater(self.db,
-                                              self.collection_name,
-                                              db_field,
-                                              self.left_schema)
-            updater.update_by_path(upd)
-        else:
-            upd(self.collection, db_field, db_field, None)
+        updater = DocumentUpdater(self.db,
+                                  self.collection_name,
+                                  db_field,
+                                  self.left_schema)
+        updater.update_by_path(upd)
 
     def convert_type(self,
                      db_field: str,
@@ -367,10 +349,10 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
                 if isinstance(doc, dict) and db_field in doc:
                     doc[db_field] = doc[db_field].replace(diff.old, diff.new)
 
-            updater = EmbeddedDocumentUpdater(self.db,
-                                              self.collection_name,
-                                              db_field,
-                                              self.left_schema)
+            updater = DocumentUpdater(self.db,
+                                      self.collection_name,
+                                      db_field,
+                                      self.left_schema)
             updater.update_by_document(upd)
         else:
             self.collection.aggregate([
@@ -433,10 +415,10 @@ class ListFieldHandler(CommonFieldHandler):
                 if isinstance(doc, dict) and db_field in doc and len(doc[db_field]) > diff.new:
                     doc[db_field] = doc[db_field][:diff.new]
 
-            updater = EmbeddedDocumentUpdater(self.db,
-                                              self.collection_name,
-                                              db_field,
-                                              self.left_schema)
+            updater = DocumentUpdater(self.db,
+                                      self.collection_name,
+                                      db_field,
+                                      self.left_schema)
             updater.update_by_document(upd)
         else:
             self.collection.aggregate([
@@ -552,10 +534,10 @@ class ReferenceFieldHandler(CommonFieldHandler):
                 if isinstance(doc, dict) and isinstance(doc.get(db_field), bson.ObjectId):
                     doc[db_field] = {'$ref': col.name, '$id': doc[db_field]}
 
-            updater = EmbeddedDocumentUpdater(self.db,
-                                              self.collection_name,
-                                              db_field,
-                                              self.left_schema)
+            updater = DocumentUpdater(self.db,
+                                      self.collection_name,
+                                      db_field,
+                                      self.left_schema)
             updater.update_by_document(upd)
         else:
             self.collection.aggregate([
@@ -580,10 +562,10 @@ class ReferenceFieldHandler(CommonFieldHandler):
                 if isinstance(doc, dict) and isinstance(doc.get(db_field), bson.DBRef):
                     doc[db_field] = doc[db_field].id
 
-            updater = EmbeddedDocumentUpdater(self.db,
-                                              self.collection_name,
-                                              db_field,
-                                              self.left_schema)
+            updater = DocumentUpdater(self.db,
+                                      self.collection_name,
+                                      db_field,
+                                      self.left_schema)
             updater.update_by_path(upd)
         else:
             self.collection.aggregate([
@@ -634,14 +616,11 @@ class CachedReferenceFieldHandler(CommonFieldHandler):
 
         to_remove = set(diff.old) - set(diff.new)
 
-        if self.is_embedded:
-            updater = EmbeddedDocumentUpdater(self.db,
-                                              self.collection_name,
-                                              db_field,
-                                              self.left_schema)
-            updater.update_by_path(upd)
-        else:
-            upd(self.collection, db_field, db_field, None)
+        updater = DocumentUpdater(self.db,
+                                  self.collection_name,
+                                  db_field,
+                                  self.left_schema)
+        updater.update_by_path(upd)
 
 
 class FileFieldHandler(CommonFieldHandler):

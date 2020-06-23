@@ -1,7 +1,7 @@
 from typing import Mapping, Any
 
 from mongoengine_migrate.exceptions import ActionError
-from mongoengine_migrate.mongo import EmbeddedDocumentUpdater
+from mongoengine_migrate.mongo import DocumentUpdater
 from .base import BaseFieldAction
 from .diff import AlterDiff, UNSET
 
@@ -66,10 +66,10 @@ class CreateField(BaseFieldAction):
         if is_required:
             db_field = self.parameters['db_field']
             if self.is_embedded:
-                updater = EmbeddedDocumentUpdater(self._run_ctx['db'],
-                                                  self.orig_collection_name,
-                                                  db_field,
-                                                  self._run_ctx['left_schema'])
+                updater = DocumentUpdater(self._run_ctx['db'],
+                                          self.orig_collection_name,
+                                          db_field,
+                                          self._run_ctx['left_schema'])
                 updater.update_by_path(upd)
             else:
                 upd(self._run_ctx['collection'], db_field, db_field, None)
@@ -84,10 +84,10 @@ class CreateField(BaseFieldAction):
 
         db_field = self.parameters['db_field']
         if self.is_embedded:
-            updater = EmbeddedDocumentUpdater(self._run_ctx['db'],
-                                              self.orig_collection_name,
-                                              db_field,
-                                              self._run_ctx['left_schema'])
+            updater = DocumentUpdater(self._run_ctx['db'],
+                                      self.orig_collection_name,
+                                      db_field,
+                                      self._run_ctx['left_schema'])
             updater.update_by_path(upd)
         else:
             upd(self._run_ctx['collection'], db_field, db_field, None)
@@ -131,10 +131,10 @@ class DropField(BaseFieldAction):
 
         db_field = self._run_ctx['left_field_schema']['db_field']
         if self.is_embedded:
-            updater = EmbeddedDocumentUpdater(self._run_ctx['db'],
-                                              self.orig_collection_name,
-                                              db_field,
-                                              self._run_ctx['left_schema'])
+            updater = DocumentUpdater(self._run_ctx['db'],
+                                      self.orig_collection_name,
+                                      db_field,
+                                      self._run_ctx['left_schema'])
             updater.update_by_path(upd)
         else:
             upd(self._run_ctx['collection'], db_field, db_field, None)
@@ -157,10 +157,10 @@ class DropField(BaseFieldAction):
         if is_required:
             db_field = self._run_ctx['left_field_schema']['db_field']
             if self.is_embedded:
-                updater = EmbeddedDocumentUpdater(self._run_ctx['db'],
-                                                  self.orig_collection_name,
-                                                  db_field,
-                                                  self._run_ctx['left_schema'])
+                updater = DocumentUpdater(self._run_ctx['db'],
+                                          self.orig_collection_name,
+                                          db_field,
+                                          self._run_ctx['left_schema'])
                 updater.update_by_path(upd)
             else:
                 upd(self._run_ctx['collection'], db_field, db_field, None)

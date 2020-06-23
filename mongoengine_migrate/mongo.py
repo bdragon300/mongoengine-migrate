@@ -67,26 +67,28 @@ def mongo_version(min_version: str = None, max_version: str = None, throw_error:
     return dec
 
 
-class EmbeddedDocumentUpdater:
-    """Class used to update certain field of embedded documents in
-    all documents or other embedded documents which use it
+class DocumentUpdater:
+    """Document updater class. Used to update certain field in
+    collection or embedded document
     """
-    def __init__(self, db: Database, document_type: str, field_name: str, db_schema: dict):
+    def __init__(self, db: Database, document_name: str, field_name: str, db_schema: dict):
         """
         :param db: pymongo database object
-        :param document_type: embedded document name
+        :param document_name: document name
         :param field_name: field to work with
         :param db_schema: current db schema
         """
         self.db = db
-        self.document_type = document_type
+        self.document_name = document_name
         self.field_name = field_name
         self.db_schema = db_schema
 
     def update_by_path(self, callback: Callable):
         """
-        Call the given callback for every dotpath to a field contained
-        embedded document with needed type.
+        Call the given callback for every path to a field contained
+        document with needed type.
+
+        For a field in collection it will be called once.
 
         The same embedded document could be nested or be included to
         many collections -- the callback will be called for each of
@@ -103,6 +105,10 @@ class EmbeddedDocumentUpdater:
         :param callback:
         :return:
         """
+        if not self.document_name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
+            callback(self.db[self.document_name], self.field_name, self.field_name, None)
+            return
+
         for collection, update_path, filter_path in self._get_update_paths():
             update_path, array_filters = self._inject_array_filters(update_path)
             filter_dotpath = '.'.join(filter_path)
@@ -112,11 +118,12 @@ class EmbeddedDocumentUpdater:
 
     def update_by_document(self, callback: Callable):
         """
-        Call the given callback for every embedded document of needed
-        type found in db.
+        Call the given callback for every document of needed
+        type found in db. If field contains array of documents then
+        callback will be called for each of them.
 
-        If callback was modified the passed field value then it will
-        be updated in db. Returned value is ignored
+        Callback function could modify a next field value in-place.
+        Returned value is ignored
 
         Callback parameters are:
         * collection -- pymongo Collection object
@@ -126,6 +133,12 @@ class EmbeddedDocumentUpdater:
         :param callback:
         :return:
         """
+        if not self.document_name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
+            collection = self.db[self.document_name]
+            for doc in collection.find():
+                callback(collection, doc, self.field_name)
+            return
+
         for collection, update_path, filter_path in self._get_update_paths():
             json_path = '.'.join(f.replace('$[]', '[*]') for f in update_path)
             json_path = json_path.replace('.[*]', '[*]')
@@ -160,7 +173,7 @@ class EmbeddedDocumentUpdater:
 
         for collection_name, collection_schema in collections:
             collection = self._get_collection(collection_name)
-            for path in self._find_embedded_fields(collection, self.document_type, self.db_schema):
+            for path in self._find_embedded_fields(collection, self.document_name, self.db_schema):
                 update_path = path + [self.field_name]
                 filter_path = [p for p in path if p != '$[]']
 

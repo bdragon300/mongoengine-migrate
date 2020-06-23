@@ -2,9 +2,7 @@ import inspect
 import weakref
 from typing import Type, Iterable, List, Tuple, Collection
 
-import jsonpath_rw
 import mongoengine.fields
-from pymongo import ReplaceOne
 from pymongo.database import Database
 
 import mongoengine_migrate.flags as flags
@@ -13,8 +11,7 @@ from mongoengine_migrate.exceptions import SchemaError, MigrationError
 from mongoengine_migrate.fields.registry import type_key_registry, add_field_handler
 from mongoengine_migrate.mongo import (
     check_empty_result,
-    MongoEmbeddedDocumentUpdater,
-    PythonEmbeddedDocumentUpdater
+    EmbeddedDocumentUpdater
 )
 from mongoengine_migrate.utils import get_closest_parent
 from .registry import CONVERTION_MATRIX
@@ -160,16 +157,20 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
+        def upd(col, doc, path):
+            if isinstance(doc, dict) and diff.old in doc:
+                doc[diff.new] = doc.pop(diff.old)
+
         self._check_diff(db_field, diff, False, str)
         if not diff.new or not diff.old:
             raise MigrationError("db_field must be a non-empty string")
 
         if self.is_embedded:
-            updater = PythonEmbeddedDocumentUpdater(self.db,
-                                                    self.collection_name,
-                                                    db_field,
-                                                    self.left_schema)
-            updater.filter(lambda d: isinstance(d, dict) and db_field in d).rename(diff.new)
+            updater = EmbeddedDocumentUpdater(self.db,
+                                              self.collection_name,
+                                              db_field,
+                                              self.left_schema)
+            updater.update_by_document(upd)
         else:
             self.collection.update_many(
                 {diff.old: {'$exists': True}},
@@ -184,7 +185,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
-        def cb(col, filter_dotpath, update_dotpath, array_filters, diff):
+        def upd(col, filter_dotpath, update_dotpath, array_filters):
             col.update_many(
                 {filter_dotpath: None},  # Both null and nonexistent field
                 {'$set': {update_dotpath: default}},
@@ -201,13 +202,13 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                                      f'as required because default value is not set')
 
             if self.is_embedded:
-                updater = MongoEmbeddedDocumentUpdater(self.db,
-                                                       self.collection_name,
-                                                       db_field,
-                                                       self.left_schema)
-                updater.update_with_method(cb, diff)
+                updater = EmbeddedDocumentUpdater(self.db,
+                                                  self.collection_name,
+                                                  db_field,
+                                                  self.left_schema)
+                updater.update_by_path(upd)
             else:
-                cb(self.collection, db_field, db_field, None, diff)
+                upd(self.collection, db_field, db_field, None)
 
     def change_default(self, db_field: str, diff: AlterDiff):
         """Stub method. No need to do smth on default change"""
@@ -240,20 +241,20 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param db_field:
         :return:
         """
-        def cb(col, filter_dotpath, update_dotpath, array_filters, diff):
+        def upd(col, filter_dotpath, update_dotpath, array_filters):
             choices = diff.new
             check_empty_result(col, filter_dotpath, {filter_dotpath: {'$nin': choices}})
 
         self._check_diff(db_field, diff, True, Collection)
 
         if self.is_embedded:
-            updater = MongoEmbeddedDocumentUpdater(self.db,
-                                                   self.collection_name,
-                                                   db_field,
-                                                   self.left_schema)
-            updater.update_with_method(cb, diff)
+            updater = EmbeddedDocumentUpdater(self.db,
+                                              self.collection_name,
+                                              db_field,
+                                              self.left_schema)
+            updater.update_by_path(upd)
         else:
-            cb(self.collection, db_field, db_field, None, diff)
+            upd(self.collection, db_field, db_field, None)
 
     def change_null(self, db_field: str, diff: AlterDiff):
         pass

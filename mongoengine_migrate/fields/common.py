@@ -11,8 +11,7 @@ from mongoengine_migrate.actions.diff import AlterDiff, UNSET
 from mongoengine_migrate.mongo import (
     check_empty_result,
     mongo_version,
-    MongoEmbeddedDocumentUpdater,
-    PythonEmbeddedDocumentUpdater
+    EmbeddedDocumentUpdater
 )
 
 
@@ -29,7 +28,7 @@ class NumberFieldHandler(CommonFieldHandler):
         Change min_value of field. Force set to minimum if value is
         less than limitation (if any)
         """
-        def cb(col, filter_dotpath, update_dotpath, array_filters, diff):
+        def upd(col, filter_dotpath, update_dotpath, array_filters):
             col.update_many(
                 {filter_dotpath: {'$lt': diff.new}},
                 {'$set': {update_dotpath: diff.new}},
@@ -41,20 +40,20 @@ class NumberFieldHandler(CommonFieldHandler):
             return
 
         if self.is_embedded:
-            updater = MongoEmbeddedDocumentUpdater(self.db,
-                                                   self.collection_name,
-                                                   db_field,
-                                                   self.left_schema)
-            updater.update_with_method(cb, diff)
+            updater = EmbeddedDocumentUpdater(self.db,
+                                              self.collection_name,
+                                              db_field,
+                                              self.left_schema)
+            updater.update_by_path(upd)
         else:
-            cb(self.collection, db_field, db_field, None, diff)
+            upd(self.collection, db_field, db_field, None)
 
     def change_max_value(self, db_field: str, diff: AlterDiff):
         """
         Change max_value of field. Force set to maximum if value is
         more than limitation (if any)
         """
-        def cb(col, filter_dotpath, update_dotpath, array_filters, diff):
+        def upd(col, filter_dotpath, update_dotpath, array_filters):
             col.update_many(
                 {filter_dotpath: {'$gt': diff.new}},
                 {'$set': {update_dotpath: diff.new}},
@@ -66,13 +65,13 @@ class NumberFieldHandler(CommonFieldHandler):
             return
 
         if self.is_embedded:
-            updater = MongoEmbeddedDocumentUpdater(self.db,
-                                                   self.collection_name,
-                                                   db_field,
-                                                   self.left_schema)
-            updater.update_with_method(cb, diff)
+            updater = EmbeddedDocumentUpdater(self.db,
+                                              self.collection_name,
+                                              db_field,
+                                              self.left_schema)
+            updater.update_by_path(upd)
         else:
-            cb(self.collection, db_field, db_field, None, diff)
+            upd(self.collection, db_field, db_field, None)
 
 
 class StringFieldHandler(CommonFieldHandler):
@@ -85,10 +84,6 @@ class StringFieldHandler(CommonFieldHandler):
     @mongo_version(min_version='3.6')
     def change_max_length(self, db_field: str, diff: AlterDiff):
         """Cut off a string if it longer than limitation (if any)"""
-        def upd(col, doc, filter_path, diff):
-            if isinstance(doc, dict) and db_field in doc and len(doc[db_field]) > diff.new:
-                doc[db_field] = doc[db_field][:diff.new]
-
         self._check_diff(db_field, diff, True, int)
         if diff.new in (UNSET, None):
             return
@@ -97,11 +92,15 @@ class StringFieldHandler(CommonFieldHandler):
 
         # Cut too long strings
         if self.is_embedded:
-            updater = PythonEmbeddedDocumentUpdater(self.db,
-                                                    self.collection_name,
-                                                    db_field,
-                                                    self.left_schema)
-            updater.update_with_method(upd, diff)
+            def upd(col, doc, filter_path):
+                if isinstance(doc, dict) and db_field in doc and len(doc[db_field]) > diff.new:
+                    doc[db_field] = doc[db_field][:diff.new]
+
+            updater = EmbeddedDocumentUpdater(self.db,
+                                              self.collection_name,
+                                              db_field,
+                                              self.left_schema)
+            updater.update_by_document(upd)
         else:
             self.collection.aggregate([
                 {'$match': {
@@ -117,13 +116,6 @@ class StringFieldHandler(CommonFieldHandler):
     @mongo_version(min_version='3.6')
     def change_min_length(self, db_field: str, diff: AlterDiff):
         """Raise error if string is shorter than limitation (if any)"""
-        def upd(col, doc, filter_path, diff):
-            if isinstance(doc, dict):
-                val = doc.get(db_field)
-                if isinstance(val, str) and len(val) < diff.new:
-                    raise MigrationError(f"String field {col.name}.{filter_path} on one of records "
-                                         f"has length less than minimum: {doc}")
-
         self._check_diff(db_field, diff, True, int)
         if diff.new in (UNSET, None):
             return
@@ -133,11 +125,19 @@ class StringFieldHandler(CommonFieldHandler):
         # We can't to increase string length, so raise error if
         # there was found strings which are shorter than should be
         if self.is_embedded:
-            updater = PythonEmbeddedDocumentUpdater(self.db,
-                                                    self.collection_name,
-                                                    db_field,
-                                                    self.left_schema)
-            updater.update_with_method(upd, diff)
+            def upd(col, doc, filter_path):
+                if isinstance(doc, dict):
+                    val = doc.get(db_field)
+                    if isinstance(val, str) and len(val) < diff.new:
+                        raise MigrationError(
+                            f"String field {col.name}.{filter_path} on one of records "
+                            f"has length less than minimum: {doc}")
+
+            updater = EmbeddedDocumentUpdater(self.db,
+                                              self.collection_name,
+                                              db_field,
+                                              self.left_schema)
+            updater.update_by_document(upd)
         else:
             fltr = {
                 db_field: {'$ne': None},
@@ -147,7 +147,7 @@ class StringFieldHandler(CommonFieldHandler):
 
     def change_regex(self, db_field: str, diff: AlterDiff):
         """Raise error if string does not match regex (if any)"""
-        def upd(col, filter_dotpath, update_dotpath, array_filters, diff):
+        def upd(col, filter_dotpath, update_dotpath, array_filters):
             fltr = {filter_dotpath: {'$not': re.compile(diff.new), '$ne': None}}
             check_empty_result(col, filter_dotpath, fltr)
 
@@ -156,13 +156,13 @@ class StringFieldHandler(CommonFieldHandler):
             return
 
         if self.is_embedded:
-            updater = MongoEmbeddedDocumentUpdater(self.db,
-                                                   self.collection_name,
-                                                   db_field,
-                                                   self.left_schema)
-            updater.update_with_method(upd, diff)
+            updater = EmbeddedDocumentUpdater(self.db,
+                                              self.collection_name,
+                                              db_field,
+                                              self.left_schema)
+            updater.update_by_path(upd)
         else:
-            upd(self.collection, db_field, db_field, None, diff)
+            upd(self.collection, db_field, db_field, None)
 
 
 class URLFieldHandler(StringFieldHandler):
@@ -174,7 +174,7 @@ class URLFieldHandler(StringFieldHandler):
 
     def change_schemes(self, db_field: str, diff: AlterDiff):
         """Raise error if url has scheme not from list"""
-        def upd(col, filter_dotpath, update_dotpath, array_filters, diff):
+        def upd(col, filter_dotpath, update_dotpath, array_filters):
             fltr = {filter_dotpath: {'$not': scheme_regex, '$ne': None}}
             check_empty_result(col, filter_dotpath, fltr)
 
@@ -186,13 +186,13 @@ class URLFieldHandler(StringFieldHandler):
         scheme_regex = re.compile(rf'\A(?:({"|".join(re.escape(x) for x in diff.new)}))://')
 
         if self.is_embedded:
-            updater = MongoEmbeddedDocumentUpdater(self.db,
-                                                   self.collection_name,
-                                                   db_field,
-                                                   self.left_schema)
-            updater.update_with_method(upd, diff)
+            updater = EmbeddedDocumentUpdater(self.db,
+                                              self.collection_name,
+                                              db_field,
+                                              self.left_schema)
+            updater.update_by_path(upd)
         else:
-            upd(self.collection, db_field, db_field, None, diff)
+            upd(self.collection, db_field, db_field, None)
 
 class EmailFieldHandler(StringFieldHandler):
     field_classes = [
@@ -239,7 +239,7 @@ class EmailFieldHandler(StringFieldHandler):
 
     def change_allow_utf8_user(self, db_field: str, diff: AlterDiff):
         """Raise error if email address has wrong user name"""
-        def upd(col, filter_dotpath, update_dotpath, array_filters, diff):
+        def upd(col, filter_dotpath, update_dotpath, array_filters):
             # Find records which doesn't match to the regex
             fltr = {filter_dotpath: {'$not': regex, '$ne': None}}
             check_empty_result(col, filter_dotpath, fltr)
@@ -251,20 +251,20 @@ class EmailFieldHandler(StringFieldHandler):
         regex = self.UTF8_USER_REGEX if diff.new is True else self.USER_REGEX
 
         if self.is_embedded:
-            updater = MongoEmbeddedDocumentUpdater(self.db,
-                                                   self.collection_name,
-                                                   db_field,
-                                                   self.left_schema)
-            updater.update_with_method(upd, diff)
+            updater = EmbeddedDocumentUpdater(self.db,
+                                              self.collection_name,
+                                              db_field,
+                                              self.left_schema)
+            updater.update_by_path(upd)
         else:
-            upd(self.collection, db_field, db_field, None, diff)
+            upd(self.collection, db_field, db_field, None)
 
     def change_allow_ip_domain(self, db_field: str, diff: AlterDiff):
         """
         Raise error if email has domain which not in `domain_whitelist`
         when `allow_ip_domain` is True. Otherwise do nothing
         """
-        def upd(col, filter_dotpath, update_dotpath, array_filters, diff):
+        def upd(col, filter_dotpath, update_dotpath, array_filters):
             # Find records with ip domains and raise error if found
             fltr = {"$and": [
                 {filter_dotpath: {'$ne': None}},
@@ -282,13 +282,13 @@ class EmailFieldHandler(StringFieldHandler):
         ) or '.*'
 
         if self.is_embedded:
-            updater = MongoEmbeddedDocumentUpdater(self.db,
-                                                   self.collection_name,
-                                                   db_field,
-                                                   self.left_schema)
-            updater.update_with_method(upd, diff)
+            updater = EmbeddedDocumentUpdater(self.db,
+                                              self.collection_name,
+                                              db_field,
+                                              self.left_schema)
+            updater.update_by_path(upd)
         else:
-            upd(self.collection, db_field, db_field, None, diff)
+            upd(self.collection, db_field, db_field, None)
 
     def convert_type(self,
                      db_field: str,
@@ -353,10 +353,6 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
     @mongo_version(min_version='3.4')
     def change_separator(self, db_field: str, diff: AlterDiff):
         """Change separator in datetime strings"""
-        def upd(col, doc, filter_path, diff):
-            if isinstance(doc, dict) and db_field in doc:
-                doc[db_field] = doc[db_field].replace(diff.old, diff.new)
-
         self._check_diff(db_field, diff, False, str)
         if not diff.new or not diff.old:
             raise MigrationError('Empty separator specified')
@@ -367,11 +363,15 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
         old_regex = r'\A' + str(old_sep.join([r"\d{4}"] + [r"\d{2}"] * 5 + [r"\d{6}"])) + r'\Z'
 
         if self.is_embedded:
-            updater = PythonEmbeddedDocumentUpdater(self.db,
-                                                    self.collection_name,
-                                                    db_field,
-                                                    self.left_schema)
-            updater.update_with_method(upd, diff)
+            def upd(col, doc, filter_path):
+                if isinstance(doc, dict) and db_field in doc:
+                    doc[db_field] = doc[db_field].replace(diff.old, diff.new)
+
+            updater = EmbeddedDocumentUpdater(self.db,
+                                              self.collection_name,
+                                              db_field,
+                                              self.left_schema)
+            updater.update_by_document(upd)
         else:
             self.collection.aggregate([
                 {'$match': {
@@ -424,20 +424,20 @@ class ListFieldHandler(CommonFieldHandler):
     @mongo_version(min_version='3.6')
     def change_max_length(self, db_field: str, diff: AlterDiff):
         """Cut off a list if it longer than limitation (if any)"""
-        def upd(col, doc, filter_path, diff):
-            if isinstance(doc, dict) and db_field in doc and len(doc[db_field]) > diff.new:
-                doc[db_field] = doc[db_field][:diff.new]
-
         self._check_diff(db_field, diff, True, int)
         if diff.new in (UNSET, None):
             return
 
         if self.is_embedded:
-            updater = PythonEmbeddedDocumentUpdater(self.db,
-                                                    self.collection_name,
-                                                    db_field,
-                                                    self.left_schema)
-            updater.update_with_method(upd, diff)
+            def upd(col, doc, filter_path):
+                if isinstance(doc, dict) and db_field in doc and len(doc[db_field]) > diff.new:
+                    doc[db_field] = doc[db_field][:diff.new]
+
+            updater = EmbeddedDocumentUpdater(self.db,
+                                              self.collection_name,
+                                              db_field,
+                                              self.left_schema)
+            updater.update_by_document(upd)
         else:
             self.collection.aggregate([
                 {'$match': {
@@ -547,16 +547,16 @@ class ReferenceFieldHandler(CommonFieldHandler):
 
     @mongo_version(min_version='3.6')
     def _objectid_to_dbref(self, db_field: str):
-        def upd(col, doc, filter_path, diff):
-            if isinstance(doc, dict) and isinstance(doc.get(db_field), bson.ObjectId):
-                doc[db_field] = {'$ref': col.name, '$id': doc[db_field]}
-
         if self.is_embedded:
-            updater = PythonEmbeddedDocumentUpdater(self.db,
-                                                    self.collection_name,
-                                                    db_field,
-                                                    self.left_schema)
-            updater.update_with_method(upd, None)
+            def upd(col, doc, filter_path):
+                if isinstance(doc, dict) and isinstance(doc.get(db_field), bson.ObjectId):
+                    doc[db_field] = {'$ref': col.name, '$id': doc[db_field]}
+
+            updater = EmbeddedDocumentUpdater(self.db,
+                                              self.collection_name,
+                                              db_field,
+                                              self.left_schema)
+            updater.update_by_document(upd)
         else:
             self.collection.aggregate([
                 {'$match': {
@@ -575,16 +575,16 @@ class ReferenceFieldHandler(CommonFieldHandler):
 
     @mongo_version(min_version='3.6')
     def _dbref_to_objectid(self, db_field: str):
-        def upd(col, doc, filter_path, diff):
-            if isinstance(doc, dict) and isinstance(doc.get(db_field), bson.DBRef):
-                doc[db_field] = doc[db_field].id
-
         if self.is_embedded:
-            updater = PythonEmbeddedDocumentUpdater(self.db,
-                                                    self.collection_name,
-                                                    db_field,
-                                                    self.left_schema)
-            updater.update_with_method(upd, None)
+            def upd(col, doc, filter_path):
+                if isinstance(doc, dict) and isinstance(doc.get(db_field), bson.DBRef):
+                    doc[db_field] = doc[db_field].id
+
+            updater = EmbeddedDocumentUpdater(self.db,
+                                              self.collection_name,
+                                              db_field,
+                                              self.left_schema)
+            updater.update_by_path(upd)
         else:
             self.collection.aggregate([
                 {'$match': {
@@ -622,7 +622,7 @@ class CachedReferenceFieldHandler(CommonFieldHandler):
     schema_skel_keys = {'fields'}
 
     def change_fields(self, db_field: str, diff: AlterDiff):
-        def upd(col, filter_dotpath, update_dotpath, array_filters, diff):
+        def upd(col, filter_dotpath, update_dotpath, array_filters):
             if to_remove:
                 paths = {f'{update_dotpath}.{f}': '' for f in to_remove}
                 col.update_many(
@@ -635,13 +635,13 @@ class CachedReferenceFieldHandler(CommonFieldHandler):
         to_remove = set(diff.old) - set(diff.new)
 
         if self.is_embedded:
-            updater = MongoEmbeddedDocumentUpdater(self.db,
-                                                   self.collection_name,
-                                                   db_field,
-                                                   self.left_schema)
-            updater.update_with_method(upd, diff)
+            updater = EmbeddedDocumentUpdater(self.db,
+                                              self.collection_name,
+                                              db_field,
+                                              self.left_schema)
+            updater.update_by_path(upd)
         else:
-            upd(self.collection, db_field, db_field, None, diff)
+            upd(self.collection, db_field, db_field, None)
 
 
 class FileFieldHandler(CommonFieldHandler):

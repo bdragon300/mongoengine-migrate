@@ -1,7 +1,7 @@
 from typing import Mapping, Any
 
 from mongoengine_migrate.exceptions import ActionError
-from mongoengine_migrate.mongo import MongoEmbeddedDocumentUpdater
+from mongoengine_migrate.mongo import EmbeddedDocumentUpdater
 from .base import BaseFieldAction
 from .diff import AlterDiff, UNSET
 
@@ -54,34 +54,43 @@ class CreateField(BaseFieldAction):
         fields automatically on value set
         FIXME: parameters (indexes, acl, etc.)
         """
+        def upd(col, filter_dotpath, update_dotpath, array_filters):
+            col.update_many(
+                {filter_dotpath: {'$exists': False}},
+                {'$set': {update_dotpath: default}},
+                array_filters=array_filters
+            )
+
         is_required = self.parameters.get('required') or self.parameters.get('primary_key')
         default = self.parameters.get('default')
         if is_required:
             db_field = self.parameters['db_field']
             if self.is_embedded:
-                updater = MongoEmbeddedDocumentUpdater(self._run_ctx['db'],
-                                                       self.orig_collection_name,
-                                                       db_field,
-                                                       self._run_ctx['left_schema'])
-                updater.set_value(default)
+                updater = EmbeddedDocumentUpdater(self._run_ctx['db'],
+                                                  self.orig_collection_name,
+                                                  db_field,
+                                                  self._run_ctx['left_schema'])
+                updater.update_by_path(upd)
             else:
-                self._run_ctx['collection'].update_many(
-                    {db_field: {'$exists': False}}, {'$set': {db_field: default}}
-                )
+                upd(self._run_ctx['collection'], db_field, db_field, None)
 
     def run_backward(self):
         """Drop field"""
+        def upd(col, filter_dotpath, update_dotpath, array_filters):
+            col.update_many(
+                {filter_dotpath: {'$exists': True}},
+                {'$unset': update_dotpath}
+            )
+
         db_field = self.parameters['db_field']
         if self.is_embedded:
-            updater = MongoEmbeddedDocumentUpdater(self._run_ctx['db'],
-                                                   self.orig_collection_name,
-                                                   db_field,
-                                                   self._run_ctx['left_schema'])
-            updater.unset()
+            updater = EmbeddedDocumentUpdater(self._run_ctx['db'],
+                                              self.orig_collection_name,
+                                              db_field,
+                                              self._run_ctx['left_schema'])
+            updater.update_by_path(upd)
         else:
-            self._run_ctx['collection'].update_many(
-                {db_field: {'$exists': True}}, {'$unset': {db_field: ''}}
-            )
+            upd(self._run_ctx['collection'], db_field, db_field, None)
 
 
 class DropField(BaseFieldAction):
@@ -114,17 +123,21 @@ class DropField(BaseFieldAction):
 
     def run_forward(self):
         """Drop field"""
+        def upd(col, filter_dotpath, update_dotpath, array_filters):
+            col.update_many(
+                {filter_dotpath: {'$exists': True}},
+                {'$unset': update_dotpath}
+            )
+
         db_field = self._run_ctx['left_field_schema']['db_field']
         if self.is_embedded:
-            updater = MongoEmbeddedDocumentUpdater(self._run_ctx['db'],
-                                                   self.orig_collection_name,
-                                                   db_field,
-                                                   self._run_ctx['left_schema'])
-            updater.unset()
+            updater = EmbeddedDocumentUpdater(self._run_ctx['db'],
+                                              self.orig_collection_name,
+                                              db_field,
+                                              self._run_ctx['left_schema'])
+            updater.update_by_path(upd)
         else:
-            self._run_ctx['collection'].update_many(
-                {db_field: {'$exists': True}}, {'$unset': {db_field: ''}}
-            )
+            upd(self._run_ctx['collection'], db_field, db_field, None)
 
     def run_backward(self):
         """
@@ -132,20 +145,25 @@ class DropField(BaseFieldAction):
         default value. Otherwise do nothing since mongoengine creates
         fields automatically on value set
         """
+        def upd(col, filter_dotpath, update_dotpath, array_filters):
+            col.update_many(
+                {filter_dotpath: {'$exists': False}},
+                {'$set': {update_dotpath: default}},
+                array_filters=array_filters
+            )
+
         is_required = self._run_ctx['left_field_schema'].get('required')
         default = self._run_ctx['left_field_schema'].get('default')
         if is_required:
             db_field = self._run_ctx['left_field_schema']['db_field']
             if self.is_embedded:
-                updater = MongoEmbeddedDocumentUpdater(self._run_ctx['db'],
-                                                       self.orig_collection_name,
-                                                       db_field,
-                                                       self._run_ctx['left_schema'])
-                updater.set_value(default)
+                updater = EmbeddedDocumentUpdater(self._run_ctx['db'],
+                                                  self.orig_collection_name,
+                                                  db_field,
+                                                  self._run_ctx['left_schema'])
+                updater.update_by_path(upd)
             else:
-                self._run_ctx['collection'].update_many(
-                    {db_field: {'$exists': False}}, {'$set': {db_field: default}}
-                )
+                upd(self._run_ctx['collection'], db_field, db_field, None)
 
 
 class AlterField(BaseFieldAction):

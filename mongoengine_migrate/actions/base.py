@@ -54,6 +54,7 @@ class BaseAction(metaclass=BaseActionMeta):
         :param kwargs: Action keyword parameters
         """
         self.collection_name = collection_name
+        # Could contain collection name or embedded document name
         self.orig_collection_name = collection_name
         self.dummy_action = dummy_action
         self.parameters = kwargs
@@ -151,7 +152,7 @@ class BaseFieldAction(BaseAction):
 
         db_field = kwargs.get('db_field')
         if db_field and '.' in db_field:
-            raise ActionError("'db_field' parameter could not contain dots")
+            raise ActionError("Field name must not contain dots")
 
     def get_field_handler_cls(self, type_key: str):
         """Concrete FieldHandler class for a given type key"""
@@ -223,7 +224,11 @@ class BaseFieldAction(BaseAction):
         :return: concrete FieldHandler object
         """
         handler_cls = self.get_field_handler_cls(type_key)
-        handler = handler_cls(self._run_ctx['collection'], left_field_schema, right_field_schema)
+        handler = handler_cls(self._run_ctx['db'],
+                              self.orig_collection_name,
+                              self._run_ctx['left_schema'],
+                              left_field_schema,
+                              right_field_schema)
         return handler
 
 

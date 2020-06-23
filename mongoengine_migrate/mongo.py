@@ -83,6 +83,15 @@ class DocumentUpdater:
         self.field_name = field_name
         self.db_schema = db_schema
 
+    @property
+    def document_name(self):
+        return self._document_name
+
+    @document_name.setter
+    def document_name(self, val):
+        self._document_name = val
+        self.is_embedded = self.document_name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
+
     def update_by_path(self, callback: Callable):
         """
         Call the given callback for every path to a field contained
@@ -159,6 +168,19 @@ class DocumentUpdater:
             if buf:
                 collection.bulk_write(buf, ordered=False)
                 buf.clear()
+
+    def update_by_path_or_by_document(self,
+                                      path_callback: Callable,
+                                      document_callback: Callable):
+        """
+        If document is a collection then update it by path using
+        path_callback. If document is an embedded document then
+        update it by document using document_callback
+        """
+        if self.is_embedded:
+            return self.update_by_path(path_callback)
+        else:
+            return self.update_by_document(document_callback)
 
     def _get_update_paths(self):
         """

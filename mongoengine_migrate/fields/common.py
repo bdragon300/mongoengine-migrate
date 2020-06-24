@@ -502,7 +502,7 @@ class ReferenceFieldHandler(CommonFieldHandler):
                 }},
                 {'$addFields': {  # >= 3.4
                     filter_dotpath: {
-                        '$ref': self.collection.name,
+                        '$ref': col.name,
                         '$id': f"${filter_dotpath}"
                     }
                 }},

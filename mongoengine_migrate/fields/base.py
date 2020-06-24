@@ -148,122 +148,112 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         )
 
         method = getattr(self, f'change_{name}')
-        return method(db_field, diff)
+        updater = DocumentUpdater(self.db, self.collection_name, db_field, self.left_schema)
+        return method(updater, diff)
 
-    def change_db_field(self, db_field: str, diff: AlterDiff):
+    def change_db_field(self, updater: DocumentUpdater, diff: AlterDiff):
         """
         Change db field name of a field. Simply rename this field
-        :param db_field:
+        :param updater:
         :param diff:
         :return:
         """
-        def upd(col, doc, path):
+        def by_path(col, filter_dotpath, update_dotpath, array_filters):
+            col.update_many(
+                {filter_dotpath: {'$exists': True}},
+                {'$rename': {filter_dotpath: diff.new}}
+            )
+
+        def by_doc(col, doc, path):
             if isinstance(doc, dict) and diff.old in doc:
                 doc[diff.new] = doc.pop(diff.old)
 
-        self._check_diff(db_field, diff, False, str)
+        self._check_diff(updater.field_name, diff, False, str)
         if not diff.new or not diff.old:
             raise MigrationError("db_field must be a non-empty string")
 
-        if self.is_embedded:
-            updater = DocumentUpdater(self.db,
-                                      self.collection_name,
-                                      db_field,
-                                      self.left_schema)
-            updater.update_by_document(upd)
-        else:
-            self.collection.update_many(
-                {diff.old: {'$exists': True}},
-                {'$rename': {diff.old: diff.new}}
-            )
+        updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
 
-    def change_required(self, db_field: str, diff: AlterDiff):
+    def change_required(self, updater: DocumentUpdater, diff: AlterDiff):
         """
         Make field required, which means to add this field to all
         documents. Reverting of this doesn't require smth to do
-        :param db_field:
+        :param updater:
         :param diff:
         :return:
         """
-        def upd(col, filter_dotpath, update_dotpath, array_filters):
+        def by_path(col, filter_dotpath, update_dotpath, array_filters):
             col.update_many(
                 {filter_dotpath: None},  # Both null and nonexistent field
                 {'$set': {update_dotpath: default}},
                 array_filters=array_filters
             )
 
-        self._check_diff(db_field, diff, False, bool)
+        self._check_diff(updater.field_name, diff, False, bool)
 
         if diff.old is not True and diff.new is True:
             default = self.right_field_schema.get('default')
             # None and UNSET default has the same meaning here
             if default is None:
-                raise MigrationError(f'Cannot mark field {self.collection.name}.{db_field} '
+                raise MigrationError(f'Cannot mark field '
+                                     f'{self.collection.name}.{updater.field_name} '
                                      f'as required because default value is not set')
 
-            updater = DocumentUpdater(self.db,
-                                      self.collection_name,
-                                      db_field,
-                                      self.left_schema)
-            updater.update_by_path(upd)
+            updater.update_by_path(by_path)
 
-    def change_default(self, db_field: str, diff: AlterDiff):
+    def change_default(self, updater: DocumentUpdater, diff: AlterDiff):
         """Stub method. No need to do smth on default change"""
         pass
 
-    def change_unique(self, db_field: str, diff: AlterDiff):
+    def change_unique(self, updater: DocumentUpdater, diff: AlterDiff):
         # TODO
         pass
 
-    def change_unique_with(self, db_field: str, diff: AlterDiff):
+    def change_unique_with(self, updater: DocumentUpdater, diff: AlterDiff):
         # TODO
         pass
 
-    def change_primary_key(self, db_field: str, diff: AlterDiff):
+    def change_primary_key(self, updater: DocumentUpdater, diff: AlterDiff):
         """
         Setting field as primary key means to set it required and unique
-        :param db_field:
+        :param updater:
         :param diff:
         :return:
         """
-        self._check_diff(db_field, diff, False, bool)
-        self.change_required(db_field, diff),  # FIXME: should not consider default value, but check if field is required
+        self._check_diff(updater.field_name, diff, False, bool)
+        self.change_required(updater, diff),  # FIXME: should not consider default value, but check if field is required
         # self.change_unique([], []) or []  # TODO
 
     # TODO: consider Document, EmbeddedDocument as choices
-    def change_choices(self, db_field: str, diff: AlterDiff):
+    def change_choices(self, updater: DocumentUpdater, diff: AlterDiff):
         """
         Set choices for a field
+        :param updater:
         :param diff:
-        :param db_field:
         :return:
         """
-        def upd(col, filter_dotpath, update_dotpath, array_filters):
+        def by_path(col, filter_dotpath, update_dotpath, array_filters):
             choices = diff.new
             check_empty_result(col, filter_dotpath, {filter_dotpath: {'$nin': choices}})
 
-        self._check_diff(db_field, diff, True, Collection)
+        self._check_diff(updater.field_name, diff, True, Collection)
 
-        updater = DocumentUpdater(self.db,
-                                  self.collection_name,
-                                  db_field,
-                                  self.left_schema)
-        updater.update_by_path(upd)
+        updater.update_by_path(by_path)
 
-    def change_null(self, db_field: str, diff: AlterDiff):
+    def change_null(self,updater: DocumentUpdater, diff: AlterDiff):
         pass
 
-    def change_sparse(self, db_field: str, diff: AlterDiff):
+    def change_sparse(self, updater: DocumentUpdater, diff: AlterDiff):
         pass
 
-    def change_type_key(self, db_field: str, diff: AlterDiff):
+    def change_type_key(self, updater: DocumentUpdater, diff: AlterDiff):
         """
         Change type of field. Try to convert value in db
+        :param updater:
         :param diff:
-        :param db_field:
         :return:
         """
-        self._check_diff(db_field, diff, False, str)
+        self._check_diff(updater.field_name, diff, False, str)
         if not diff.old or not diff.new:
             raise MigrationError(f"'type_key' has empty values: {diff!r}")
 
@@ -280,10 +270,10 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                                       self.left_schema,
                                       self.left_field_schema,
                                       self.right_field_schema)
-        new_handler.convert_type(db_field, *field_classes)  # FIXME: embedded
+        new_handler.convert_type(updater, *field_classes)  # FIXME: embedded
 
     def convert_type(self,
-                     db_field: str,
+                     updater: DocumentUpdater,
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
         """
@@ -299,7 +289,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         not exist already, the BaseField will be sent.
 
         New field will always have target mongoengine field type
-        :param db_field: db field to convert
+        :param updater:
         :param from_field_cls: mongoengine field class which was used
          before
         :param to_field_cls: mongoengine field class which will be used
@@ -321,7 +311,6 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             raise MigrationError(f'Type converter not found for convertion '
                                  f'{from_field_cls!r} -> {to_field_cls!r}')
 
-        updater = DocumentUpdater(self.db, self.collection_name, db_field, self.left_schema)
         type_converter(updater)
 
     def _check_diff(self, db_field: str, diff: AlterDiff, can_be_none=True, check_type=None):

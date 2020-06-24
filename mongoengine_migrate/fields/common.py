@@ -1,18 +1,18 @@
 import re
-import bson
 from typing import Type, Collection, Union
 
+import bson
 import mongoengine.fields
 
-from mongoengine_migrate.exceptions import MigrationError
-from .base import CommonFieldHandler
-from .converters import to_string, to_decimal
 from mongoengine_migrate.actions.diff import AlterDiff, UNSET
+from mongoengine_migrate.exceptions import MigrationError
 from mongoengine_migrate.mongo import (
     check_empty_result,
     mongo_version,
     DocumentUpdater
 )
+from .base import CommonFieldHandler
+from .converters import to_string, to_decimal
 
 
 class NumberFieldHandler(CommonFieldHandler):
@@ -428,6 +428,8 @@ class SequenceFieldHandler(CommonFieldHandler):
 
     # TODO: warning on using non-default value_decorator
     # TODO: db_alias
+    # We cannot use 'collection_name' since it is an Action param
+    # So use 'link_collection' instead
     schema_skel_keys = {'link_collection', 'sequence_name'}
 
     @classmethod
@@ -476,9 +478,9 @@ class ReferenceFieldHandler(CommonFieldHandler):
         mongoengine.fields.LazyReferenceField
     ]
 
-    schema_skel_keys = {'link_collection', 'dbref'}
+    schema_skel_keys = {'document_type', 'dbref'}
 
-    def change_link_collection(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_document_type(self, updater: DocumentUpdater, diff: AlterDiff):
         """Collection could be not existed in db, so do nothing"""
         self._check_diff(updater.field_name, diff, False, str)
 
@@ -544,10 +546,10 @@ class ReferenceFieldHandler(CommonFieldHandler):
             ]) -> dict:
         schema = super().build_schema(field_obj)
 
-        # 'document_type' is restricted to use only Document class
-        # by mongoengine itself
+        # 'document_type' is restricted to use Document class
+        # as value by mongoengine itself
         document_type = field_obj.document_type
-        schema['link_collection'] = document_type._get_collection_name()
+        schema['document_type'] = document_type._get_collection_name()
 
         return schema
 
@@ -580,6 +582,8 @@ class FileFieldHandler(CommonFieldHandler):
     ]
 
     # TODO: db_alias
+    # We cannot use 'collection_name' since it is an Action param
+    # So use 'link_collection' instead
     schema_skel_keys = {'link_collection'}
 
     @classmethod
@@ -627,12 +631,13 @@ class ImageFieldHandler(FileFieldHandler):
 #     schema_skel_keys = {'document_type'}
 #
 #     def change_document_type(self, updater: DocumentUpdater, diff: AlterDiff):
-#         self._check_diff(db_field, diff, False, str)
+#         self._check_diff(updater.field_name, diff, False, str)
 #
 #         try:
 #             document = get_document(diff.new)
 #         except mongoengine.errors.NotRegistered as e:
-#             raise MigrationError(f'Could not find document {diff.new}, field: {db_field}, '
+#             raise MigrationError(f'Could not find document {diff.new}, '
+#                                  f'field: {updater.field_name}, '
 #                                  f'diff: {diff!s}') from e
 #
 #     def build_schema(cls, field_obj: mongoengine.fields.BaseField) -> dict:

@@ -47,7 +47,7 @@ def convert_geojson(updater: DocumentUpdater, from_type: str, to_type: str):
 @mongo_version(min_version='3.6')
 def legacy_pairs_to_geojson(updater: DocumentUpdater, to_type: str):
     """Convert legacy coordinate pairs to GeoJSON objects of given type"""
-    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         # Convert to GeoJSON Point object
         col.aggregate([
             {'$match': {
@@ -66,7 +66,7 @@ def legacy_pairs_to_geojson(updater: DocumentUpdater, to_type: str):
             {'$out': col.name}  # >= 2.6
         ])
 
-    def upd_embedded(col, doc, filter_dotpath):
+    def by_doc(col, doc, filter_dotpath):
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), (list, tuple)):
             doc[updater.field_name] = {'type': 'Point', 'coordinates': doc[updater.field_name]}
 
@@ -74,14 +74,14 @@ def legacy_pairs_to_geojson(updater: DocumentUpdater, to_type: str):
     __check_legacy_point_coordinates(updater)
     __check_value_types(updater, ['object', 'array'])
 
-    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
+    updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
     convert_geojson(updater, 'Point', to_type)
 
 
 @mongo_version(min_version='3.6')
 def geojson_to_legacy_pairs(updater: DocumentUpdater, from_type: str):
     """Convert GeoJSON objects of given type to legacy coordinate pairs"""
-    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         col.aggregate([
             {'$match': {
                 filter_dotpath: {"$ne": None},
@@ -93,7 +93,7 @@ def geojson_to_legacy_pairs(updater: DocumentUpdater, from_type: str):
             {'$out': col.name}  # >= 2.6
         ])
 
-    def upd_embedded(col, doc, filter_dotpath):
+    def by_doc(col, doc, filter_dotpath):
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
             if 'Point' in doc[updater.field_name]:
                 doc[updater.field_name] = doc[updater.field_name].get('coordinates')
@@ -104,7 +104,7 @@ def geojson_to_legacy_pairs(updater: DocumentUpdater, from_type: str):
 
     convert_geojson(updater, from_type, 'Point')
 
-    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
+    updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
 
 
 @mongo_version(min_version='3.4', throw_error=True)
@@ -123,7 +123,7 @@ def __increase_geojson_nesting(updater: DocumentUpdater,
     """
     assert depth > 0
 
-    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         add_fields = [
             {'$addFields': {  # >= 3.4
                 f'{filter_dotpath}.coordinates': [f'${filter_dotpath}.coordinates']
@@ -142,7 +142,7 @@ def __increase_geojson_nesting(updater: DocumentUpdater,
             {'$out': col.name}  # >= 2.6
         ])
 
-    def upd_embedded(col, doc, filter_dotpath):
+    def by_doc(col, doc, filter_dotpath):
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
             match = doc[updater.field_name].get('type') == from_type \
                     and doc[updater.field_name].get('coordinates')
@@ -153,7 +153,7 @@ def __increase_geojson_nesting(updater: DocumentUpdater,
                     doc[updater.field_name].get('coordinates', [.0, .0])
                 )
 
-    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
+    updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
 
 
 @mongo_version(min_version='3.4', throw_error=True)
@@ -172,7 +172,7 @@ def __decrease_geojson_nesting(updater: DocumentUpdater,
     """
     assert depth > 0
 
-    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         add_fields = [
             {'$addFields': {  # >= 3.4
                 # $arrayElemAt >= 3.2
@@ -194,7 +194,7 @@ def __decrease_geojson_nesting(updater: DocumentUpdater,
             {'$out': col.name}  # >= 2.6
         ])
 
-    def upd_embedded(col, doc, filter_dotpath):
+    def by_doc(col, doc, filter_dotpath):
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
             match = doc[updater.field_name].get('type') == from_type \
                     and doc[updater.field_name].get('coordinates')
@@ -205,7 +205,7 @@ def __decrease_geojson_nesting(updater: DocumentUpdater,
                     doc[updater.field_name].get('coordinates', [.0, .0])
                 )
 
-    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
+    updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
 
 
 @mongo_version(min_version='3.6', throw_error=True)
@@ -217,7 +217,7 @@ def __check_geojson_objects(updater: DocumentUpdater, geojson_types: List[str]):
     :param geojson_types:
     :return:
     """
-    def upd(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         fltr = {"$and": [
             {filter_dotpath: {"$ne": None}},
             {f'{filter_dotpath}.type': {'$nin': geojson_types}},
@@ -226,7 +226,7 @@ def __check_geojson_objects(updater: DocumentUpdater, geojson_types: List[str]):
         ]}
         check_empty_result(col, filter_dotpath, fltr)
 
-    updater.update_by_path(upd)
+    updater.update_by_path(by_path)
 
 
 @mongo_version(min_version='3.6', throw_error=True)
@@ -237,7 +237,7 @@ def __check_legacy_point_coordinates(updater: DocumentUpdater):
     :param updater:
     :return:
     """
-    def upd(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         fltr = {"$and": [
             {filter_dotpath: {"$ne": None}},
             # $expr >= 3.6, $isArray >= 3.2
@@ -247,7 +247,7 @@ def __check_legacy_point_coordinates(updater: DocumentUpdater):
         ]}
         check_empty_result(col, filter_dotpath, fltr)
 
-    updater.update_by_path(upd)
+    updater.update_by_path(by_path)
 
 
 @mongo_version(min_version='3.6', throw_error=True)
@@ -259,7 +259,7 @@ def __check_value_types(updater: DocumentUpdater, allowed_types: List[str]):
     :param allowed_types:
     :return:
     """
-    def upd(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         # Check for data types other than objects or arrays
         fltr = {"$and": [
             {filter_dotpath: {"$ne": None}},
@@ -268,4 +268,4 @@ def __check_value_types(updater: DocumentUpdater, allowed_types: List[str]):
         ]}
         check_empty_result(col, filter_dotpath, fltr)
 
-    updater.update_by_path(upd)
+    updater.update_by_path(by_path)

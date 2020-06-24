@@ -1,5 +1,5 @@
 import functools
-from typing import Iterable, Optional, Callable, Tuple
+from typing import Iterable, Optional, Callable, Tuple, Generator
 
 import jsonpath_rw
 from pymongo import ReplaceOne
@@ -11,7 +11,7 @@ from . import flags
 from .query_tracer import CollectionQueryTracer
 
 
-def check_empty_result(collection: Collection, db_field: str, find_filter: dict):
+def check_empty_result(collection: Collection, db_field: str, find_filter: dict) -> None:
     """
     Find records in collection satisfied to a given filter expression
     and raise error if anything found
@@ -33,7 +33,7 @@ def check_empty_result(collection: Collection, db_field: str, find_filter: dict)
 
 def mongo_version(min_version: str = None, max_version: str = None, throw_error: bool = False):
     """
-    Restrict the decorated function execution by MongoDB version.
+    Decorator restrict decorated function execution by MongoDB version.
 
     If current db version is out of specified range then the function
     either won't get executed or error will be raised, depending on
@@ -92,7 +92,7 @@ class DocumentUpdater:
         self._document_name = val
         self.is_embedded = self.document_name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
 
-    def update_by_path(self, callback: Callable):
+    def update_by_path(self, callback: Callable) -> None:
         """
         Call the given callback for every path to a field contained
         document with needed type.
@@ -119,13 +119,15 @@ class DocumentUpdater:
             return
 
         for collection, update_path, filter_path in self._get_update_paths():
-            update_path, array_filters = self._inject_array_filters(update_path)
-            filter_dotpath = '.'.join(filter_path)
-            update_dotpath = '.'.join(update_path)
+            self._update_by_path(callback, collection, filter_path, update_path)
 
-            callback(collection, filter_dotpath, update_dotpath, array_filters)
+    def _update_by_path(self, callback, collection, filter_path, update_path) -> None:
+        update_path, array_filters = self._inject_array_filters(update_path)
+        filter_dotpath = '.'.join(filter_path)
+        update_dotpath = '.'.join(update_path)
+        callback(collection, filter_dotpath, update_dotpath, array_filters)
 
-    def update_by_document(self, callback: Callable):
+    def update_by_document(self, callback: Callable) -> None:
         """
         Call the given callback for every document of needed
         type found in db. If field contains array of documents then
@@ -149,40 +151,90 @@ class DocumentUpdater:
             return
 
         for collection, update_path, filter_path in self._get_update_paths():
-            json_path = '.'.join(f.replace('$[]', '[*]') for f in update_path)
-            json_path = json_path.replace('.[*]', '[*]')
-            parser = jsonpath_rw.parse(json_path)
+            self._update_by_document(callback, collection, filter_path, update_path)
 
-            buf = []
-            for doc in collection.find({'.'.join(filter_path): {'$exists': True}}):
-                # Recursively apply the callback to every embedded doc
-                for embedded_doc in parser.find(doc):
-                    callback(collection, embedded_doc, filter_path)
-                buf.append(ReplaceOne({'_id': doc['_id']}, doc, upsert=False))
+    def _update_by_document(self, callback, collection, filter_path, update_path) -> None:
+        json_path = '.'.join(f.replace('$[]', '[*]') for f in update_path)
+        json_path = json_path.replace('.[*]', '[*]')
+        parser = jsonpath_rw.parse(json_path)
 
-                # Flush buffer
-                if len(buf) >= flags.BULK_BUFFER_LENGTH:
-                    collection.bulk_write(buf, ordered=False)  # FIXME: separate db session?
-                    buf.clear()
+        buf = []
+        for doc in collection.find({'.'.join(filter_path): {'$exists': True}}):
+            # Recursively apply the callback to every embedded doc
+            for embedded_doc in parser.find(doc):
+                callback(collection, embedded_doc, filter_path)
+            buf.append(ReplaceOne({'_id': doc['_id']}, doc, upsert=False))
 
-            if buf:
-                collection.bulk_write(buf, ordered=False)
+            # Flush buffer
+            if len(buf) >= flags.BULK_BUFFER_LENGTH:
+                collection.bulk_write(buf, ordered=False)  # FIXME: separate db session?
                 buf.clear()
+        if buf:
+            collection.bulk_write(buf, ordered=False)
+            buf.clear()
 
-    def update_by_path_or_by_document(self,
-                                      path_callback: Callable,
-                                      document_callback: Callable):
+    def update_combined(self,
+                        document_by_path_cb: Callable,
+                        embedded_array_by_document_cb: Callable,
+                        embedded_noarray_by_path_cb: Optional[Callable] = None,
+                        embedded_noarray_by_document_cb: Optional[Callable] = None) -> None:
         """
-        If document is a collection then update it by path using
-        path_callback. If document is an embedded document then
-        update it by document using document_callback
+        Perform an update if an concrete query/pipeline is unable to
+        be executed over embedded field dotpath. For example,
+        `$rename` does not accept dotpath if it contains "$[]",
+        but accepts dotpath without "$[]". Some queries
+        (`$set` for example) accept both variants.
+
+        In order to manage with this restrictions we could update
+        documents by hand in python if the query is limited to do this.
+
+        In the same time mongo queries work with document field without
+        restrictions.
+
+        By default we accept 2 callbacks for document update (by_path)
+        and for embedded document update (by_document). They will be
+        used both for array and not-array dotpaths.
+
+        Two optional callbacks are used for array dotpaths only in
+        embedded documents (if set)
+
+        :param document_by_path_cb: "by_path" callback which is always
+         called for non-embedded document
+        :param embedded_array_by_document_cb: "by_document" callback
+         which is called always for non-array dotpaths.
+        :param embedded_noarray_by_path_cb: "by_path" callback which is
+         called for non-array dotpath to embedded document field
+        :param embedded_noarray_by_document_cb: "by_document" callback
+         which is called for non-array dotpath to embedded doc field
         """
+        assert embedded_noarray_by_path_cb or embedded_noarray_by_document_cb, \
+            'You must give one of non-array dotpath callbacks'
+        assert not(embedded_noarray_by_document_cb and embedded_noarray_by_path_cb), \
+            'You must give only one non-array dotpath callback, not both'
+
         if self.is_embedded:
-            return self.update_by_path(path_callback)
-        else:
-            return self.update_by_document(document_callback)
+            for collection, update_path, filter_path in self._get_update_paths():
+                is_array_update = bool('$[]' in update_path)
 
-    def _get_update_paths(self):
+                if not is_array_update and embedded_noarray_by_path_cb:
+                    return self._update_by_path(embedded_noarray_by_path_cb,
+                                                collection,
+                                                filter_path,
+                                                update_path)
+                elif not is_array_update and embedded_noarray_by_document_cb:
+                    return self._update_by_document(embedded_noarray_by_document_cb,
+                                                    collection,
+                                                    filter_path,
+                                                    update_path)
+                else:
+                    return self._update_by_document(embedded_array_by_document_cb,
+                                                    collection,
+                                                    filter_path,
+                                                    update_path)
+        else:
+            return self.update_by_path(document_by_path_cb)
+
+    def _get_update_paths(self) -> Generator[Tuple[Collection, list, list], None, None]:
         """
         Return dotpaths to fields of embedded documents found in db and
         collection object where they was found.
@@ -211,7 +263,7 @@ class DocumentUpdater:
                               document_type: str,
                               db_schema: dict,
                               _base_path: Optional[list] = None,
-                              _document_name: Optional[str] = None) -> Iterable[list]:
+                              _document_name: Optional[str] = None) -> Generator[list, None, None]:
         """
         Perform recursive search for embedded document fields of given
         type in given collection and return key paths to them. Paths

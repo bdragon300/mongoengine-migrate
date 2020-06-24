@@ -31,7 +31,7 @@ def drop_field(updater: DocumentUpdater):
 @mongo_version(min_version='3.6')
 def item_to_list(updater: DocumentUpdater):
     """Make a list with single element from every non-array value"""
-    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         col.aggregate([
             {'$match': {
                 filter_dotpath: {"$exists": True},
@@ -42,17 +42,17 @@ def item_to_list(updater: DocumentUpdater):
             {'$out': col.name}  # >= 2.6
         ])
 
-    def upd_embedded(col, doc, filter_dotpath):
+    def by_doc(col, doc, filter_dotpath):
         if isinstance(doc, dict) and updater.field_name in doc:
             doc[updater.field_name] = [doc[updater.field_name]]
 
-    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
+    updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
 
 
 @mongo_version(min_version='3.6')
 def extract_from_list(updater: DocumentUpdater):
     """Replace every list which was met with its first element"""
-    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         col.aggregate([
             {'$match': {
                 filter_dotpath: {"$ne": None},
@@ -64,11 +64,11 @@ def extract_from_list(updater: DocumentUpdater):
             {'$out': col.name}  # >= 2.6
         ])
 
-    def upd_embedded(col, doc, filter_dotpath):
+    def by_doc(col, doc, filter_dotpath):
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), (list, tuple)):
             doc[updater.field_name] = doc[updater.field_name][0]
 
-    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
+    updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
 
 
 def to_string(updater: DocumentUpdater):
@@ -120,7 +120,7 @@ def to_uuid(updater: DocumentUpdater):
         }
         check_empty_result(col, filter_dotpath, fltr)
 
-    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         # Convert fields to string where value has type other than binData
         col.aggregate([
             {'$match': {
@@ -141,7 +141,7 @@ def to_uuid(updater: DocumentUpdater):
             {'$out': col.name}  # >= 2.6
         ])
 
-    def upd_embedded(col, doc, filter_dotpath):
+    def by_doc(col, doc, filter_dotpath):
         if not isinstance(doc, dict):
             return
         item = doc.get(updater.field_name)
@@ -150,13 +150,13 @@ def to_uuid(updater: DocumentUpdater):
             doc[updater.field_name] = str(doc)
         # FIXME: call post_check for every filter_dotpath, not for doc
 
-    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
+    updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
     updater.update_by_path(post_check)
 
 
 def to_url_string(updater: DocumentUpdater):
     """Cast fields to string and then verify if they contain URLs"""
-    def upd(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         fltr = {filter_dotpath: {'$not': url_regex, '$ne': None}}
         check_empty_result(col, filter_dotpath, fltr)
 
@@ -166,11 +166,11 @@ def to_url_string(updater: DocumentUpdater):
         r"\A[A-Z]{3,}://[A-Z0-9\-._~:/?#\[\]@!$&'()*+,;%=]\Z",
         re.IGNORECASE
     )
-    updater.update_by_path(upd)
+    updater.update_by_path(by_path)
 
 
 def to_complex_datetime(updater: DocumentUpdater):
-    def upd(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         fltr = {filter_dotpath: {'$not': regex, '$ne': None}}
         check_empty_result(col, filter_dotpath, fltr)
 
@@ -179,7 +179,7 @@ def to_complex_datetime(updater: DocumentUpdater):
     # We should not know which separator is used, so use '.+'
     # Separator change is handled by appropriate field method
     regex = r'\A' + str('.+'.join([r"\d{4}"] + [r"\d{2}"] * 5 + [r"\d{6}"])) + r'\Z'
-    updater.update_by_path(upd)
+    updater.update_by_path(by_path)
 
 
 @mongo_version(min_version='3.6')
@@ -197,7 +197,7 @@ def ref_to_cached_reference(updater: DocumentUpdater):
         }
         check_empty_result(col, filter_dotpath, fltr)
 
-    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         col.aggregate([
             {'$match': {
                 filter_dotpath: {"$ne": None},
@@ -208,11 +208,11 @@ def ref_to_cached_reference(updater: DocumentUpdater):
             {'$out': col.name}  # >= 2.6
         ])
 
-    def upd_embedded(col, doc, filter_dotpath):
+    def by_doc(col, doc, filter_dotpath):
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), bson.ObjectId):
             doc[updater.field_name] = {'_id': doc[updater.field_name]}
 
-    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
+    updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
     updater.update_by_path(post_check)
 
 
@@ -233,7 +233,7 @@ def cached_reference_to_ref(updater: DocumentUpdater):
         }
         check_empty_result(col, filter_dotpath, fltr)
 
-    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         col.aggregate([
             {'$match': {
                 f'{filter_dotpath}._id': {"$ne": None},
@@ -244,11 +244,11 @@ def cached_reference_to_ref(updater: DocumentUpdater):
             {'$out': col.name}  # >= 2.6
         ])
 
-    def upd_embedded(col, doc, filter_dotpath):
+    def by_doc(col, doc, filter_dotpath):
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
             doc[updater.field_name] = doc[updater.field_name].get('_id')
 
-    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
+    updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
     updater.update_by_path(post_check)
 
 
@@ -263,7 +263,7 @@ def __mongo_convert(updater: DocumentUpdater, target_type: str):
     :param target_type: MongoDB type name
     :return:
     """
-    def upd_doc(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         # TODO: implement also for mongo 3.x
         # TODO: use $convert with onError and onNull
         col.aggregate([
@@ -282,7 +282,7 @@ def __mongo_convert(updater: DocumentUpdater, target_type: str):
             {'$out': col.name}  # >= 2.6
         ])
 
-    def upd_embedded(col, doc, filter_dotpath):
+    def by_doc(col, doc, filter_dotpath):
         # https://docs.mongodb.com/manual/reference/operator/aggregation/convert/
         type_map = {
             'double': float,
@@ -303,4 +303,4 @@ def __mongo_convert(updater: DocumentUpdater, target_type: str):
             else:
                 doc[updater.field_name] = type_map[target_type]()
 
-    updater.update_by_path_or_by_document(upd_doc, upd_embedded)
+    updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)

@@ -22,10 +22,10 @@ def deny(updater: DocumentUpdater):
 
 def drop_field(updater: DocumentUpdater):
     """Drop field"""
-    def upd(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(col, filter_dotpath, update_dotpath, array_filters):
         col.update_many({filter_dotpath: {'$exists': True}}, {'$unset': {update_dotpath: ''}})
 
-    updater.update_by_path(upd)
+    updater.update_by_path(by_path)
 
 
 @mongo_version(min_version='3.6')

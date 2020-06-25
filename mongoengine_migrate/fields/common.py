@@ -11,6 +11,7 @@ from mongoengine_migrate.mongo import (
     mongo_version,
     DocumentUpdater
 )
+from mongoengine_migrate.utils import get_document_type
 from .base import CommonFieldHandler
 from .converters import to_string, to_decimal
 
@@ -481,7 +482,7 @@ class ReferenceFieldHandler(CommonFieldHandler):
     schema_skel_keys = {'document_type', 'dbref'}
 
     def change_document_type(self, updater: DocumentUpdater, diff: AlterDiff):
-        """Collection could be not existed in db, so do nothing"""
+        """Collection could not exist in db, so do nothing"""
         self._check_diff(updater.field_name, diff, False, str)
 
     def change_dbref(self, updater: DocumentUpdater, diff: AlterDiff):
@@ -548,8 +549,8 @@ class ReferenceFieldHandler(CommonFieldHandler):
 
         # 'document_type' is restricted to use Document class
         # as value by mongoengine itself
-        document_type = field_obj.document_type
-        schema['document_type'] = document_type._get_collection_name()
+        document_type_cls = field_obj.document_type
+        schema['document_type'] = get_document_type(document_type_cls)
 
         return schema
 
@@ -623,24 +624,46 @@ class ImageFieldHandler(FileFieldHandler):
         pass
 
 
-# class EmbeddedDocumentFieldHandler(CommonFieldHandler):
-#     field_classes = [
-#         mongoengine.fields.EmbeddedDocumentField
-#     ]
-#
-#     schema_skel_keys = {'document_type'}
-#
-#     def change_document_type(self, updater: DocumentUpdater, diff: AlterDiff):
-#         self._check_diff(updater.field_name, diff, False, str)
-#
-#         try:
-#             document = get_document(diff.new)
-#         except mongoengine.errors.NotRegistered as e:
-#             raise MigrationError(f'Could not find document {diff.new}, '
-#                                  f'field: {updater.field_name}, '
-#                                  f'diff: {diff!s}') from e
-#
-#     def build_schema(cls, field_obj: mongoengine.fields.BaseField) -> dict:
-#         schema = super().build_schema(field_obj)
-#
-#         document_type = field_obj.document_type
+class EmbeddedDocumentFieldHandler(CommonFieldHandler):
+    field_classes = [
+        mongoengine.fields.EmbeddedDocumentField
+    ]
+
+    schema_skel_keys = {'document_type'}
+
+    def change_document_type(self, updater: DocumentUpdater, diff: AlterDiff):
+        self._check_diff(updater.field_name, diff, False, str)
+        # FIXME: decide what to do with existed embedded docs?
+
+    def build_schema(cls, field_obj: mongoengine.fields.EmbeddedDocumentField) -> dict:
+        schema = super().build_schema(field_obj)
+
+        document_type_cls = field_obj.document_type
+        schema['document_type'] = get_document_type(document_type_cls)
+
+        return schema
+
+
+class EmbeddedDocumentListFieldHandler(ListFieldHandler):
+    field_classes = [
+        mongoengine.fields.EmbeddedDocumentListField
+    ]
+
+    # FIXME: move 'document_type' changing from here to ListField 'db_field'
+    #        this require to fix embedded document recursive walk method
+    #        to also consider field.document_type of ListField
+    #        This will help to manage with situation when ListField
+    #        with EmbeddedDocumentField is defined by user
+    schema_skel_keys = {'document_type'}
+
+    def change_document_type(self, updater: DocumentUpdater, diff: AlterDiff):
+        self._check_diff(updater.field_name, diff, False, str)
+        # FIXME: decide what to do with existed embedded docs?
+
+    def build_schema(cls, field_obj: mongoengine.fields.EmbeddedDocumentListField) -> dict:
+        schema = super().build_schema(field_obj)
+
+        document_type_cls = field_obj.field.document_type
+        schema['document_type'] = get_document_type(document_type_cls)
+
+        return schema

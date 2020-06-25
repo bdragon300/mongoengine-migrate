@@ -130,9 +130,9 @@ COMMON_CONVERTERS = {
 OBJECTID_CONVERTERS = {
     fields.StringField: converters.to_string,
     fields.URLField: converters.to_url_string,
-    fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
+    fields.EmbeddedDocumentField: converters.deny,
     fields.ListField: converters.item_to_list,
-    fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded documents
+    fields.EmbeddedDocumentListField: converters.deny,
     fields.ReferenceField: converters.nothing,  # FIXME: it could be dbref
     fields.LazyReferenceField: converters.nothing,  # FIXME: it could be dbref
     fields.ObjectIdField: converters.nothing,
@@ -222,8 +222,8 @@ CONVERTION_MATRIX = {
         fields.ComplexDateTimeField: converters.to_complex_datetime
     },
     fields.ListField: {
-        fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
-        fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded documents
+        fields.EmbeddedDocumentField: converters.deny,  # TODO: implement convert to item with embedded docs check with schema
+        fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded docs check with schema
         fields.DictField: converters.extract_from_list,  # FIXME: it's may be not a dict after extraction
         # fields.GeoJsonBaseField: converters.list_to_geojson
     },
@@ -235,9 +235,9 @@ CONVERTION_MATRIX = {
         # fields.GeoJsonBaseField: converters.list_to_geojson
     },
     fields.DictField: {
-        fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded documents
+        fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded docs check with schema
         fields.ListField: converters.item_to_list,
-        fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded documents
+        fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement convert to list with embedded docs check with schema
         fields.CachedReferenceField: converters.deny
         # fields.GeoJsonBaseField: converters.dict_to_geojson,
     },

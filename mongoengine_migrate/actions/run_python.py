@@ -8,7 +8,7 @@ class RunPython(BaseAction):
     that user must also handle possible schema changes in his functions.
     """
     # TODO: implement handling of user's schema changes and to_schema_patch
-    def __init__(self, collection_name, forward_func=None, backward_func=None, **kwargs):
+    def __init__(self, collection_name, *, forward_func=None, backward_func=None, **kwargs):
         super().__init__(collection_name, **kwargs)
 
         if forward_func is None and backward_func is None:

@@ -309,7 +309,7 @@ class RenameField(BaseFieldAction):
     #: field rename instead of drop/create
     similarity_threshold = 70
 
-    def __init__(self, collection_name: str, field_name: str, new_name, **kwargs):
+    def __init__(self, collection_name: str, field_name: str, *, new_name, **kwargs):
         super().__init__(collection_name, field_name, new_name=new_name, **kwargs)
         self.new_name = new_name
 

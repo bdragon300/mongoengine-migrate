@@ -44,7 +44,7 @@ class BaseAction(metaclass=BaseActionMeta):
     #: before create/drop actions. Default is 5 which means normal
     priority = 12
 
-    def __init__(self, collection_name: str, dummy_action: bool = False, **kwargs):
+    def __init__(self, collection_name: str, *, dummy_action: bool = False, **kwargs):
         """
         :param collection_name: Name of collection where the migration
          will be performed on
@@ -310,7 +310,7 @@ class BaseRenameDocument(BaseDocumentAction):
     #: instead of drop/create
     similarity_threshold = 70
 
-    def __init__(self, collection_name: str, new_name, **kwargs):
+    def __init__(self, collection_name: str, *, new_name, **kwargs):
         super().__init__(collection_name, new_name=new_name, **kwargs)
         self.new_name = new_name
 

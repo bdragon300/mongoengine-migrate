@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import NamedTuple, Dict, Tuple, Any
 from enum import Enum
+from typing import NamedTuple, Dict, Tuple, Any
+from pymongo.collection import Collection
 
 import wrapt
 from bson import ObjectId
@@ -80,9 +81,9 @@ class CollectionQueryTracer(wrapt.ObjectProxy):
     calls and writes their call to history
     """
 
-    def __init__(self, *args, **kwrags):
-        super().__init__(*args, **kwrags)
-        self.call_history = []
+    def __init__(self, *args, call_history, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.call_history = call_history
 
     # Collection modification methods
     bulk_write = make_history_method('bulk_write', 'MODIFY', return_value=BulkWriteResultMock())
@@ -142,3 +143,31 @@ class CollectionQueryTracer(wrapt.ObjectProxy):
                 kwargs=kwargs
             )
         )
+
+
+class DatabaseQueryTracer(wrapt.ObjectProxy):
+    """pymongo.Database wrapper which is acting as original object,
+    but returns CollectionQueryTracer object instead of Collection
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.call_history = []
+
+    def __getitem__(self, item):
+        col = super().__getitem__(item)
+        return CollectionQueryTracer(col, call_history=self.call_history)
+
+    def __getattr__(self, item):
+        val = super().__getattr__(item)
+        if isinstance(val, Collection):
+            return CollectionQueryTracer(val, call_history=self.call_history)
+
+        return val
+
+    def get_collection(self, *args, **kwargs):
+        col = super().get_collection(*args, **kwargs)
+        return CollectionQueryTracer(col, call_history=self.call_history)
+
+    def create_collection(self, *args, **kwargs):
+        col = super().create_collection(*args, **kwargs)
+        return CollectionQueryTracer(col, call_history=self.call_history)

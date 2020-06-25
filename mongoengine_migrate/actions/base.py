@@ -7,7 +7,7 @@ from pymongo.database import Database
 import mongoengine_migrate.flags as runtime_flags
 from mongoengine_migrate.exceptions import MigrationError, ActionError
 from mongoengine_migrate.fields.registry import type_key_registry
-from mongoengine_migrate.query_tracer import CollectionQueryTracer, HistoryCall
+from mongoengine_migrate.query_tracer import HistoryCall
 
 #: Migration Actions registry. Mapping of class name and its class
 actions_registry: Dict[str, Type['BaseAction']] = {}
@@ -74,9 +74,6 @@ class BaseAction(metaclass=BaseActionMeta):
         :return:
         """
         collection = db[self.collection_name]
-        if runtime_flags.dry_run:
-            collection = CollectionQueryTracer(collection)
-
         self._run_ctx = {
             'left_schema': left_schema,
             'db': db,

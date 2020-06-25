@@ -10,7 +10,6 @@ from bson import CodecOptions
 from dictdiffer import patch, swap
 from jinja2 import Environment
 from mongoengine.base import _document_registry
-from mongoengine.fields import EmbeddedDocument
 from pymongo import MongoClient
 
 import mongoengine_migrate.flags as runtime_flags
@@ -19,6 +18,7 @@ from mongoengine_migrate.exceptions import MigrationError, SchemaError
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.graph import Migration, MigrationsGraph
 from mongoengine_migrate.utils import get_closest_parent, get_document_type
+from mongoengine_migrate.query_tracer import DatabaseQueryTracer
 
 
 def symbol_wrap(value: str, width: int = 80, wrap_by: str = ',', wrapstring: str = '\n'):
@@ -141,7 +141,11 @@ class MongoengineMigrate:
     @property
     def db(self) -> pymongo.database.Database:
         """Return MongoDB database object"""
-        return self.client.get_database()
+        db = self.client.get_database()
+        if runtime_flags.dry_run:
+            db = DatabaseQueryTracer(db)
+
+        return db
 
     @property
     def migration_collection(self) -> pymongo.collection.Collection:

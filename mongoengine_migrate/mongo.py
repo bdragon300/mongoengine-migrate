@@ -1,5 +1,5 @@
 import functools
-from typing import Iterable, Optional, Callable, Tuple, Generator
+from typing import Optional, Callable, Tuple, Generator
 
 import jsonpath_rw
 from pymongo import ReplaceOne
@@ -8,7 +8,6 @@ from pymongo.database import Database
 
 from mongoengine_migrate.exceptions import MigrationError
 from . import flags
-from .query_tracer import CollectionQueryTracer
 
 
 def check_empty_result(collection: Collection, db_field: str, find_filter: dict) -> None:
@@ -246,17 +245,12 @@ class DocumentUpdater:
                        if not k.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX))
 
         for collection_name, collection_schema in collections:
-            collection = self._get_collection(collection_name)
+            collection = self.db[collection_name]
             for path in self._find_embedded_fields(collection, self.document_name, self.db_schema):
                 update_path = path + [self.field_name]
                 filter_path = [p for p in path if p != '$[]']
 
                 yield collection, update_path, filter_path
-
-    def _get_collection(self, name: str) -> Collection:
-        if flags.dry_run:
-            return CollectionQueryTracer(self.db[name])
-        return self.db[name]
 
     def _find_embedded_fields(self,
                               collection: Collection,

@@ -76,7 +76,7 @@ class CreateField(BaseFieldAction):
         def by_path(col, filter_dotpath, update_dotpath, array_filters):
             col.update_many(
                 {filter_dotpath: {'$exists': True}},
-                {'$unset': update_dotpath}
+                {'$unset': {update_dotpath: ''}}
             )
 
         db_field = self.parameters['db_field']
@@ -120,7 +120,7 @@ class DropField(BaseFieldAction):
         def by_path(col, filter_dotpath, update_dotpath, array_filters):
             col.update_many(
                 {filter_dotpath: {'$exists': True}},
-                {'$unset': update_dotpath}
+                {'$unset': {update_dotpath: ''}}
             )
 
         db_field = self._run_ctx['left_field_schema']['db_field']

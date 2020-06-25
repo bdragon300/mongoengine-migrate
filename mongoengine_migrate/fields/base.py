@@ -1,12 +1,11 @@
 import inspect
 import weakref
-from typing import Type, Iterable, List, Tuple, Collection
+from typing import Type, Iterable, List, Tuple, Collection, NamedTuple, Any
 
 import mongoengine.fields
 from pymongo.database import Database
 
 import mongoengine_migrate.flags as flags
-from mongoengine_migrate.actions.diff import AlterDiff, UNSET
 from mongoengine_migrate.exceptions import SchemaError, MigrationError
 from mongoengine_migrate.fields.registry import type_key_registry, add_field_handler
 from mongoengine_migrate.mongo import (
@@ -15,6 +14,22 @@ from mongoengine_migrate.mongo import (
 )
 from mongoengine_migrate.utils import get_closest_parent
 from .registry import CONVERTION_MATRIX
+
+
+class Diff(NamedTuple):
+    """Diff values for alter methods"""
+    old: Any
+    new: Any
+
+    def __str__(self):
+        return f"Diff({self.old}, {self.new})"
+
+    def __repr__(self):
+        return f"<Diff({self.old}, {self.new})>"
+
+
+#: Value indicates that such schema key is unset
+UNSET = object()
 
 
 class FieldHandlerMeta(type):
@@ -142,7 +157,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         """
         assert name != 'param', "Schema key could not be 'param'"
 
-        diff = AlterDiff(
+        diff = Diff(
             self.left_field_schema.get(name, UNSET),
             self.right_field_schema.get(name, UNSET)
         )
@@ -151,7 +166,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         updater = DocumentUpdater(self.db, self.collection_name, db_field, self.left_schema)
         return method(updater, diff)
 
-    def change_db_field(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_db_field(self, updater: DocumentUpdater, diff: Diff):
         """
         Change db field name of a field. Simply rename this field
         :param updater:
@@ -174,7 +189,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
 
-    def change_required(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_required(self, updater: DocumentUpdater, diff: Diff):
         """
         Make field required, which means to add this field to all
         documents. Reverting of this doesn't require smth to do
@@ -201,19 +216,19 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
             updater.update_by_path(by_path)
 
-    def change_default(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_default(self, updater: DocumentUpdater, diff: Diff):
         """Stub method. No need to do smth on default change"""
         pass
 
-    def change_unique(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_unique(self, updater: DocumentUpdater, diff: Diff):
         # TODO
         pass
 
-    def change_unique_with(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_unique_with(self, updater: DocumentUpdater, diff: Diff):
         # TODO
         pass
 
-    def change_primary_key(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_primary_key(self, updater: DocumentUpdater, diff: Diff):
         """
         Setting field as primary key means to set it required and unique
         :param updater:
@@ -225,7 +240,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         # self.change_unique([], []) or []  # TODO
 
     # TODO: consider Document, EmbeddedDocument as choices
-    def change_choices(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_choices(self, updater: DocumentUpdater, diff: Diff):
         """
         Set choices for a field
         :param updater:
@@ -240,13 +255,13 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         updater.update_by_path(by_path)
 
-    def change_null(self,updater: DocumentUpdater, diff: AlterDiff):
+    def change_null(self, updater: DocumentUpdater, diff: Diff):
         pass
 
-    def change_sparse(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_sparse(self, updater: DocumentUpdater, diff: Diff):
         pass
 
-    def change_type_key(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_type_key(self, updater: DocumentUpdater, diff: Diff):
         """
         Change type of field. Try to convert value in db
         :param updater:
@@ -313,7 +328,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         type_converter(updater)
 
-    def _check_diff(self, db_field: str, diff: AlterDiff, can_be_none=True, check_type=None):
+    def _check_diff(self, db_field: str, diff: Diff, can_be_none=True, check_type=None):
         if diff.new == diff.old:
             raise MigrationError(f'Diff of field {db_field} has the equal old and new values')
 

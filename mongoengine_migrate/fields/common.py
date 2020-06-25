@@ -4,7 +4,6 @@ from typing import Type, Collection, Union
 import bson
 import mongoengine.fields
 
-from mongoengine_migrate.actions.diff import AlterDiff, UNSET
 from mongoengine_migrate.exceptions import MigrationError
 from mongoengine_migrate.mongo import (
     check_empty_result,
@@ -12,7 +11,7 @@ from mongoengine_migrate.mongo import (
     DocumentUpdater
 )
 from mongoengine_migrate.utils import get_document_type
-from .base import CommonFieldHandler
+from .base import CommonFieldHandler, Diff, UNSET
 from .converters import to_string, to_decimal
 
 
@@ -24,7 +23,7 @@ class NumberFieldHandler(CommonFieldHandler):
     ]
     schema_skel_keys = {'min_value', 'max_value'}
 
-    def change_min_value(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_min_value(self, updater: DocumentUpdater, diff: Diff):
         """
         Change min_value of field. Force set to minimum if value is
         less than limitation (if any)
@@ -42,7 +41,7 @@ class NumberFieldHandler(CommonFieldHandler):
 
         updater.update_by_path(by_path)
 
-    def change_max_value(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_max_value(self, updater: DocumentUpdater, diff: Diff):
         """
         Change max_value of field. Force set to maximum if value is
         more than limitation (if any)
@@ -69,7 +68,7 @@ class StringFieldHandler(CommonFieldHandler):
     schema_skel_keys = {'max_length', 'min_length', 'regex'}
 
     @mongo_version(min_version='3.6')
-    def change_max_length(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_max_length(self, updater: DocumentUpdater, diff: Diff):
         """Cut off a string if it longer than limitation (if any)"""
         def by_path(col, filter_dotpath, update_dotpath, array_filters):
             col.aggregate([
@@ -99,7 +98,7 @@ class StringFieldHandler(CommonFieldHandler):
         updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
 
     @mongo_version(min_version='3.6')
-    def change_min_length(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_min_length(self, updater: DocumentUpdater, diff: Diff):
         """Raise error if string is shorter than limitation (if any)"""
         def by_path(col, filter_dotpath, update_dotpath, array_filters):
             fltr = {
@@ -126,7 +125,7 @@ class StringFieldHandler(CommonFieldHandler):
         # there was found strings which are shorter than should be
         updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
 
-    def change_regex(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_regex(self, updater: DocumentUpdater, diff: Diff):
         """Raise error if string does not match regex (if any)"""
         def by_path(col, filter_dotpath, update_dotpath, array_filters):
             fltr = {filter_dotpath: {'$not': re.compile(diff.new), '$ne': None}}
@@ -146,7 +145,7 @@ class URLFieldHandler(StringFieldHandler):
 
     schema_skel_keys = {'schemes'}  # TODO: implement url_regex
 
-    def change_schemes(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_schemes(self, updater: DocumentUpdater, diff: Diff):
         """Raise error if url has scheme not from list"""
         def by_path(col, filter_dotpath, update_dotpath, array_filters):
             fltr = {filter_dotpath: {'$not': scheme_regex, '$ne': None}}
@@ -197,14 +196,14 @@ class EmailFieldHandler(StringFieldHandler):
         re.IGNORECASE,
     )
 
-    def change_domain_whitelist(self, diff: AlterDiff):
+    def change_domain_whitelist(self, diff: Diff):
         """
         `domain_whitelist` parameter is affected to domain validation:
         if domain in email address is in that list then validation will
         be skipped. So, do nothing here
         """
 
-    def change_allow_utf8_user(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_allow_utf8_user(self, updater: DocumentUpdater, diff: Diff):
         """Raise error if email address has wrong user name"""
         def by_path(col, filter_dotpath, update_dotpath, array_filters):
             # Find records which doesn't match to the regex
@@ -218,7 +217,7 @@ class EmailFieldHandler(StringFieldHandler):
         regex = self.UTF8_USER_REGEX if diff.new is True else self.USER_REGEX
         updater.update_by_path(by_path)
 
-    def change_allow_ip_domain(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_allow_ip_domain(self, updater: DocumentUpdater, diff: Diff):
         """
         Raise error if email has domain which not in `domain_whitelist`
         when `allow_ip_domain` is True. Otherwise do nothing
@@ -268,7 +267,7 @@ class DecimalFieldHandler(NumberFieldHandler):
 
     schema_skel_keys = {'force_string', 'precision', 'rounding'}
 
-    def change_force_string(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_force_string(self, updater: DocumentUpdater, diff: Diff):
         """
         Convert to string or decimal depending on `force_string` flag
         """
@@ -281,11 +280,11 @@ class DecimalFieldHandler(NumberFieldHandler):
         else:
             to_decimal(updater)
 
-    def change_precision(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_precision(self, updater: DocumentUpdater, diff: Diff):
         """This one is related only for python. Nothing to do"""
         pass
 
-    def change_rounding(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_rounding(self, updater: DocumentUpdater, diff: Diff):
         """This one is related only for python. Nothing to do"""
         pass
 
@@ -305,7 +304,7 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
     schema_skel_keys = {'separator'}
 
     @mongo_version(min_version='3.4')
-    def change_separator(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_separator(self, updater: DocumentUpdater, diff: Diff):
         """Change separator in datetime strings"""
         def by_path(col, filter_dotpath, update_dotpath, array_filters):
             col.aggregate([
@@ -371,7 +370,7 @@ class ListFieldHandler(CommonFieldHandler):
         return skel
 
     @mongo_version(min_version='3.6')
-    def change_max_length(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_max_length(self, updater: DocumentUpdater, diff: Diff):
         """Cut off a list if it longer than limitation (if any)"""
         def by_path(col, filter_dotpath, update_dotpath, array_filters):
             col.aggregate([
@@ -409,7 +408,7 @@ class BinaryFieldHandler(CommonFieldHandler):
 
     schema_skel_keys = {'max_bytes'}
 
-    def change_max_bytes(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_max_bytes(self, updater: DocumentUpdater, diff: Diff):
         """
         $binarySize expression is not available in MongoDB yet,
         so do nothing
@@ -440,14 +439,14 @@ class SequenceFieldHandler(CommonFieldHandler):
 
         return schema
 
-    def change_link_collection(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_link_collection(self, updater: DocumentUpdater, diff: Diff):
         """Typically changing the collection name should not require
         to do any changes
         """
         self._check_diff(updater.field_name, diff, False, str)
         pass
 
-    def change_sequence_name(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_sequence_name(self, updater: DocumentUpdater, diff: Diff):
         """Typically changing the sequence name should not require
         to do any changes
         """
@@ -462,7 +461,7 @@ class UUIDFieldHandler(CommonFieldHandler):
 
     schema_skel_keys = {'binary'}
 
-    def change_binary(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_binary(self, updater: DocumentUpdater, diff: Diff):
         self._check_diff(updater.field_name, diff, False, bool)
 
         if diff.new is True:
@@ -481,11 +480,11 @@ class ReferenceFieldHandler(CommonFieldHandler):
 
     schema_skel_keys = {'document_type', 'dbref'}
 
-    def change_document_type(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_document_type(self, updater: DocumentUpdater, diff: Diff):
         """Collection could not exist in db, so do nothing"""
         self._check_diff(updater.field_name, diff, False, str)
 
-    def change_dbref(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_dbref(self, updater: DocumentUpdater, diff: Diff):
         """Change reference storing format: ObjectId or DBRef"""
         self._check_diff(updater.field_name, diff, False, bool)
 
@@ -562,7 +561,7 @@ class CachedReferenceFieldHandler(CommonFieldHandler):
 
     schema_skel_keys = {'fields'}
 
-    def change_fields(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_fields(self, updater: DocumentUpdater, diff: Diff):
         def by_path(col, filter_dotpath, update_dotpath, array_filters):
             if to_remove:
                 paths = {f'{update_dotpath}.{f}': '' for f in to_remove}
@@ -594,7 +593,7 @@ class FileFieldHandler(CommonFieldHandler):
 
         return schema
 
-    def change_link_collection(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_link_collection(self, updater: DocumentUpdater, diff: Diff):
         """Typically changing the collection name should not require
         to do any changes
         """
@@ -609,14 +608,14 @@ class ImageFieldHandler(FileFieldHandler):
 
     schema_skel_keys = {'size', 'thumbnail_size'}
 
-    def change_thumbnail_size(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_thumbnail_size(self, updater: DocumentUpdater, diff: Diff):
         """Typically changing the attribute should not require
         to do any changes
         """
         self._check_diff(updater.field_name, diff, False, (list, tuple))
         pass
 
-    def change_size(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_size(self, updater: DocumentUpdater, diff: Diff):
         """Typically changing the attribute should not require
         to do any changes
         """
@@ -631,7 +630,7 @@ class EmbeddedDocumentFieldHandler(CommonFieldHandler):
 
     schema_skel_keys = {'document_type'}
 
-    def change_document_type(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_document_type(self, updater: DocumentUpdater, diff: Diff):
         self._check_diff(updater.field_name, diff, False, str)
         # FIXME: decide what to do with existed embedded docs?
 
@@ -656,7 +655,7 @@ class EmbeddedDocumentListFieldHandler(ListFieldHandler):
     #        with EmbeddedDocumentField is defined by user
     schema_skel_keys = {'document_type'}
 
-    def change_document_type(self, updater: DocumentUpdater, diff: AlterDiff):
+    def change_document_type(self, updater: DocumentUpdater, diff: Diff):
         self._check_diff(updater.field_name, diff, False, str)
         # FIXME: decide what to do with existed embedded docs?
 

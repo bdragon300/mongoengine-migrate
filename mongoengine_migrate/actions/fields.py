@@ -3,7 +3,6 @@ from typing import Mapping, Any
 from mongoengine_migrate.exceptions import ActionError
 from mongoengine_migrate.mongo import DocumentUpdater
 from .base import BaseFieldAction
-from .diff import AlterDiff, UNSET
 
 
 class CreateField(BaseFieldAction):
@@ -247,9 +246,10 @@ class AlterField(BaseFieldAction):
 
         # Try to process all parameters on same order to avoid
         # potential problems on repeated launches if some query on
-        # previous lauch was failed
+        # previous launch was failed
+        unset = object()
         for name, new_value in sorted(right_field_schema.items()):
-            old_value = left_field_schema.get(name, UNSET)
+            old_value = left_field_schema.get(name, unset)
             if name == 'type_key' or new_value == old_value:
                 continue
 
@@ -263,9 +263,9 @@ class AlterField(BaseFieldAction):
     def _fix_field_params(cls,
                           collection_name: str,
                           field_name: str,
-                          field_params: Mapping[str, AlterDiff],
+                          field_params: Mapping[str, Any],
                           old_schema: dict,
-                          new_schema: dict) -> Mapping[str, AlterDiff]:
+                          new_schema: dict) -> Mapping[str, Any]:
         """
         Search for potential problems which could be happened during
         migration and return fixed field schema. If such problem

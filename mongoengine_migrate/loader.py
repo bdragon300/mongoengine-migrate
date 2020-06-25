@@ -18,7 +18,7 @@ from mongoengine_migrate.actions.factory import build_actions_chain
 from mongoengine_migrate.exceptions import MigrationError, SchemaError
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.graph import Migration, MigrationsGraph
-from mongoengine_migrate.utils import get_closest_parent
+from mongoengine_migrate.utils import get_closest_parent, get_document_type
 
 
 def symbol_wrap(value: str, width: int = 80, wrap_by: str = ',', wrapstring: str = '\n'):
@@ -76,12 +76,9 @@ def collect_models_schema() -> dict:
 
     # Retrieve models from mongoengine global document registry
     for model_cls in _document_registry.values():
-        if issubclass(model_cls, EmbeddedDocument):
-            collection_name = f'{runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX}{model_cls.__name__}'
-        else:
-            collection_name = model_cls._get_collection_name()
-            if collection_name is None:
-                continue   # TODO: temporary skip for abstract documents
+        collection_name = get_document_type(model_cls)
+        if collection_name is None:
+            continue   # TODO: temporary skip for abstract documents
 
         if collection_name in schema:
             raise SchemaError(f'Models with the same collection names {collection_name!r} found')

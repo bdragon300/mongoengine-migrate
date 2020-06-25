@@ -1,5 +1,8 @@
 import inspect
-from typing import Type, Iterable
+from typing import Type, Iterable, Optional
+from mongoengine.base import BaseDocument
+from mongoengine import EmbeddedDocument
+from .flags import EMBEDDED_DOCUMENT_NAME_PREFIX
 
 
 class Slotinit(object):
@@ -68,3 +71,18 @@ def get_closest_parent(target: Type, classes: Iterable[Type]) -> Type:
                 min_distance = distance
 
     return res
+
+
+def get_document_type(document_cls: Type[BaseDocument]) -> Optional[str]:
+    """
+    Return document type for `collection_name` parameter of Action
+    :param document_cls: document class
+    :return: document type or None if unable to get it (if document_cls
+     is abstract)
+    """
+    if issubclass(document_cls, EmbeddedDocument):
+        document_type = f'{EMBEDDED_DOCUMENT_NAME_PREFIX}{document_cls.__name__}'
+    else:
+        document_type = document_cls._get_collection_name()
+
+    return document_type

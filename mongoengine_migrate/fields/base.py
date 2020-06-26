@@ -94,7 +94,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         self.left_schema = left_schema
 
         self.is_embedded = self.collection_name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
-        self.collection = None if self.is_embedded else db[collection_name]  # FIXME: make db query tracer
+        self.collection = None if self.is_embedded else db[collection_name]
 
     @classmethod
     def schema_skel(cls) -> dict:
@@ -285,7 +285,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                                       self.left_schema,
                                       self.left_field_schema,
                                       self.right_field_schema)
-        new_handler.convert_type(updater, *field_classes)  # FIXME: embedded
+        new_handler.convert_type(updater, *field_classes)
 
     def convert_type(self,
                      updater: DocumentUpdater,

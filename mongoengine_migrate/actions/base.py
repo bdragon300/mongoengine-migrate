@@ -58,13 +58,11 @@ class BaseAction(metaclass=BaseActionMeta):
         self.orig_collection_name = collection_name
         self.dummy_action = dummy_action
         self.parameters = kwargs
-        self.is_embedded = False
         self._run_ctx = None  # Run context, filled by `prepare()`
 
         _prefix = runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX
         if collection_name.startswith(_prefix):
             self.collection_name = collection_name[len(_prefix):]
-            self.is_embedded = True
 
     def prepare(self, db: Database, left_schema: dict):
         """

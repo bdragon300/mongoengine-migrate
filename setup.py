@@ -32,7 +32,8 @@ setuptools.setup(
         'jinja2',
         'click',
         'wrapt',
-        'python-dateutil'
+        'python-dateutil',
+        'jsonpath_rw'
     ],
     tests_require=['pytest'],
     setup_requires=['pytest-runner'],

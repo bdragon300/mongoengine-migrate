@@ -34,7 +34,8 @@ class CreateField(BaseFieldAction):
         right_field_schema_skel = field_handler_cls.schema_skel()
         extra_keys = self.parameters.keys() - right_field_schema_skel.keys()
         if extra_keys:
-            raise ActionError(f'Unknown schema parameters: {extra_keys}')
+            raise ActionError(f'Unknown CreateField action parameters: {extra_keys} '
+                              f'({field_handler_cls!r})')
 
         field_params = {
             **right_field_schema_skel,

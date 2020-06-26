@@ -76,9 +76,12 @@ def collect_models_schema() -> dict:
 
     # Retrieve models from mongoengine global document registry
     for model_cls in _document_registry.values():
+        if model_cls._meta.get('abstract', True):
+            continue
+
         collection_name = get_document_type(model_cls)
         if collection_name is None:
-            continue   # TODO: temporary skip for abstract documents
+            raise SchemaError(f'Could not get collection name for {model_cls!r}')
 
         if collection_name in schema:
             raise SchemaError(f'Models with the same collection names {collection_name!r} found')

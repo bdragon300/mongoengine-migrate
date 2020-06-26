@@ -16,7 +16,7 @@ class CreateCollection(BaseCreateDocument):
             # This is an embedded document
             return None
 
-        return super().build_object(collection_name, left_schema, right_schema)
+        return super(CreateCollection, cls).build_object(collection_name, left_schema, right_schema)
 
     def run_forward(self):
         """
@@ -43,7 +43,7 @@ class DropCollection(BaseDropDocument):
             # This is an embedded document
             return None
 
-        return super().build_object(collection_name, left_schema, right_schema)
+        return super(DropCollection, cls).build_object(collection_name, left_schema, right_schema)
 
     def run_forward(self):
         """
@@ -73,7 +73,7 @@ class RenameCollection(BaseRenameDocument):
             # This is an embedded document
             return None
 
-        return super().build_object(collection_name, left_schema, right_schema)
+        return super(RenameCollection, cls).build_object(collection_name, left_schema, right_schema)
 
     def run_forward(self):
         collection_names = self._run_ctx['collection'].database.list_collection_names()

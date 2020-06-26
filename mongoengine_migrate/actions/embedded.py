@@ -17,7 +17,7 @@ class CreateEmbedded(BaseCreateDocument):
             # This is not an embedded document
             return None
 
-        return super().build_object(collection_name, left_schema, right_schema)
+        return super(CreateEmbedded, cls).build_object(collection_name, left_schema, right_schema)
 
     def run_forward(self):
         """Embedded documents are not required to do anything"""
@@ -41,7 +41,7 @@ class DropEmbedded(BaseDropDocument):
             # This is not an embedded document
             return None
 
-        return super().build_object(collection_name, left_schema, right_schema)
+        return super(DropEmbedded, cls).build_object(collection_name, left_schema, right_schema)
 
     def run_forward(self):
         """Embedded documents are not required to do anything"""
@@ -63,7 +63,7 @@ class RenameEmbedded(BaseRenameDocument):
             # This is not an embedded document
             return None
 
-        return super().build_object(collection_name, left_schema, right_schema)
+        return super(RenameEmbedded, cls).build_object(collection_name, left_schema, right_schema)
 
     def run_forward(self):
         """Embedded documents are not required to do anything"""

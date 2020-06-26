@@ -357,12 +357,12 @@ class ListFieldHandler(CommonFieldHandler):
         Return db schema skeleton dict, which contains keys taken from
         `schema_skel_keys` and Nones as values
         """
-        skel = CommonFieldHandler.schema_skel()
+        skel = super(ListFieldHandler, cls).schema_skel()
 
         # Add optional keys to skel if they are set in field object
         # * `max_length` was added in mongoengine 0.19.0
         optional_keys = {'max_length'}
-        assert cls.field_classes == [mongoengine.fields.ListField], \
+        assert all(issubclass(c, mongoengine.fields.ListField) for c in cls.field_classes), \
             'If you wanna add field class then this code should be rewritten'
         field_obj = mongoengine.fields.ListField()
         skel.update({k: None for k in optional_keys if hasattr(field_obj, k)})
@@ -434,7 +434,7 @@ class SequenceFieldHandler(CommonFieldHandler):
 
     @classmethod
     def build_schema(cls, field_obj: mongoengine.fields.SequenceField) -> dict:
-        schema = super().build_schema(field_obj)
+        schema = super(SequenceFieldHandler, cls).build_schema(field_obj)
         schema['link_collection'] = field_obj.collection_name
 
         return schema
@@ -544,7 +544,7 @@ class ReferenceFieldHandler(CommonFieldHandler):
                 mongoengine.fields.ReferenceField,
                 mongoengine.fields.LazyReferenceField
             ]) -> dict:
-        schema = super().build_schema(field_obj)
+        schema = super(ReferenceFieldHandler, cls).build_schema(field_obj)
 
         # 'document_type' is restricted to use Document class
         # as value by mongoengine itself
@@ -588,7 +588,7 @@ class FileFieldHandler(CommonFieldHandler):
 
     @classmethod
     def build_schema(cls, field_obj: mongoengine.fields.FileField) -> dict:
-        schema = super().build_schema(field_obj)
+        schema = super(FileFieldHandler, cls).build_schema(field_obj)
         schema['link_collection'] = field_obj.collection_name
 
         return schema
@@ -634,8 +634,9 @@ class EmbeddedDocumentFieldHandler(CommonFieldHandler):
         self._check_diff(updater.field_name, diff, False, str)
         # FIXME: decide what to do with existed embedded docs?
 
+    @classmethod
     def build_schema(cls, field_obj: mongoengine.fields.EmbeddedDocumentField) -> dict:
-        schema = super().build_schema(field_obj)
+        schema = super(EmbeddedDocumentFieldHandler, cls).build_schema(field_obj)
 
         document_type_cls = field_obj.document_type
         schema['document_type'] = get_document_type(document_type_cls)
@@ -659,8 +660,9 @@ class EmbeddedDocumentListFieldHandler(ListFieldHandler):
         self._check_diff(updater.field_name, diff, False, str)
         # FIXME: decide what to do with existed embedded docs?
 
+    @classmethod
     def build_schema(cls, field_obj: mongoengine.fields.EmbeddedDocumentListField) -> dict:
-        schema = super().build_schema(field_obj)
+        schema = super(EmbeddedDocumentListFieldHandler, cls).build_schema(field_obj)
 
         document_type_cls = field_obj.field.document_type
         schema['document_type'] = get_document_type(document_type_cls)

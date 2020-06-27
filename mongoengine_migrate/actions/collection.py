@@ -84,4 +84,4 @@ class RenameCollection(BaseRenameDocument):
     def run_backward(self):
         collection_names = self._run_ctx['collection'].database.list_collection_names()
         if self._run_ctx['collection'].name in collection_names:
-            self._run_ctx['collection'].rename(self.tumblr)
+            self._run_ctx['collection'].rename(self.document_type)

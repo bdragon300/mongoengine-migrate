@@ -115,7 +115,8 @@ class DocumentUpdater:
         :return:
         """
         if not self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-            callback(self.db[self.document_type], self.field_name, self.field_name, None)
+            collection_name = self.db_schema[self.document_type].properties['collection']
+            callback(self.db[collection_name], self.field_name, self.field_name, None)
             return
 
         for collection, update_path, filter_path in self._get_update_paths():
@@ -145,7 +146,8 @@ class DocumentUpdater:
         :return:
         """
         if not self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-            collection = self.db[self.document_type]
+            collection_name = self.db_schema[self.document_type].properties['collection']
+            collection = self.db[collection_name]
             for doc in collection.find():
                 callback(collection, doc, self.field_name)
             return
@@ -242,12 +244,16 @@ class DocumentUpdater:
         and update expressions (dotpath with `$[]` expressions)
         :return: tuple(collection_object, update_dotpath, filter_dotpath)
         """
-        collections = ((k, v) for k, v in self.db_schema.items()
-                       if not k.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX))
+        # Document types of non-embedded documents
+        document_types = ((name, schema) for name, schema in self.db_schema.items()
+                          if not name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX))
 
-        for collection_name, collection_schema in collections:
-            collection = self.db[collection_name]
-            for path in self._find_embedded_fields(collection, self.document_type, self.db_schema):
+        for document_type, schema in document_types:
+            collection = self.db[schema.properties['collection']]
+            for path in self._find_embedded_fields(collection,
+                                                   document_type,
+                                                   self.document_type,  # FIXME: could not be an embedded!
+                                                   self.db_schema):
                 update_path = path + [self.field_name]
                 filter_path = [p for p in path if p != '$[]']
 
@@ -255,10 +261,10 @@ class DocumentUpdater:
 
     def _find_embedded_fields(self,
                               collection: Collection,
-                              document_type: str,
+                              root_doctype: str,
+                              search_doctype: str,
                               db_schema: Schema,
-                              _base_path: Optional[list] = None,
-                              _document_name: Optional[str] = None) -> Generator[list, None, None]:
+                              _base_path: Optional[list] = None) -> Generator[list, None, None]:
         """
         Perform recursive search for embedded document fields of given
         type in given collection and return key paths to them. Paths
@@ -271,7 +277,9 @@ class DocumentUpdater:
         may refer to each other or even themselves.
         :param collection: collection object where to search given
          embedded document
-        :param document_type: embedded document name to search
+        :param root_doctype: document type name where to perform
+         recursive search
+        :param search_doctype: embedded document name to search
         :param db_schema: db schema
         :return:
         """
@@ -283,82 +291,81 @@ class DocumentUpdater:
         if len(_base_path) >= max_path_len:
             return
 
-        # Begin the search from a passed collection
-        if _document_name is None:
-            _document_name = collection.name
-
         # Return every field nested path if it has a needed type_key.
         # Next also overlook in depth to each embedded document field
         # (including fields with another type_keys) if they have nested
         # embedded documents which we also should to check. Recursion
-        # stops when we found that nested field is not exists in db.
-        # Keep in mind that embedded documents could refer to each
-        # other or even to itself.
+        # stops when we found that nested field which does not exist
+        # in db. Keep in mind that embedded documents could refer to
+        # each other or even to itself.
         #
         # Fields may contain embedded docs and/or array of embedded docs
         # Because of limitations of MongoDB we're checking type
         # (object/array) and update a field further separately.
-        for field, field_schema in db_schema.get(_document_name, {}).items():
+        for field, field_schema in db_schema.get(root_doctype, {}).items():
             path = _base_path + [field]
             filter_path = [p for p in path if p != '$[]']
 
             # Check if field is EmbeddedField or EmbeddedFieldList
-            doc_name = field_schema.get('document_type')
-            if doc_name and doc_name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-                # Check if field type is object or array.
-                # Dotpath field resolving always takes the first
-                # element type if it is an array
-                # So do the {"field.path.0": {$exists: true}} in
-                # order to ensure that field contains array (non-empty)
-                array_dotpath = '.'.join(filter_path + ['.0'])
+            ref = field_schema.get('document_type')
+            if ref is None or not ref.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
+                # Skip fields which don't point to embedded document
+                continue
 
-                is_object = collection.find(
-                    {
-                        array_dotpath: {'$exists': False},
-                        '.'.join(filter_path): {'$type': "object"}
-                    },
-                    limit=1
-                )
-                if is_object.retrieved > 0:
-                    if doc_name == document_type:
-                        yield path
-                    yield from self._find_embedded_fields(collection,
-                                                          document_type,
-                                                          db_schema,
-                                                          path,
-                                                          doc_name)
-                    # Return if field contains objects
-                    # It's better to have ability to handle situation
-                    # when the same field has both array and object
-                    # values at the same time.
-                    # But this function tests field existence using
-                    # dotpath. Dotpath resolving makes no distinction
-                    # between array and object, so it can be generated
-                    # extra paths.
-                    # For example, a field could contain array which
-                    # contains objects only and also could contain
-                    # object which contains arrays only. Function must
-                    # return two paths: object->arrays, array->objects.
-                    # But because of dotpath resolving thing we'll
-                    # got all 4 path combinations.
-                    # For a while I leave return here. It's better to
-                    # remove it and solve the problem somehow.
-                    # TODO: I'll be back
-                    return
+            # Check if field type is object or array.
+            # Dotpath field resolving always takes the first
+            # element type if it is an array
+            # So do the {"field.path.0": {$exists: true}} in
+            # order to ensure that field contains array (non-empty)
+            array_dotpath = '.'.join(filter_path + ['.0'])
 
-                # TODO: return also empty array fields
-                is_nonempty_array = collection.find(
-                    {array_dotpath: {'$exists': True}},
-                    limit=1
-                )
-                if is_nonempty_array.retrieved > 0:
-                    if doc_name == document_type:
-                        yield path + ['$[]']
-                    yield from self._find_embedded_fields(collection,
-                                                          document_type,
-                                                          db_schema,
-                                                          path + ['$[]'],
-                                                          doc_name)
+            is_object = collection.find(
+                {
+                    array_dotpath: {'$exists': False},
+                    '.'.join(filter_path): {'$type': "object"}
+                },
+                limit=1
+            )
+            if is_object.retrieved > 0:
+                if ref == search_doctype:
+                    yield path
+                yield from self._find_embedded_fields(collection,
+                                                      ref,
+                                                      search_doctype,
+                                                      db_schema,
+                                                      path)
+                # Return if field contains objects
+                # It's better to have ability to handle situation
+                # when the same field has both array and object
+                # values at the same time.
+                # But this function tests field existence using
+                # dotpath. Dotpath resolving makes no distinction
+                # between array and object, so it can be generated
+                # extra paths.
+                # For example, a field could contain array which
+                # contains objects only and also could contain
+                # object which contains arrays only. Function must
+                # return two paths: object->arrays, array->objects.
+                # But because of dotpath resolving thing we'll
+                # got all 4 path combinations.
+                # For a while I leave return here. It's better to
+                # remove it and solve the problem somehow.
+                # TODO: I'll be back
+                return
+
+            # TODO: return also empty array fields
+            is_nonempty_array = collection.find(
+                {array_dotpath: {'$exists': True}},
+                limit=1
+            )
+            if is_nonempty_array.retrieved > 0:
+                if ref == search_doctype:
+                    yield path + ['$[]']
+                yield from self._find_embedded_fields(collection,
+                                                      ref,
+                                                      search_doctype,
+                                                      db_schema,
+                                                      path + ['$[]'])
 
     def _inject_array_filters(self, update_path: list) -> Tuple[list, Optional[list]]:
         """

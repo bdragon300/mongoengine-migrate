@@ -54,16 +54,10 @@ class BaseAction(metaclass=BaseActionMeta):
          for changing the db schema
         :param kwargs: Action keyword parameters
         """
-        self.tumblr = document_type
-        # Could contain collection name or embedded document name
         self.document_type = document_type
         self.dummy_action = dummy_action
         self.parameters = kwargs
         self._run_ctx = None  # Run context, filled by `prepare()`
-
-        _prefix = runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX
-        if document_type.startswith(_prefix):
-            self.tumblr = document_type[len(_prefix):]
 
     def prepare(self, db: Database, left_schema: Schema):
         """
@@ -72,7 +66,7 @@ class BaseAction(metaclass=BaseActionMeta):
         :param left_schema: db schema before migration (left side)
         :return:
         """
-        collection = db[self.tumblr]
+        collection = db[left_schema[self.document_type].properties['collection']]
         self._run_ctx = {
             'left_schema': left_schema,
             'db': db,

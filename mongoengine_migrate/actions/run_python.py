@@ -45,7 +45,7 @@ class RunPython(BaseAction):
         kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
         ff_expr = f'forward_func={self.forward_func.__name__ if self.forward_func else None}'
         bf_expr = f'backward_func={self.backward_func.__name__ if self.backward_func else None}'
-        return f'{self.__class__.__name__}({self.tumblr!r}, ' \
+        return f'{self.__class__.__name__}({self.document_type!r}, ' \
                f'{ff_expr + ", " if self.forward_func else ""}' \
                f'{bf_expr + ", " if self.backward_func else ""}' \
                f'{kwargs_str})'

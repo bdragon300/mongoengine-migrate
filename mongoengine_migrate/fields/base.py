@@ -95,7 +95,8 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         self.left_schema = left_schema
 
         self.is_embedded = self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
-        self.collection = None if self.is_embedded else db[document_type] fix
+        collection_name = left_schema[document_type].parameters['collection']
+        self.collection = None if self.is_embedded else db[collection_name]
 
     @classmethod
     def schema_skel(cls) -> dict:
@@ -164,7 +165,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         )
 
         method = getattr(self, f'change_{name}')
-        updater = DocumentUpdater(self.db, self.document_type, db_field, self.left_schema) fix
+        updater = DocumentUpdater(self.db, self.document_type, db_field, self.left_schema)
         return method(updater, diff)
 
     def change_db_field(self, updater: DocumentUpdater, diff: Diff):

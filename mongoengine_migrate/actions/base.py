@@ -233,10 +233,6 @@ class BaseDocumentAction(BaseAction):
     Base class for actions which change a document (collection or
     embedded document) at whole such as renaming, creating, dropping, etc.
     """
-
-    #: Empty document schema contents skeleton
-    DOCUMENT_SCHEMA_SKEL = {}
-
     @classmethod
     @abstractmethod
     def build_object(cls,
@@ -287,7 +283,7 @@ class BaseCreateDocument(BaseDocumentAction):
             return cls(collection_name=collection_name)
 
     def to_schema_patch(self, left_schema: Schema):
-        return [('add', '', [(self.orig_collection_name, self.DOCUMENT_SCHEMA_SKEL)])]
+        return [('add', '', [(self.orig_collection_name, Schema.Document())])]
 
 
 class BaseDropDocument(BaseDocumentAction):

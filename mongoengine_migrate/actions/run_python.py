@@ -33,7 +33,7 @@ class RunPython(BaseAction):
     def to_schema_patch(self, left_schema: Schema):
         """
         We can't predict what code will be placed to user functions
-        so don't suppose any schema changes
+        so don't assume any schema changes
         """
         return []
 

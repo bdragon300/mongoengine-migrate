@@ -2,8 +2,9 @@ from typing import Iterable, Type
 
 from dictdiffer import patch
 
-from mongoengine_migrate.exceptions import ActionError
 import mongoengine_migrate.flags as flags
+from mongoengine_migrate.exceptions import ActionError
+from mongoengine_migrate.schema import Schema
 from .base import (
     actions_registry,
     BaseFieldAction,
@@ -12,7 +13,7 @@ from .base import (
 )
 
 
-def build_actions_chain(left_schema: dict, right_schema: dict) -> Iterable[BaseAction]:
+def build_actions_chain(left_schema: Schema, right_schema: Schema) -> Iterable[BaseAction]:
     """
     Build full Action objects chain which suitable for such schema
     change.
@@ -50,8 +51,8 @@ def build_actions_chain(left_schema: dict, right_schema: dict) -> Iterable[BaseA
 
 
 def build_document_action_chain(action_cls: Type[BaseDocumentAction],
-                                left_schema: dict,
-                                right_schema: dict) -> Iterable[BaseAction]:
+                                left_schema: Schema,
+                                right_schema: Schema) -> Iterable[BaseAction]:
     """
     Walk through schema changes, and produce chain of Action objects
     of given type which could handle schema changes from left to right
@@ -77,8 +78,8 @@ def build_document_action_chain(action_cls: Type[BaseDocumentAction],
 
 
 def build_field_action_chain(action_cls: Type[BaseFieldAction],
-                             left_schema: dict,
-                             right_schema: dict) -> Iterable[BaseAction]:
+                             left_schema: Schema,
+                             right_schema: Schema) -> Iterable[BaseAction]:
     """
     Walk through schema changes, and produce chain of Action objects
     of given type which could handle schema changes from left to right

@@ -1,4 +1,5 @@
 from mongoengine_migrate.exceptions import ActionError
+from mongoengine_migrate.schema import Schema
 from .base import BaseAction
 
 
@@ -29,7 +30,7 @@ class RunPython(BaseAction):
                                self._run_ctx['collection'],
                                self._run_ctx['left_schema'])
 
-    def to_schema_patch(self, left_schema: dict):
+    def to_schema_patch(self, left_schema: Schema):
         """
         We can't predict what code will be placed to user functions
         so don't suppose any schema changes

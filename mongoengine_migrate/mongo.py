@@ -7,6 +7,7 @@ from pymongo.collection import Collection
 from pymongo.database import Database
 
 from mongoengine_migrate.exceptions import MigrationError
+from mongoengine_migrate.schema import Schema
 from . import flags
 
 
@@ -70,7 +71,7 @@ class DocumentUpdater:
     """Document updater class. Used to update certain field in
     collection or embedded document
     """
-    def __init__(self, db: Database, document_name: str, field_name: str, db_schema: dict):
+    def __init__(self, db: Database, document_name: str, field_name: str, db_schema: Schema):
         """
         :param db: pymongo database object
         :param document_name: document name
@@ -255,7 +256,7 @@ class DocumentUpdater:
     def _find_embedded_fields(self,
                               collection: Collection,
                               document_type: str,
-                              db_schema: dict,
+                              db_schema: Schema,
                               _base_path: Optional[list] = None,
                               _document_name: Optional[str] = None) -> Generator[list, None, None]:
         """

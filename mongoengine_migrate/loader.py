@@ -2,7 +2,7 @@ import importlib.util
 from datetime import timezone, datetime
 from pathlib import Path
 from types import ModuleType
-from typing import Tuple, Iterable, Optional
+from typing import Tuple, Iterable
 
 import pymongo.database
 import pymongo.errors
@@ -17,8 +17,9 @@ from mongoengine_migrate.actions.factory import build_actions_chain
 from mongoengine_migrate.exceptions import MigrationError, SchemaError
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.graph import Migration, MigrationsGraph
-from mongoengine_migrate.utils import get_closest_parent, get_document_type
 from mongoengine_migrate.query_tracer import DatabaseQueryTracer
+from mongoengine_migrate.schema import Schema
+from mongoengine_migrate.utils import get_closest_parent, get_document_type
 
 
 def symbol_wrap(value: str, width: int = 80, wrap_by: str = ',', wrapstring: str = '\n'):
@@ -67,12 +68,12 @@ def import_module(path: str) -> Tuple[ModuleType, str]:
             attrs.append(attr)
 
 
-def collect_models_schema() -> dict:
+def collect_models_schema() -> Schema:
     """
-    Build full db schema dict from all mongoengine models available
+    Transform all available mongoengine document objects to db schema
     :return:
     """
-    schema = {}
+    schema = Schema()
 
     # Retrieve models from mongoengine global document registry
     for model_cls in _document_registry.values():
@@ -83,9 +84,9 @@ def collect_models_schema() -> dict:
         if collection_name is None:
             raise SchemaError(f'Could not get collection name for {model_cls!r}')
 
-        if collection_name in schema:
+        if collection_name in schema:  # FIXME: inherited documents could have the same collection
             raise SchemaError(f'Models with the same collection names {collection_name!r} found')
-        schema[collection_name] = {}
+        schema[collection_name] = Schema.Document()
 
         # {field_cls: TypeKeyRegistryItem}
         field_mapping_registry = {x.field_cls: x for x in type_key_registry.values()}
@@ -187,20 +188,22 @@ class MongoengineMigrate:
         data = {'type': 'migrations', 'value': records}
         self.migration_collection.replace_one(fltr, data, upsert=True)
 
-    def load_db_schema(self) -> Optional[dict]:
+    def load_db_schema(self) -> Schema:
         """Load schema from db"""
         fltr = {'type': 'schema'}
         res = self.migration_collection.find_one(fltr)
-        return res.get('value') if res else None
+        schema = Schema()
+        schema.load(res.get('value') if res else None)
+        return schema
 
-    def write_db_schema(self, schema: dict):
+    def write_db_schema(self, schema: Schema) -> None:
         """
         Write schema to db
-        :param schema: schema dict
+        :param schema:
         :return:
         """
         fltr = {'type': 'schema'}
-        data = {'type': 'schema', 'value': schema}
+        data = {'type': 'schema', 'value': schema.dump()}
         self.migration_collection.replace_one(fltr, data, upsert=True)
 
     def load_migrations(self,
@@ -255,7 +258,7 @@ class MongoengineMigrate:
         :return:
         """
         graph = self.build_graph()
-        current_schema = self.load_db_schema() or {}
+        current_schema = self.load_db_schema()
 
         if migration_name not in graph.migrations:
             raise MigrationError(f'Migration {migration_name} not found')
@@ -291,14 +294,14 @@ class MongoengineMigrate:
         :return:
         """
         graph = self.build_graph()
-        left_schema = self.load_db_schema() or {}
+        left_schema = self.load_db_schema()
 
         if migration_name not in graph.migrations:
             raise MigrationError(f'Migration {migration_name} not found')
 
         # Collect schema diffs across all migrations
         migration_diffs = {}  # {migration_name: [action1_diff, ...]}
-        temp_left_schema = {}
+        temp_left_schema = Schema()
         for migration in graph.walk_down(graph.initial, unapplied_only=False):
             migration_diffs[migration.name] = []
             for action in migration.get_actions():
@@ -360,7 +363,7 @@ class MongoengineMigrate:
         state and make a migration file if needed
         """
         graph = self.build_graph()
-        db_schema = self.load_db_schema() or {}
+        db_schema = self.load_db_schema()
 
         # Obtain schema changes which migrations would make (including
         #  unapplied ones)

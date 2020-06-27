@@ -2,6 +2,7 @@ from typing import Mapping, Any
 
 from mongoengine_migrate.exceptions import ActionError
 from mongoengine_migrate.mongo import DocumentUpdater
+from mongoengine_migrate.schema import Schema
 from .base import BaseFieldAction
 
 
@@ -11,8 +12,8 @@ class CreateField(BaseFieldAction):
     def build_object(cls,
                      collection_name: str,
                      field_name: str,
-                     left_schema: dict,
-                     right_schema: dict):
+                     left_schema: Schema,
+                     right_schema: Schema):
         match = collection_name in left_schema \
                 and collection_name in right_schema \
                 and field_name not in left_schema[collection_name] \
@@ -24,7 +25,7 @@ class CreateField(BaseFieldAction):
                        **field_params
                        )
 
-    def to_schema_patch(self, left_schema: dict):
+    def to_schema_patch(self, left_schema: Schema):
         keys_to_check = {'type_key', 'db_field'}
         if not(keys_to_check < self.parameters.keys()):
             raise ActionError(f"{keys_to_check} parameters are required in CreateField action")
@@ -93,8 +94,8 @@ class DropField(BaseFieldAction):
     def build_object(cls,
                      collection_name: str,
                      field_name: str,
-                     left_schema: dict,
-                     right_schema: dict):
+                     left_schema: Schema,
+                     right_schema: Schema):
         match = collection_name in left_schema \
                 and collection_name in right_schema \
                 and field_name in left_schema[collection_name] \
@@ -102,7 +103,7 @@ class DropField(BaseFieldAction):
         if match:
             return cls(collection_name=collection_name, field_name=field_name)
 
-    def to_schema_patch(self, left_schema: dict):
+    def to_schema_patch(self, left_schema: Schema):
         try:
             left_field_schema = left_schema[self.orig_collection_name][self.field_name]
         except KeyError:
@@ -160,8 +161,8 @@ class AlterField(BaseFieldAction):
     def build_object(cls,
                      collection_name: str,
                      field_name: str,
-                     left_schema: dict,
-                     right_schema: dict):
+                     left_schema: Schema,
+                     right_schema: Schema):
         # Check if field still here but its schema has changed
         match = collection_name in left_schema \
                 and collection_name in right_schema \
@@ -182,7 +183,7 @@ class AlterField(BaseFieldAction):
             #                                      new_schema)
             return cls(collection_name=collection_name, field_name=field_name, **action_params)
 
-    def to_schema_patch(self, left_schema: dict):
+    def to_schema_patch(self, left_schema: Schema):
         try:
             left_field_schema = left_schema[self.orig_collection_name][self.field_name]
         except KeyError:
@@ -265,8 +266,8 @@ class AlterField(BaseFieldAction):
                           collection_name: str,
                           field_name: str,
                           field_params: Mapping[str, Any],
-                          old_schema: dict,
-                          new_schema: dict) -> Mapping[str, Any]:
+                          old_schema: Schema,
+                          new_schema: Schema) -> Mapping[str, Any]:
         """
         Search for potential problems which could be happened during
         migration and return fixed field schema. If such problem
@@ -318,8 +319,8 @@ class RenameField(BaseFieldAction):
     def build_object(cls,
                      collection_name: str,
                      field_name: str,
-                     left_schema: dict,
-                     right_schema: dict):
+                     left_schema: Schema,
+                     right_schema: Schema):
         # Check if field exists under different name in schema
         # Field also can have small schema changes in the same time
         # So we try to get similarity percentage and if it more than
@@ -361,7 +362,7 @@ class RenameField(BaseFieldAction):
                        field_name=field_name,
                        new_name=candidates[0][0])
 
-    def to_schema_patch(self, left_schema: dict):
+    def to_schema_patch(self, left_schema: Schema):
         try:
             left_field_schema = left_schema[self.orig_collection_name][self.field_name]
         except KeyError:

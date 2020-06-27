@@ -8,6 +8,7 @@ import mongoengine_migrate.flags as runtime_flags
 from mongoengine_migrate.exceptions import MigrationError, ActionError
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.query_tracer import HistoryCall
+from mongoengine_migrate.schema import Schema
 
 #: Migration Actions registry. Mapping of class name and its class
 actions_registry: Dict[str, Type['BaseAction']] = {}
@@ -64,7 +65,7 @@ class BaseAction(metaclass=BaseActionMeta):
         if collection_name.startswith(_prefix):
             self.collection_name = collection_name[len(_prefix):]
 
-    def prepare(self, db: Database, left_schema: dict):
+    def prepare(self, db: Database, left_schema: Schema):
         """
         Prepare action before Action run (both forward and backward)
         :param db: pymongo.Database object
@@ -108,7 +109,7 @@ class BaseAction(metaclass=BaseActionMeta):
         """
 
     @abstractmethod
-    def to_schema_patch(self, left_schema: dict):
+    def to_schema_patch(self, left_schema: Schema):
         """
         Return dictdiff patch should get applied in a forward direction
         run
@@ -162,8 +163,8 @@ class BaseFieldAction(BaseAction):
     def build_object(cls,
                      collection_name: str,
                      field_name: str,
-                     left_schema: dict,
-                     right_schema: dict) -> Optional['BaseFieldAction']:
+                     left_schema: Schema,
+                     right_schema: Schema) -> Optional['BaseFieldAction']:
         """
         Factory method which tests if current action type could process
         schema changes for a given collection and field. If yes then
@@ -190,7 +191,7 @@ class BaseFieldAction(BaseAction):
         """
         pass
 
-    def prepare(self, db: Database, left_schema: dict):
+    def prepare(self, db: Database, left_schema: Schema):
         super().prepare(db, left_schema)
 
         self._run_ctx['left_field_schema'] = \
@@ -240,8 +241,8 @@ class BaseDocumentAction(BaseAction):
     @abstractmethod
     def build_object(cls,
                      collection_name: str,
-                     left_schema: dict,
-                     right_schema: dict) -> Optional['BaseDocumentAction']:
+                     left_schema: Schema,
+                     right_schema: Schema) -> Optional['BaseDocumentAction']:
         """
         Factory method which tests if current action type could process
         schema changes for a given collection at whole. If yes then
@@ -281,21 +282,21 @@ class BaseDocumentAction(BaseAction):
 
 class BaseCreateDocument(BaseDocumentAction):
     @classmethod
-    def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
+    def build_object(cls, collection_name: str, left_schema: Schema, right_schema: Schema):
         if collection_name not in left_schema and collection_name in right_schema:
             return cls(collection_name=collection_name)
 
-    def to_schema_patch(self, left_schema: dict):
+    def to_schema_patch(self, left_schema: Schema):
         return [('add', '', [(self.orig_collection_name, self.DOCUMENT_SCHEMA_SKEL)])]
 
 
 class BaseDropDocument(BaseDocumentAction):
     @classmethod
-    def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
+    def build_object(cls, collection_name: str, left_schema: Schema, right_schema: Schema):
         if collection_name in left_schema and collection_name not in right_schema:
             return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
 
-    def to_schema_patch(self, left_schema: dict):
+    def to_schema_patch(self, left_schema: Schema):
         item = left_schema[self.orig_collection_name]
         return [('remove', '', [(self.orig_collection_name, item)])]
 
@@ -313,7 +314,7 @@ class BaseRenameDocument(BaseDocumentAction):
         self.new_name = new_name
 
     @classmethod
-    def build_object(cls, collection_name: str, left_schema: dict, right_schema: dict):
+    def build_object(cls, collection_name: str, left_schema: Schema, right_schema: Schema):
         # Check if field exists under different name in schema.
         # Field also can have small schema changes in the same time
         # So we try to get similarity percentage and if it more than
@@ -356,7 +357,7 @@ class BaseRenameDocument(BaseDocumentAction):
         if len(candidates) == 1:
             return cls(collection_name=collection_name, new_name=candidates[0][0])
 
-    def to_schema_patch(self, left_schema: dict):
+    def to_schema_patch(self, left_schema: Schema):
         item = left_schema[self.orig_collection_name]
         return [
             ('remove', '', [(self.orig_collection_name, item)]),

@@ -12,6 +12,7 @@ from mongoengine_migrate.mongo import (
     check_empty_result,
     DocumentUpdater
 )
+from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.utils import get_closest_parent
 from .registry import CONVERTION_MATRIX
 
@@ -76,16 +77,16 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
     def __init__(self,
                  db: Database,
                  collection_name: str,
-                 left_schema: dict,
+                 left_schema: Schema,
                  left_field_schema: dict,  # FIXME: get rid of
                  right_field_schema: dict):
         """
         :param db: pymongo Database object
         :param collection_name: collection name. Could contain
          collection name or embedded document name
+        :param left_schema:
         :param left_field_schema:
         :param right_field_schema:
-        :param left_schema:
         """
         self.db = db
         self.collection_name = collection_name

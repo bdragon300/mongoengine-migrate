@@ -17,7 +17,14 @@ class CreateCollection(BaseCreateDocument):
             # This is an embedded document
             return None
 
-        return super(CreateCollection, cls).build_object(document_type, left_schema, right_schema)
+        if document_type not in left_schema and document_type in right_schema:
+            return cls(document_type=document_type,
+                       collection=right_schema[document_type].parameters['collection'])
+
+    def to_schema_patch(self, left_schema: Schema):
+        item = Schema.Document()
+        item.parameters['collection'] = self.parameters.get('collection')
+        return [('add', '', [(self.document_type, item)])]
 
     def run_forward(self):
         """

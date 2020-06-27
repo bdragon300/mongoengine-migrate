@@ -307,7 +307,7 @@ class DocumentUpdater:
             filter_path = [p for p in path if p != '$[]']
 
             # Check if field is EmbeddedField or EmbeddedFieldList
-            ref = field_schema.get('document_type')
+            ref = field_schema.get('target_doctype')
             if ref is None or not ref.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
                 # Skip fields which don't point to embedded document
                 continue

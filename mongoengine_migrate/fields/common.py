@@ -610,9 +610,9 @@ class EmbeddedDocumentFieldHandler(CommonFieldHandler):
         mongoengine.fields.EmbeddedDocumentField
     ]
 
-    schema_skel_keys = {'document_type'}
+    schema_skel_keys = {'target_doctype'}
 
-    def change_document_type(self, updater: DocumentUpdater, diff: Diff):
+    def change_target_doctype(self, updater: DocumentUpdater, diff: Diff):
         self._check_diff(updater.field_name, diff, False, str)
         # FIXME: decide what to do with existed embedded docs?
 
@@ -621,7 +621,7 @@ class EmbeddedDocumentFieldHandler(CommonFieldHandler):
         schema = super(EmbeddedDocumentFieldHandler, cls).build_schema(field_obj)
 
         document_type_cls = field_obj.document_type
-        schema['document_type'] = get_document_type(document_type_cls)
+        schema['target_doctype'] = get_document_type(document_type_cls)
 
         return schema
 
@@ -631,14 +631,14 @@ class EmbeddedDocumentListFieldHandler(ListFieldHandler):
         mongoengine.fields.EmbeddedDocumentListField
     ]
 
-    # FIXME: move 'document_type' changing from here to ListField 'db_field'
+    # FIXME: move 'target_doctype' changing from here to ListField 'db_field'
     #        this require to fix embedded document recursive walk method
     #        to also consider field.document_type of ListField
     #        This will help to manage with situation when ListField
     #        with EmbeddedDocumentField is defined by user
-    schema_skel_keys = {'document_type'}
+    schema_skel_keys = {'target_doctype'}
 
-    def change_document_type(self, updater: DocumentUpdater, diff: Diff):
+    def change_target_doctype(self, updater: DocumentUpdater, diff: Diff):
         self._check_diff(updater.field_name, diff, False, str)
         # FIXME: decide what to do with existed embedded docs?
 
@@ -647,6 +647,6 @@ class EmbeddedDocumentListFieldHandler(ListFieldHandler):
         schema = super(EmbeddedDocumentListFieldHandler, cls).build_schema(field_obj)
 
         document_type_cls = field_obj.field.document_type
-        schema['document_type'] = get_document_type(document_type_cls)
+        schema['target_doctype'] = get_document_type(document_type_cls)
 
         return schema

@@ -3,10 +3,8 @@ from mongoengine_migrate.schema import Schema
 from .base import BaseCreateDocument, BaseDropDocument, BaseRenameDocument
 
 
-class CreateCollection(BaseCreateDocument):
-    """Create new collection
-
-    Ex.: `CreateCollection("collection1")`
+class CreateDocument(BaseCreateDocument):
+    """Create new document in db
     # FIXME: parameters (indexes, acl, etc.)
     """
     priority = 8
@@ -38,11 +36,8 @@ class CreateCollection(BaseCreateDocument):
         self._run_ctx['collection'].drop()
 
 
-class DropCollection(BaseDropDocument):
-    """Drop collection
-
-    Ex.: `DropCollection("collection1")`
-    """
+class DropDocument(BaseDropDocument):
+    """Drop a document"""
     priority = 16
 
     @classmethod
@@ -51,7 +46,7 @@ class DropCollection(BaseDropDocument):
             # This is an embedded document
             return None
 
-        return super(DropCollection, cls).build_object(document_type, left_schema, right_schema)
+        return super(DropDocument, cls).build_object(document_type, left_schema, right_schema)
 
     def run_forward(self):
         """
@@ -68,11 +63,8 @@ class DropCollection(BaseDropDocument):
         """
 
 
-class RenameCollection(BaseRenameDocument):
-    """Rename collection
-
-    Ex.: `RenameCollection("collection1", new_name="collection2")`
-    """
+class RenameDocument(BaseRenameDocument):
+    """Rename document"""
     priority = 6
 
     @classmethod
@@ -81,7 +73,7 @@ class RenameCollection(BaseRenameDocument):
             # This is an embedded document
             return None
 
-        return super(RenameCollection, cls).build_object(document_type, left_schema, right_schema)
+        return super(RenameDocument, cls).build_object(document_type, left_schema, right_schema)
 
     def run_forward(self):
         collection_names = self._run_ctx['collection'].database.list_collection_names()

@@ -49,7 +49,7 @@ dependencies = [
 ]
 
 forward = [
-    CreateCollection('author'),
+    CreateDocument('author'),
     CreateField('author', 'name', choices=None, db_field='name', default=None, max_length=None,
         min_length=None, null=False, primary_key=False, regex=None, required=True,
         sparse=False, type_key='StringField', unique=False, unique_with=None),

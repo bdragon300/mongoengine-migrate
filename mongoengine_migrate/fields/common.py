@@ -430,7 +430,7 @@ class SequenceFieldHandler(CommonFieldHandler):
     # TODO: db_alias
     schema_skel_keys = {'collection_name', 'sequence_name'}
 
-    def change_link_collection(self, updater: DocumentUpdater, diff: Diff):
+    def change_collection_name(self, updater: DocumentUpdater, diff: Diff):
         """Typically changing the collection name should not require
         to do any changes
         """
@@ -575,7 +575,7 @@ class FileFieldHandler(CommonFieldHandler):
     # TODO: db_alias
     schema_skel_keys = {'collection_name'}
 
-    def change_link_collection(self, updater: DocumentUpdater, diff: Diff):
+    def change_collection_name(self, updater: DocumentUpdater, diff: Diff):
         """Typically changing the collection name should not require
         to do any changes
         """

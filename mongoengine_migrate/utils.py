@@ -83,6 +83,6 @@ def get_document_type(document_cls: Type[BaseDocument]) -> Optional[str]:
     if issubclass(document_cls, EmbeddedDocument):
         document_type = f'{EMBEDDED_DOCUMENT_NAME_PREFIX}{document_cls.__name__}'
     else:
-        document_type = document_cls._get_collection_name()
+        document_type = document_cls.__name__
 
     return document_type

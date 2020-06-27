@@ -87,6 +87,7 @@ def collect_models_schema() -> Schema:
         if document_type in schema:  # FIXME: inherited documents could have the same collection
             raise SchemaError(f'Models with the same document types {document_type!r} found')
         schema[document_type] = Schema.Document()
+        schema[document_type].parameters['collection'] = model_cls._get_collection_name()
 
         # {field_cls: TypeKeyRegistryItem}
         field_mapping_registry = {x.field_cls: x for x in type_key_registry.values()}

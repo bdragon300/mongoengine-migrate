@@ -95,7 +95,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         self.left_schema = left_schema
 
         self.is_embedded = self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
-        self.collection = None if self.is_embedded else db[document_type]
+        self.collection = None if self.is_embedded else db[document_type] fix
 
     @classmethod
     def schema_skel(cls) -> dict:

@@ -16,7 +16,7 @@ def nothing(*args, **kwargs):
 
 def deny(updater: DocumentUpdater):
     """Convertion is denied"""
-    raise MigrationError(f"Convertion of field {updater.document_name}.{updater.field_name} "
+    raise MigrationError(f"Convertion of field {updater.document_type}.{updater.field_name} "
                          f"is forbidden")
 
 

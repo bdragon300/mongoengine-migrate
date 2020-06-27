@@ -71,26 +71,26 @@ class DocumentUpdater:
     """Document updater class. Used to update certain field in
     collection or embedded document
     """
-    def __init__(self, db: Database, document_name: str, field_name: str, db_schema: Schema):
+    def __init__(self, db: Database, document_type: str, field_name: str, db_schema: Schema):
         """
         :param db: pymongo database object
-        :param document_name: document name
+        :param document_type: document name
         :param field_name: field to work with
         :param db_schema: current db schema
         """
         self.db = db
-        self.document_name = document_name
+        self.document_type = document_type
         self.field_name = field_name
         self.db_schema = db_schema
 
     @property
-    def document_name(self):
-        return self._document_name
+    def document_type(self):
+        return self._document_type
 
-    @document_name.setter
-    def document_name(self, val):
-        self._document_name = val
-        self.is_embedded = self.document_name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
+    @document_type.setter
+    def document_type(self, val):
+        self._document_type = val
+        self.is_embedded = self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
 
     def update_by_path(self, callback: Callable) -> None:
         """
@@ -114,8 +114,8 @@ class DocumentUpdater:
         :param callback:
         :return:
         """
-        if not self.document_name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-            callback(self.db[self.document_name], self.field_name, self.field_name, None)
+        if not self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
+            callback(self.db[self.document_type], self.field_name, self.field_name, None)
             return
 
         for collection, update_path, filter_path in self._get_update_paths():
@@ -144,8 +144,8 @@ class DocumentUpdater:
         :param callback:
         :return:
         """
-        if not self.document_name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-            collection = self.db[self.document_name]
+        if not self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
+            collection = self.db[self.document_type]
             for doc in collection.find():
                 callback(collection, doc, self.field_name)
             return
@@ -247,7 +247,7 @@ class DocumentUpdater:
 
         for collection_name, collection_schema in collections:
             collection = self.db[collection_name]
-            for path in self._find_embedded_fields(collection, self.document_name, self.db_schema):
+            for path in self._find_embedded_fields(collection, self.document_type, self.db_schema):
                 update_path = path + [self.field_name]
                 filter_path = [p for p in path if p != '$[]']
 

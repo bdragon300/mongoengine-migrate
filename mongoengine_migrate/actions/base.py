@@ -45,25 +45,25 @@ class BaseAction(metaclass=BaseActionMeta):
     #: before create/drop actions. Default is 5 which means normal
     priority = 12
 
-    def __init__(self, collection_name: str, *, dummy_action: bool = False, **kwargs):
+    def __init__(self, document_type: str, *, dummy_action: bool = False, **kwargs):
         """
-        :param collection_name: Name of collection where the migration
-         will be performed on
+        :param document_type: Document type in schema which will
+         Action will use to make changes
         :param dummy_action: If True then the action will not
          perform any queries on db during migration, but still used
          for changing the db schema
         :param kwargs: Action keyword parameters
         """
-        self.collection_name = collection_name
+        self.tumblr = document_type
         # Could contain collection name or embedded document name
-        self.orig_collection_name = collection_name
+        self.document_type = document_type
         self.dummy_action = dummy_action
         self.parameters = kwargs
         self._run_ctx = None  # Run context, filled by `prepare()`
 
         _prefix = runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX
-        if collection_name.startswith(_prefix):
-            self.collection_name = collection_name[len(_prefix):]
+        if document_type.startswith(_prefix):
+            self.tumblr = document_type[len(_prefix):]
 
     def prepare(self, db: Database, left_schema: Schema):
         """
@@ -72,7 +72,7 @@ class BaseAction(metaclass=BaseActionMeta):
         :param left_schema: db schema before migration (left side)
         :return:
         """
-        collection = db[self.collection_name]
+        collection = db[self.tumblr]
         self._run_ctx = {
             'left_schema': left_schema,
             'db': db,
@@ -138,12 +138,12 @@ class BaseFieldAction(BaseAction):
     Base class for action which affects on one field in a collection
     """
 
-    def __init__(self, collection_name: str, field_name: str, **kwargs):
+    def __init__(self, document_type: str, field_name: str, **kwargs):
         """
-        :param collection_name: collection name to be affected
+        :param document_type: collection name to be affected
         :param field_name: changing mongoengine document field name
         """
-        super().__init__(collection_name, **kwargs)
+        super().__init__(document_type, **kwargs)
         self.field_name = field_name
 
         db_field = kwargs.get('db_field')
@@ -161,7 +161,7 @@ class BaseFieldAction(BaseAction):
     @classmethod
     @abstractmethod
     def build_object(cls,
-                     collection_name: str,
+                     document_type: str,
                      field_name: str,
                      left_schema: Schema,
                      right_schema: Schema) -> Optional['BaseFieldAction']:
@@ -181,7 +181,7 @@ class BaseFieldAction(BaseAction):
         filled out parameters of change (type of field, required flag,
         etc.)
 
-        :param collection_name: collection name to consider
+        :param document_type: document type in schema to consider
         :param field_name: field name to consider
         :param left_schema: database schema before a migration
          would get applied (left side)
@@ -195,7 +195,7 @@ class BaseFieldAction(BaseAction):
         super().prepare(db, left_schema)
 
         self._run_ctx['left_field_schema'] = \
-            left_schema[self.orig_collection_name].get(self.field_name, {})
+            left_schema[self.document_type].get(self.field_name, {})
 
     def to_python_expr(self) -> str:
         parameters = {
@@ -206,7 +206,7 @@ class BaseFieldAction(BaseAction):
             parameters['dummy_action'] = True
 
         kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
-        return f'{self.__class__.__name__}({self.orig_collection_name!r}, {self.field_name!r}' \
+        return f'{self.__class__.__name__}({self.document_type!r}, {self.field_name!r}' \
                f'{kwargs_str})'
 
     def _get_field_handler(self, type_key: str, left_field_schema: dict, right_field_schema: dict):
@@ -221,7 +221,7 @@ class BaseFieldAction(BaseAction):
         """
         handler_cls = self.get_field_handler_cls(type_key)
         handler = handler_cls(self._run_ctx['db'],
-                              self.orig_collection_name,
+                              self.document_type,
                               self._run_ctx['left_schema'],
                               left_field_schema,
                               right_field_schema)
@@ -236,7 +236,7 @@ class BaseDocumentAction(BaseAction):
     @classmethod
     @abstractmethod
     def build_object(cls,
-                     collection_name: str,
+                     document_type: str,
                      left_schema: Schema,
                      right_schema: Schema) -> Optional['BaseDocumentAction']:
         """
@@ -255,7 +255,7 @@ class BaseDocumentAction(BaseAction):
         DropCollection action should return DropCollection object with
         filled out parameters of change (collection name, indexes, etc.)
 
-        :param collection_name: collection name to consider
+        :param document_type: document type in schema to consider
         :param left_schema: database schema before a migration
          would get applied (left side)
         :param right_schema: database schema after a migration
@@ -273,28 +273,28 @@ class BaseDocumentAction(BaseAction):
             parameters['dummy_action'] = True
 
         kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
-        return f'{self.__class__.__name__}({self.orig_collection_name!r}{kwargs_str})'
+        return f'{self.__class__.__name__}({self.document_type!r}{kwargs_str})'
 
 
 class BaseCreateDocument(BaseDocumentAction):
     @classmethod
-    def build_object(cls, collection_name: str, left_schema: Schema, right_schema: Schema):
-        if collection_name not in left_schema and collection_name in right_schema:
-            return cls(collection_name=collection_name)
+    def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
+        if document_type not in left_schema and document_type in right_schema:
+            return cls(document_type=document_type)
 
     def to_schema_patch(self, left_schema: Schema):
-        return [('add', '', [(self.orig_collection_name, Schema.Document())])]
+        return [('add', '', [(self.document_type, Schema.Document())])]
 
 
 class BaseDropDocument(BaseDocumentAction):
     @classmethod
-    def build_object(cls, collection_name: str, left_schema: Schema, right_schema: Schema):
-        if collection_name in left_schema and collection_name not in right_schema:
-            return cls(collection_name=collection_name)  # FIXME: parameters (indexes, acl, etc.)
+    def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
+        if document_type in left_schema and document_type not in right_schema:
+            return cls(document_type=document_type)  # FIXME: parameters (indexes, acl, etc.)
 
     def to_schema_patch(self, left_schema: Schema):
-        item = left_schema[self.orig_collection_name]
-        return [('remove', '', [(self.orig_collection_name, item)])]
+        item = left_schema[self.document_type]
+        return [('remove', '', [(self.document_type, item)])]
 
 
 class BaseRenameDocument(BaseDocumentAction):
@@ -305,41 +305,41 @@ class BaseRenameDocument(BaseDocumentAction):
     #: instead of drop/create
     similarity_threshold = 70
 
-    def __init__(self, collection_name: str, *, new_name, **kwargs):
-        super().__init__(collection_name, new_name=new_name, **kwargs)
+    def __init__(self, document_type: str, *, new_name, **kwargs):
+        super().__init__(document_type, new_name=new_name, **kwargs)
         self.new_name = new_name
 
     @classmethod
-    def build_object(cls, collection_name: str, left_schema: Schema, right_schema: Schema):
+    def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
         # Check if field exists under different name in schema.
         # Field also can have small schema changes in the same time
         # So we try to get similarity percentage and if it more than
         # threshold then we're consider such change as rename/alter.
         # Otherwise it is drop/create
-        match = collection_name in left_schema and collection_name not in right_schema
+        match = document_type in left_schema and document_type not in right_schema
         if not match:
             return
 
-        left_collection_schema = left_schema[collection_name]
+        left_document_schema = left_schema[document_type]
         candidates = []
         matches = 0
         compares = 0
-        for right_collection_name, right_collection_schema in right_schema.items():
+        for right_document_type, right_document_schema in right_schema.items():
             # Skip collections which was not renamed
-            if right_collection_name in left_schema:
+            if right_document_type in left_schema:
                 continue
 
             # Exact match, collection was just renamed
-            if left_collection_schema == right_collection_schema:
-                candidates = [(right_collection_name, right_collection_schema)]
+            if left_document_schema == right_document_schema:
+                candidates = [(right_document_type, right_document_schema)]
                 break
 
             # Try to find collection by its schema similarity
             # Compares are counted as every field schema comparing
-            common_fields = left_collection_schema.keys() | right_collection_schema.keys()
+            common_fields = left_document_schema.keys() | right_document_schema.keys()
             for field_name in common_fields:
-                left_field_schema = left_collection_schema.get(field_name, {})
-                right_field_schema = right_collection_schema.get(field_name, {})
+                left_field_schema = left_document_schema.get(field_name, {})
+                right_field_schema = right_document_schema.get(field_name, {})
                 common_keys = left_field_schema.keys() & right_field_schema.keys()
                 compares += len(common_keys)
                 matches += sum(
@@ -348,14 +348,14 @@ class BaseRenameDocument(BaseDocumentAction):
                 )
 
             if compares > 0 and (matches / compares * 100) >= cls.similarity_threshold:
-                candidates.append((right_collection_name, right_collection_schema))
+                candidates.append((right_document_type, right_document_schema))
 
         if len(candidates) == 1:
-            return cls(collection_name=collection_name, new_name=candidates[0][0])
+            return cls(document_type=document_type, new_name=candidates[0][0])
 
     def to_schema_patch(self, left_schema: Schema):
-        item = left_schema[self.orig_collection_name]
+        item = left_schema[self.document_type]
         return [
-            ('remove', '', [(self.orig_collection_name, item)]),
+            ('remove', '', [(self.document_type, item)]),
             ('add', '', [(self.new_name, item)])
         ]

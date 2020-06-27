@@ -10,17 +10,17 @@ class CreateField(BaseFieldAction):
     """Create field in a given collection"""
     @classmethod
     def build_object(cls,
-                     collection_name: str,
+                     document_type: str,
                      field_name: str,
                      left_schema: Schema,
                      right_schema: Schema):
-        match = collection_name in left_schema \
-                and collection_name in right_schema \
-                and field_name not in left_schema[collection_name] \
-                and field_name in right_schema[collection_name]
+        match = document_type in left_schema \
+                and document_type in right_schema \
+                and field_name not in left_schema[document_type] \
+                and field_name in right_schema[document_type]
         if match:
-            field_params = right_schema[collection_name][field_name]
-            return cls(collection_name=collection_name,
+            field_params = right_schema[document_type][field_name]
+            return cls(document_type=document_type,
                        field_name=field_name,
                        **field_params
                        )
@@ -44,7 +44,7 @@ class CreateField(BaseFieldAction):
         }
         return [(
             'add',
-            self.orig_collection_name,
+            self.document_type,
             [(self.field_name, field_params)]
         )]
 
@@ -67,7 +67,7 @@ class CreateField(BaseFieldAction):
         if is_required:
             db_field = self.parameters['db_field']
             updater = DocumentUpdater(self._run_ctx['db'],
-                                      self.orig_collection_name,
+                                      self.document_type,
                                       db_field,
                                       self._run_ctx['left_schema'])
             updater.update_by_path(by_path)
@@ -82,7 +82,7 @@ class CreateField(BaseFieldAction):
 
         db_field = self.parameters['db_field']
         updater = DocumentUpdater(self._run_ctx['db'],
-                                  self.orig_collection_name,
+                                  self.document_type,
                                   db_field,
                                   self._run_ctx['left_schema'])
         updater.update_by_path(by_path)
@@ -92,27 +92,27 @@ class DropField(BaseFieldAction):
     """Drop field in a given collection"""
     @classmethod
     def build_object(cls,
-                     collection_name: str,
+                     document_type: str,
                      field_name: str,
                      left_schema: Schema,
                      right_schema: Schema):
-        match = collection_name in left_schema \
-                and collection_name in right_schema \
-                and field_name in left_schema[collection_name] \
-                and field_name not in right_schema[collection_name]
+        match = document_type in left_schema \
+                and document_type in right_schema \
+                and field_name in left_schema[document_type] \
+                and field_name not in right_schema[document_type]
         if match:
-            return cls(collection_name=collection_name, field_name=field_name)
+            return cls(document_type=document_type, field_name=field_name)
 
     def to_schema_patch(self, left_schema: Schema):
         try:
-            left_field_schema = left_schema[self.orig_collection_name][self.field_name]
+            left_field_schema = left_schema[self.document_type][self.field_name]
         except KeyError:
-            raise ActionError(f'Cannot alter field {self.orig_collection_name}.{self.field_name} '
-                              f'since the collection {self.orig_collection_name} is not in schema')
+            raise ActionError(f'Cannot alter field {self.document_type}.{self.field_name} '
+                              f'since the collection {self.document_type} is not in schema')
 
         return [(
             'remove',
-            self.orig_collection_name,
+            self.document_type,
             [(self.field_name, left_field_schema)]
         )]
 
@@ -126,7 +126,7 @@ class DropField(BaseFieldAction):
 
         db_field = self._run_ctx['left_field_schema']['db_field']
         updater = DocumentUpdater(self._run_ctx['db'],
-                                  self.orig_collection_name,
+                                  self.document_type,
                                   db_field,
                                   self._run_ctx['left_schema'])
         updater.update_by_path(by_path)
@@ -149,7 +149,7 @@ class DropField(BaseFieldAction):
         if is_required:
             db_field = self._run_ctx['left_field_schema']['db_field']
             updater = DocumentUpdater(self._run_ctx['db'],
-                                      self.orig_collection_name,
+                                      self.document_type,
                                       db_field,
                                       self._run_ctx['left_schema'])
             updater.update_by_path(by_path)
@@ -159,36 +159,36 @@ class AlterField(BaseFieldAction):
     """Change field parameters or its type, i.e. altering"""
     @classmethod
     def build_object(cls,
-                     collection_name: str,
+                     document_type: str,
                      field_name: str,
                      left_schema: Schema,
                      right_schema: Schema):
         # Check if field still here but its schema has changed
-        match = collection_name in left_schema \
-                and collection_name in right_schema \
-                and field_name in left_schema[collection_name] \
-                and field_name in right_schema[collection_name] \
-                and left_schema[collection_name][field_name] != right_schema[collection_name][field_name]
+        match = document_type in left_schema \
+                and document_type in right_schema \
+                and field_name in left_schema[document_type] \
+                and field_name in right_schema[document_type] \
+                and left_schema[document_type][field_name] != right_schema[document_type][field_name]
         if match:
             # Consider items which was changed and added, skip those
             # ones which was unchanged or was removed
-            right_field_schema = right_schema[collection_name][field_name]
-            left_field_schema = left_schema[collection_name][field_name]
+            right_field_schema = right_schema[document_type][field_name]
+            left_field_schema = left_schema[document_type][field_name]
             action_params = dict(right_field_schema.items() - left_field_schema.items())
             # FIXME: use function below
-            # field_params = cls._fix_field_params(collection_name,
+            # field_params = cls._fix_field_params(document_type,
             #                                      field_name,
             #                                      field_params,
             #                                      old_schema,
             #                                      new_schema)
-            return cls(collection_name=collection_name, field_name=field_name, **action_params)
+            return cls(document_type=document_type, field_name=field_name, **action_params)
 
     def to_schema_patch(self, left_schema: Schema):
         try:
-            left_field_schema = left_schema[self.orig_collection_name][self.field_name]
+            left_field_schema = left_schema[self.document_type][self.field_name]
         except KeyError:
-            raise ActionError(f'Cannot alter field {self.orig_collection_name}.{self.field_name} '
-                              f'since the collection {self.orig_collection_name} is not in schema')
+            raise ActionError(f'Cannot alter field {self.document_type}.{self.field_name} '
+                              f'since the collection {self.document_type} is not in schema')
 
         # Get schema skeleton for field type
         field_handler_cls = self.get_field_handler_cls(
@@ -204,14 +204,14 @@ class AlterField(BaseFieldAction):
         params = self.parameters
 
         # Remove params
-        d = [('remove', f'{self.orig_collection_name}.{self.field_name}', [(key, ())])
+        d = [('remove', f'{self.document_type}.{self.field_name}', [(key, ())])
              for key in left.keys() - right_schema_skel.keys()]
         # Add new params
-        d += [('add', f'{self.orig_collection_name}.{self.field_name}', [(key, params[key])])
+        d += [('add', f'{self.document_type}.{self.field_name}', [(key, params[key])])
               for key in params.keys() - left.keys()]
         # Change params if they are requested to be changed
         d += [('change',
-               f'{self.orig_collection_name}.{self.field_name}.{key}',
+               f'{self.document_type}.{self.field_name}.{key}',
                (left[key], params[key]))
               for key in params.keys() & left.keys()
               if left[key] != params[key]]
@@ -263,7 +263,7 @@ class AlterField(BaseFieldAction):
 
     @classmethod
     def _fix_field_params(cls,
-                          collection_name: str,
+                          document_type: str,
                           field_name: str,
                           field_params: Mapping[str, Any],
                           old_schema: Schema,
@@ -273,7 +273,7 @@ class AlterField(BaseFieldAction):
         migration and return fixed field schema. If such problem
         could not be resolved only by changing parameters then raise
         an ActionError
-        :param collection_name:
+        :param document_type:
         :param field_name:
         :param field_params:
         :param old_schema:
@@ -296,7 +296,7 @@ class AlterField(BaseFieldAction):
             or new_schema.get(field_name, {}).get('default')
         if become_required and default is None:
             # TODO: replace following error on interactive mode
-            raise ActionError(f'Field {collection_name}.{field_name} could not be '
+            raise ActionError(f'Field {document_type}.{field_name} could not be '
                               f'created since it defined as required but has not a default value')
 
         return field_params
@@ -311,13 +311,13 @@ class RenameField(BaseFieldAction):
     #: field rename instead of drop/create
     similarity_threshold = 70
 
-    def __init__(self, collection_name: str, field_name: str, *, new_name, **kwargs):
-        super().__init__(collection_name, field_name, new_name=new_name, **kwargs)
+    def __init__(self, document_type: str, field_name: str, *, new_name, **kwargs):
+        super().__init__(document_type, field_name, new_name=new_name, **kwargs)
         self.new_name = new_name
 
     @classmethod
     def build_object(cls,
-                     collection_name: str,
+                     document_type: str,
                      field_name: str,
                      left_schema: Schema,
                      right_schema: Schema):
@@ -326,19 +326,19 @@ class RenameField(BaseFieldAction):
         # So we try to get similarity percentage and if it more than
         # threshold then we're consider such change as rename/alter.
         # Otherwise it is drop/create
-        match = collection_name in left_schema \
-                and collection_name in right_schema \
-                and field_name in left_schema[collection_name] \
-                and field_name not in right_schema[collection_name]
+        match = document_type in left_schema \
+                and document_type in right_schema \
+                and field_name in left_schema[document_type] \
+                and field_name not in right_schema[document_type]
         if not match:
             return
 
-        left_field_schema = left_schema[collection_name][field_name]
+        left_field_schema = left_schema[document_type][field_name]
         candidates = []
-        for right_field_name, right_field_schema in right_schema[collection_name].items():
+        for right_field_name, right_field_schema in right_schema[document_type].items():
             # Skip fields which was not renamed
             # Changing 'db_field' parameter is altering, not renaming
-            if right_field_name in left_schema[collection_name]:
+            if right_field_name in left_schema[document_type]:
                 continue
 
             # Model field renamed, but db field is the same
@@ -358,20 +358,20 @@ class RenameField(BaseFieldAction):
                     candidates.append((right_field_name, right_field_schema))
 
         if len(candidates) == 1:
-            return cls(collection_name=collection_name,
+            return cls(document_type=document_type,
                        field_name=field_name,
                        new_name=candidates[0][0])
 
     def to_schema_patch(self, left_schema: Schema):
         try:
-            left_field_schema = left_schema[self.orig_collection_name][self.field_name]
+            left_field_schema = left_schema[self.document_type][self.field_name]
         except KeyError:
-            raise ActionError(f'Cannot alter field {self.orig_collection_name}.{self.field_name} '
-                              f'since the collection {self.orig_collection_name} is not in schema')
+            raise ActionError(f'Cannot alter field {self.document_type}.{self.field_name} '
+                              f'since the collection {self.document_type} is not in schema')
 
         return [
-            ('remove', f'{self.orig_collection_name}', [(self.field_name, left_field_schema)]),
-            ('add', f'{self.orig_collection_name}', [(self.new_name, left_field_schema)])
+            ('remove', f'{self.document_type}', [(self.field_name, left_field_schema)]),
+            ('add', f'{self.document_type}', [(self.new_name, left_field_schema)])
         ]
 
     def run_forward(self):

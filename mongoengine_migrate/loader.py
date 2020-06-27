@@ -80,13 +80,13 @@ def collect_models_schema() -> Schema:
         if model_cls._meta.get('abstract', True):
             continue
 
-        collection_name = get_document_type(model_cls)
-        if collection_name is None:
-            raise SchemaError(f'Could not get collection name for {model_cls!r}')
+        document_type = get_document_type(model_cls)
+        if document_type is None:
+            raise SchemaError(f'Could not get document type for {model_cls!r}')
 
-        if collection_name in schema:  # FIXME: inherited documents could have the same collection
-            raise SchemaError(f'Models with the same collection names {collection_name!r} found')
-        schema[collection_name] = Schema.Document()
+        if document_type in schema:  # FIXME: inherited documents could have the same collection
+            raise SchemaError(f'Models with the same document types {document_type!r} found')
+        schema[document_type] = Schema.Document()
 
         # {field_cls: TypeKeyRegistryItem}
         field_mapping_registry = {x.field_cls: x for x in type_key_registry.values()}
@@ -113,7 +113,7 @@ def collect_models_schema() -> Schema:
                                   f'in type_key registry')
 
             handler_cls = field_mapping_registry[registry_field_cls].field_handler_cls
-            schema[collection_name][field_name] = handler_cls.build_schema(field_obj)
+            schema[document_type][field_name] = handler_cls.build_schema(field_obj)
             # TODO: warning about field type not implemented
             # TODO: validate default against all field restrictions such as min_length, regex, etc.
 

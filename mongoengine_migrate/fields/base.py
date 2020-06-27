@@ -38,7 +38,7 @@ class FieldHandlerMeta(type):
         me_classes_attr = 'field_classes'
         me_classes = attrs.get(me_classes_attr)
 
-        assert not {'field_name', 'collection_name'} & attrs.get('schema_skel_keys', set()), \
+        assert not {'field_name', 'document_type'} & attrs.get('schema_skel_keys', set()), \
             "Handler schema_skel_keys shouldn't have keys matched with BaseAction parameters"
 
         assert isinstance(me_classes, (List, Tuple)) or me_classes is None, \
@@ -76,26 +76,26 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
     def __init__(self,
                  db: Database,
-                 collection_name: str,
+                 document_type: str,
                  left_schema: Schema,
                  left_field_schema: dict,  # FIXME: get rid of
                  right_field_schema: dict):
         """
         :param db: pymongo Database object
-        :param collection_name: collection name. Could contain
+        :param document_type: collection name. Could contain
          collection name or embedded document name
         :param left_schema:
         :param left_field_schema:
         :param right_field_schema:
         """
         self.db = db
-        self.collection_name = collection_name
+        self.document_type = document_type
         self.left_field_schema = left_field_schema
         self.right_field_schema = right_field_schema
         self.left_schema = left_schema
 
-        self.is_embedded = self.collection_name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
-        self.collection = None if self.is_embedded else db[collection_name]
+        self.is_embedded = self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
+        self.collection = None if self.is_embedded else db[document_type]
 
     @classmethod
     def schema_skel(cls) -> dict:
@@ -164,7 +164,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         )
 
         method = getattr(self, f'change_{name}')
-        updater = DocumentUpdater(self.db, self.collection_name, db_field, self.left_schema)
+        updater = DocumentUpdater(self.db, self.document_type, db_field, self.left_schema) fix
         return method(updater, diff)
 
     def change_db_field(self, updater: DocumentUpdater, diff: Diff):
@@ -282,7 +282,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         new_handler_cls = type_key_registry[diff.new].field_handler_cls
         new_handler = new_handler_cls(self.db,
-                                      self.collection_name,
+                                      self.document_type,
                                       self.left_schema,
                                       self.left_field_schema,
                                       self.right_field_schema)

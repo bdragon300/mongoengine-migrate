@@ -61,16 +61,16 @@ def build_document_action_chain(action_cls: Type[BaseDocumentAction],
     :param right_schema:
     :return: iterable of suitable Action objects
     """
-    all_collections = left_schema.keys() | right_schema.keys()
+    all_document_types = left_schema.keys() | right_schema.keys()
 
     # Handle embedded documents before collections
-    all_collections = [c for c in all_collections
-                       if c.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)] + \
-                      [c for c in all_collections
-                       if not c.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)]
+    all_document_types = [c for c in all_document_types
+                          if c.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)] + \
+                         [c for c in all_document_types
+                          if not c.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)]
 
-    for collection_name in all_collections:
-        action_obj = action_cls.build_object(collection_name, left_schema, right_schema)
+    for document_type in all_document_types:
+        action_obj = action_cls.build_object(document_type, left_schema, right_schema)
         if action_obj is not None:
             # TODO: handle patch errors (if schema is corrupted)
             left_schema = patch(action_obj.to_schema_patch(left_schema), left_schema)
@@ -88,20 +88,20 @@ def build_field_action_chain(action_cls: Type[BaseFieldAction],
     :param right_schema:
     :return: iterable of suitable Action objects
     """
-    all_collections = left_schema.keys() | right_schema.keys()
+    all_document_types = left_schema.keys() | right_schema.keys()
 
     # Handle embedded documents before collections
-    all_collections = [c for c in all_collections
-                       if c.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)] + \
-                      [c for c in all_collections
-                       if not c.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)]
+    all_document_types = [c for c in all_document_types
+                          if c.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)] + \
+                         [c for c in all_document_types
+                          if not c.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)]
 
-    for collection_name in all_collections:
+    for document_type in all_document_types:
         # Take all fields to detect if they created, changed or dropped
-        all_fields = left_schema.get(collection_name, {}).keys() | \
-                     right_schema.get(collection_name, {}).keys()
+        all_fields = left_schema.get(document_type, {}).keys() | \
+                     right_schema.get(document_type, {}).keys()
         for field in all_fields:
-            action_obj = action_cls.build_object(collection_name,
+            action_obj = action_cls.build_object(document_type,
                                                  field,
                                                  left_schema,
                                                  right_schema)

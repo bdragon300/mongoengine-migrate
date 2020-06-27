@@ -12,12 +12,12 @@ class CreateCollection(BaseCreateDocument):
     priority = 8
 
     @classmethod
-    def build_object(cls, collection_name: str, left_schema: Schema, right_schema: Schema):
-        if collection_name.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
+    def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
+        if document_type.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
             # This is an embedded document
             return None
 
-        return super(CreateCollection, cls).build_object(collection_name, left_schema, right_schema)
+        return super(CreateCollection, cls).build_object(document_type, left_schema, right_schema)
 
     def run_forward(self):
         """
@@ -39,12 +39,12 @@ class DropCollection(BaseDropDocument):
     priority = 16
 
     @classmethod
-    def build_object(cls, collection_name: str, left_schema: Schema, right_schema: Schema):
-        if collection_name.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
+    def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
+        if document_type.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
             # This is an embedded document
             return None
 
-        return super(DropCollection, cls).build_object(collection_name, left_schema, right_schema)
+        return super(DropCollection, cls).build_object(document_type, left_schema, right_schema)
 
     def run_forward(self):
         """
@@ -69,12 +69,12 @@ class RenameCollection(BaseRenameDocument):
     priority = 6
 
     @classmethod
-    def build_object(cls, collection_name: str, left_schema: Schema, right_schema: Schema):
-        if collection_name.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
+    def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
+        if document_type.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
             # This is an embedded document
             return None
 
-        return super(RenameCollection, cls).build_object(collection_name, left_schema, right_schema)
+        return super(RenameCollection, cls).build_object(document_type, left_schema, right_schema)
 
     def run_forward(self):
         collection_names = self._run_ctx['collection'].database.list_collection_names()
@@ -84,4 +84,4 @@ class RenameCollection(BaseRenameDocument):
     def run_backward(self):
         collection_names = self._run_ctx['collection'].database.list_collection_names()
         if self._run_ctx['collection'].name in collection_names:
-            self._run_ctx['collection'].rename(self.collection_name)
+            self._run_ctx['collection'].rename(self.tumblr)

@@ -428,16 +428,7 @@ class SequenceFieldHandler(CommonFieldHandler):
 
     # TODO: warning on using non-default value_decorator
     # TODO: db_alias
-    # We cannot use 'collection_name' since it is an Action param
-    # So use 'link_collection' instead
-    schema_skel_keys = {'link_collection', 'sequence_name'}
-
-    @classmethod
-    def build_schema(cls, field_obj: mongoengine.fields.SequenceField) -> dict:
-        schema = super(SequenceFieldHandler, cls).build_schema(field_obj)
-        schema['link_collection'] = field_obj.collection_name
-
-        return schema
+    schema_skel_keys = {'collection_name', 'sequence_name'}
 
     def change_link_collection(self, updater: DocumentUpdater, diff: Diff):
         """Typically changing the collection name should not require
@@ -582,16 +573,7 @@ class FileFieldHandler(CommonFieldHandler):
     ]
 
     # TODO: db_alias
-    # We cannot use 'collection_name' since it is an Action param
-    # So use 'link_collection' instead
-    schema_skel_keys = {'link_collection'}
-
-    @classmethod
-    def build_schema(cls, field_obj: mongoengine.fields.FileField) -> dict:
-        schema = super(FileFieldHandler, cls).build_schema(field_obj)
-        schema['link_collection'] = field_obj.collection_name
-
-        return schema
+    schema_skel_keys = {'collection_name'}
 
     def change_link_collection(self, updater: DocumentUpdater, diff: Diff):
         """Typically changing the collection name should not require

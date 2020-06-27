@@ -13,12 +13,12 @@ class CreateEmbedded(BaseCreateDocument):
     priority = 4
 
     @classmethod
-    def build_object(cls, collection_name: str, left_schema: Schema, right_schema: Schema):
-        if not collection_name.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
+    def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
+        if not document_type.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
             # This is not an embedded document
             return None
 
-        return super(CreateEmbedded, cls).build_object(collection_name, left_schema, right_schema)
+        return super(CreateEmbedded, cls).build_object(document_type, left_schema, right_schema)
 
     def run_forward(self):
         """Embedded documents are not required to do anything"""
@@ -37,12 +37,12 @@ class DropEmbedded(BaseDropDocument):
     priority = 18
 
     @classmethod
-    def build_object(cls, collection_name: str, left_schema: Schema, right_schema: Schema):
-        if not collection_name.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
+    def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
+        if not document_type.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
             # This is not an embedded document
             return None
 
-        return super(DropEmbedded, cls).build_object(collection_name, left_schema, right_schema)
+        return super(DropEmbedded, cls).build_object(document_type, left_schema, right_schema)
 
     def run_forward(self):
         """Embedded documents are not required to do anything"""
@@ -59,12 +59,12 @@ class RenameEmbedded(BaseRenameDocument):
     priority = 2
 
     @classmethod
-    def build_object(cls, collection_name: str, left_schema: Schema, right_schema: Schema):
-        if not collection_name.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
+    def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
+        if not document_type.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
             # This is not an embedded document
             return None
 
-        return super(RenameEmbedded, cls).build_object(collection_name, left_schema, right_schema)
+        return super(RenameEmbedded, cls).build_object(document_type, left_schema, right_schema)
 
     def run_forward(self):
         """Embedded documents are not required to do anything"""

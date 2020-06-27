@@ -75,7 +75,7 @@ def get_closest_parent(target: Type, classes: Iterable[Type]) -> Type:
 
 def get_document_type(document_cls: Type[BaseDocument]) -> Optional[str]:
     """
-    Return document type for `collection_name` parameter of Action
+    Return document type for `document_type` parameter of Action
     :param document_cls: document class
     :return: document type or None if unable to get it (if document_cls
      is abstract)

@@ -4,7 +4,7 @@ from typing import Dict, Type, Optional, List
 
 from pymongo.database import Database
 
-import mongoengine_migrate.flags as runtime_flags
+import mongoengine_migrate.flags as flags
 from mongoengine_migrate.exceptions import MigrationError, ActionError
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.query_tracer import HistoryCall
@@ -75,7 +75,7 @@ class BaseAction(metaclass=BaseActionMeta):
 
     def cleanup(self):
         """Cleanup after Action run (both forward and backward)"""
-        if runtime_flags.dry_run:
+        if flags.dry_run:
             self._run_ctx['collection'].call_history.clear()
 
     @abstractmethod
@@ -121,7 +121,7 @@ class BaseAction(metaclass=BaseActionMeta):
 
     def get_call_history(self) -> List[HistoryCall]:
         """Return call history of collection modification methods"""
-        if runtime_flags.dry_run:
+        if flags.dry_run:
             return self._run_ctx['collection'].call_history
 
         return []
@@ -268,6 +268,16 @@ class BaseDocumentAction(BaseAction):
 
         kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
         return f'{self.__class__.__name__}({self.document_type!r}{kwargs_str})'
+
+    def _is_my_collection_used_by_other_documents(self) -> bool:
+        """Return True if some of documents uses the same collection"""
+        self_schema = self._run_ctx['left_schema'][self.document_type]
+        collection_name = self_schema.properties['collection']
+        return any(
+            v.parameters.get('collection') == collection_name
+            for k, v in self._run_ctx['left_schema'].items()
+            if k != self.document_type and not k.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
+        )
 
 
 class BaseCreateDocument(BaseDocumentAction):

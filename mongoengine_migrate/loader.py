@@ -91,6 +91,9 @@ def collect_models_schema() -> Schema:
         if not document_type.startswith(runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
             schema[document_type].parameters['collection'] = model_cls._get_collection_name()
 
+        if model_cls._meta.get('allow_inheritance'):
+            schema[document_type].parameters['inherit'] = True
+
         # {field_cls: TypeKeyRegistryItem}
         field_mapping_registry = {x.field_cls: x for x in type_key_registry.values()}
 

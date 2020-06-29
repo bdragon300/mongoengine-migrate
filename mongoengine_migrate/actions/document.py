@@ -35,7 +35,11 @@ class CreateDocument(BaseCreateDocument):
 
     def run_backward(self):
         """Drop collection in backward direction"""
-        self._run_ctx['collection'].drop()
+        # If the document has 'allow_inheritance' then drop only if
+        # no documents left which are point to collection
+        skip = self.parameters.get('inherit') and self._is_my_collection_used_by_other_documents()
+        if not skip:
+            self._run_ctx['collection'].drop()
 
 
 class DropDocument(BaseDropDocument):
@@ -55,7 +59,11 @@ class DropDocument(BaseDropDocument):
         Mongodb automatically creates collection on the first insert
         So, do nothing
         """
-        self._run_ctx['collection'].drop()
+        # If the document has 'allow_inheritance' then drop only if
+        # no documents left which are point to collection
+        skip = self.parameters.get('inherit') and self._is_my_collection_used_by_other_documents()
+        if not skip:
+            self._run_ctx['collection'].drop()
 
     def run_backward(self):
         """
@@ -85,6 +93,7 @@ class RenameDocument(BaseRenameDocument):
 
 
 class AlterDocument(BaseDocumentAction):
+    # FIXME: set prioriry
     @classmethod
     def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
         match = document_type in left_schema \
@@ -107,12 +116,18 @@ class AlterDocument(BaseDocumentAction):
     def run_forward(self):
         # Rename collection
         collection_names = self._run_ctx['collection'].database.list_collection_names()
-        if self._run_ctx['collection'].name in collection_names:
+        # If the document has 'allow_inheritance' then rename only if
+        # no documents left which are point to collection
+        skip = self.parameters.get('inherit') and self._is_my_collection_used_by_other_documents()
+        if not skip and self._run_ctx['collection'].name in collection_names:
             self._run_ctx['collection'].rename(self.parameters['collection'])
 
     def run_backward(self):
         # Rename collection
         collection_names = self._run_ctx['collection'].database.list_collection_names()
-        if self._run_ctx['collection'].name in collection_names:
+        # If the document has 'allow_inheritance' then rename only if
+        # no documents left which are point to collection
+        skip = self.parameters.get('inherit') and self._is_my_collection_used_by_other_documents()
+        if not skip and self._run_ctx['collection'].name in collection_names:
             new_name = self._run_ctx['left_schema'][self.document_type].parameters['collection']
             self._run_ctx['collection'].rename(new_name)

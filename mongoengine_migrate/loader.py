@@ -77,7 +77,9 @@ def collect_models_schema() -> Schema:
 
     # Retrieve models from mongoengine global document registry
     for model_cls in _document_registry.values():
-        if model_cls._meta.get('abstract', True):
+        # NOTE: EmbeddedDocuments are not append 'abstract' in meta if
+        # `meta` is defined
+        if model_cls._meta.get('abstract'):
             continue
 
         document_type = get_document_type(model_cls)

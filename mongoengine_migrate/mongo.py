@@ -73,6 +73,7 @@ class ByPathContext(NamedTuple):
     filter_dotpath: str
     update_dotpath: str
     array_filters: Optional[List[dict]]
+    apply_filter: dict
 
 
 class ByDocContext(NamedTuple):
@@ -86,17 +87,27 @@ class DocumentUpdater:
     """Document updater class. Used to update certain field in
     collection or embedded document
     """
-    def __init__(self, db: Database, document_type: str, field_name: str, db_schema: Schema):
+    def __init__(self, db: Database,
+                 document_type: str,
+                 field_name: str,
+                 db_schema: Schema,
+                 document_cls: Optional[str] = None):
         """
         :param db: pymongo database object
         :param document_type: document name
         :param field_name: field to work with
         :param db_schema: current db schema
+        :param document_cls: if given then we ignore those documents
+         and embedded documents whose '_cls' field is not equal to this
+         parameter value. Documents with no '_cls' field and fields
+         with types other than object will not be ignored. This
+         parameter uses for Document inheritance support
         """
         self.db = db
         self.document_type = document_type
         self.field_name = field_name
         self.db_schema = db_schema
+        self.document_cls = document_cls
 
     @property
     def document_type(self):
@@ -129,12 +140,14 @@ class DocumentUpdater:
         :param callback:
         :return:
         """
+        class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
         if not self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
             collection_name = self.db_schema[self.document_type].properties['collection']
             ctx = ByPathContext(collection=self.db[collection_name],
                                 filter_dotpath=self.field_name,
                                 update_dotpath=self.field_name,
-                                array_filters=None)
+                                array_filters=None,
+                                apply_filter=class_fltr)
             callback(ctx)
             return
 
@@ -145,10 +158,12 @@ class DocumentUpdater:
         update_path, array_filters = self._inject_array_filters(update_path)
         filter_dotpath = '.'.join(filter_path)
         update_dotpath = '.'.join(update_path)
+        class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
         ctx = ByPathContext(collection=collection,
                             filter_dotpath=filter_dotpath,
                             update_dotpath=update_dotpath,
-                            array_filters=array_filters)
+                            array_filters=array_filters,
+                            apply_filter=class_fltr)
         callback(ctx)
 
     def update_by_document(self, callback: Callable) -> None:
@@ -168,10 +183,11 @@ class DocumentUpdater:
         :param callback:
         :return:
         """
+        class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
         if not self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
             collection_name = self.db_schema[self.document_type].properties['collection']
             collection = self.db[collection_name]
-            for doc in collection.find():
+            for doc in collection.find(class_fltr):
                 ctx = ByDocContext(collection=collection,
                                    document=doc,
                                    filter_dotpath=self.field_name)
@@ -190,6 +206,10 @@ class DocumentUpdater:
         for doc in collection.find({'.'.join(filter_path): {'$exists': True}}):
             # Recursively apply the callback to every embedded doc
             for embedded_doc in parser.find(doc):
+                if self.document_cls:
+                    if (isinstance(embedded_doc, dict)
+                            and embedded_doc.get('_cls', self.document_cls) != self.document_cls):
+                        continue
                 ctx = ByDocContext(collection=collection,
                                    document=embedded_doc,
                                    filter_dotpath=filter_path)

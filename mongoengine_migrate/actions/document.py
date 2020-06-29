@@ -40,6 +40,7 @@ class CreateDocument(BaseCreateDocument):
         skip = self.parameters.get('inherit') and self._is_my_collection_used_by_other_documents()
         if not skip:
             self._run_ctx['collection'].drop()
+        # FIXME: add removing by _cls
 
 
 class DropDocument(BaseDropDocument):
@@ -64,6 +65,7 @@ class DropDocument(BaseDropDocument):
         skip = self.parameters.get('inherit') and self._is_my_collection_used_by_other_documents()
         if not skip:
             self._run_ctx['collection'].drop()
+        # FIXME: add removing by _cls
 
     def run_backward(self):
         """
@@ -105,8 +107,8 @@ class AlterDocument(BaseDocumentAction):
     def to_schema_patch(self, left_schema: Schema):
         left_item = left_schema[self.document_type]
         right_item = deepcopy(left_item)
-        right_item.properties.clear()
-        right_item.properties.update(self.parameters)
+        right_item.parameters.clear()
+        right_item.parameters.update(self.parameters)
 
         return [
             ('remove', '', [(self.document_type, left_item)]),

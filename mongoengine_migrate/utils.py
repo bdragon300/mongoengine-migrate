@@ -2,7 +2,7 @@ import inspect
 from typing import Type, Iterable, Optional
 from mongoengine.base import BaseDocument
 from mongoengine import EmbeddedDocument
-from .flags import EMBEDDED_DOCUMENT_NAME_PREFIX
+from .flags import EMBEDDED_DOCUMENT_NAME_PREFIX, DOCUMENT_NAME_SEPARATOR
 
 
 class Slotinit(object):
@@ -80,9 +80,13 @@ def get_document_type(document_cls: Type[BaseDocument]) -> Optional[str]:
     :return: document type or None if unable to get it (if document_cls
      is abstract)
     """
+    # Class name consisted of its name and all parent names separated
+    # by dots, see mongoengine.base.DocumentMetaclass
+    document_type = getattr(document_cls, '_class_name')
+    # Replace dots on our separator since "dictdiffer" package
+    # treats dot in key as dict keys path
+    document_type = document_type.replace('.', DOCUMENT_NAME_SEPARATOR)
     if issubclass(document_cls, EmbeddedDocument):
-        document_type = f'{EMBEDDED_DOCUMENT_NAME_PREFIX}{document_cls.__name__}'
-    else:
-        document_type = document_cls.__name__
+        document_type = f'{EMBEDDED_DOCUMENT_NAME_PREFIX}{document_type}'
 
     return document_type

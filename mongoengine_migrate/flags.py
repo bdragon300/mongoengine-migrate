@@ -19,6 +19,10 @@ mongo_version = None
 EMBEDDED_DOCUMENT_NAME_PREFIX = '~'
 
 
+#: Separator between parent and clild classes in document name string
+DOCUMENT_NAME_SEPARATOR = '->'
+
+
 #: Maximum memory items buffer size on bulk write operations
 #: Pay attention: max BSON size is 16Mb
 #: https://docs.mongodb.com/manual/reference/limits/#bson-documents

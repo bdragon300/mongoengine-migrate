@@ -469,9 +469,9 @@ class ReferenceFieldHandler(CommonFieldHandler):
         mongoengine.fields.LazyReferenceField
     ]
 
-    schema_skel_keys = {'document_type', 'dbref'}
+    schema_skel_keys = {'target_doctype', 'dbref'}
 
-    def change_document_type(self, updater: DocumentUpdater, diff: Diff):
+    def change_target_doctype(self, updater: DocumentUpdater, diff: Diff):
         """Collection could not exist in db, so do nothing"""
         self._check_diff(updater.field_name, diff, False, str)
 
@@ -540,7 +540,7 @@ class ReferenceFieldHandler(CommonFieldHandler):
         # 'document_type' is restricted to use Document class
         # as value by mongoengine itself
         document_type_cls = field_obj.document_type
-        schema['document_type'] = get_document_type(document_type_cls)
+        schema['target_doctype'] = get_document_type(document_type_cls)
 
         return schema
 

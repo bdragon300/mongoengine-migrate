@@ -10,7 +10,9 @@ from mongoengine_migrate.exceptions import SchemaError, MigrationError
 from mongoengine_migrate.fields.registry import type_key_registry, add_field_handler
 from mongoengine_migrate.mongo import (
     check_empty_result,
-    DocumentUpdater
+    DocumentUpdater,
+    ByPathContext,
+    ByDocContext
 )
 from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.utils import get_closest_parent
@@ -175,13 +177,14 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
-            col.update_many(
-                {filter_dotpath: {'$exists': True}},
-                {'$rename': {filter_dotpath: diff.new}}
+        def by_path(ctx: ByPathContext):
+            ctx.collection.update_many(
+                {ctx.filter_dotpath: {'$exists': True}},
+                {'$rename': {ctx.filter_dotpath: diff.new}}
             )
 
-        def by_doc(col, doc, path):
+        def by_doc(ctx: ByDocContext):
+            doc = ctx.document
             if isinstance(doc, dict) and diff.old in doc:
                 doc[diff.new] = doc.pop(diff.old)
 
@@ -199,11 +202,11 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
-            col.update_many(
-                {filter_dotpath: None},  # Both null and nonexistent field
-                {'$set': {update_dotpath: default}},
-                array_filters=array_filters
+        def by_path(ctx: ByPathContext):
+            ctx.collection.update_many(
+                {ctx.filter_dotpath: None},  # Both null and nonexistent field
+                {'$set': {ctx.update_dotpath: default}},
+                array_filters=ctx.array_filters
             )
 
         self._check_diff(updater.field_name, diff, False, bool)
@@ -249,9 +252,11 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
+        def by_path(ctx: ByPathContext):
             choices = diff.new
-            check_empty_result(col, filter_dotpath, {filter_dotpath: {'$nin': choices}})
+            check_empty_result(ctx.collection,
+                               ctx.filter_dotpath,
+                               {ctx.filter_dotpath: {'$nin': choices}})
 
         self._check_diff(updater.field_name, diff, True, Collection)
 

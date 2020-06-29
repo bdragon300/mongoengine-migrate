@@ -1,7 +1,7 @@
 from typing import Mapping, Any
 
 from mongoengine_migrate.exceptions import ActionError
-from mongoengine_migrate.mongo import DocumentUpdater
+from mongoengine_migrate.mongo import DocumentUpdater, ByPathContext, ByDocContext
 from mongoengine_migrate.schema import Schema
 from .base import BaseFieldAction
 
@@ -55,11 +55,11 @@ class CreateField(BaseFieldAction):
         fields automatically on value set
         FIXME: parameters (indexes, acl, etc.)
         """
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
-            col.update_many(
-                {filter_dotpath: {'$exists': False}},
-                {'$set': {update_dotpath: default}},
-                array_filters=array_filters
+        def by_path(ctx: ByPathContext):
+            ctx.collection.update_many(
+                {ctx.filter_dotpath: {'$exists': False}},
+                {'$set': {ctx.update_dotpath: default}},
+                array_filters=ctx.array_filters
             )
 
         is_required = self.parameters.get('required') or self.parameters.get('primary_key')
@@ -74,10 +74,10 @@ class CreateField(BaseFieldAction):
 
     def run_backward(self):
         """Drop field"""
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
-            col.update_many(
-                {filter_dotpath: {'$exists': True}},
-                {'$unset': {update_dotpath: ''}}
+        def by_path(ctx: ByPathContext):
+            ctx.collection.update_many(
+                {ctx.filter_dotpath: {'$exists': True}},
+                {'$unset': {ctx.update_dotpath: ''}}
             )
 
         db_field = self.parameters['db_field']
@@ -118,10 +118,10 @@ class DropField(BaseFieldAction):
 
     def run_forward(self):
         """Drop field"""
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
-            col.update_many(
-                {filter_dotpath: {'$exists': True}},
-                {'$unset': {update_dotpath: ''}}
+        def by_path(ctx: ByPathContext):
+            ctx.collection.update_many(
+                {ctx.filter_dotpath: {'$exists': True}},
+                {'$unset': {ctx.update_dotpath: ''}}
             )
 
         db_field = self._run_ctx['left_field_schema']['db_field']
@@ -137,11 +137,11 @@ class DropField(BaseFieldAction):
         default value. Otherwise do nothing since mongoengine creates
         fields automatically on value set
         """
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
-            col.update_many(
-                {filter_dotpath: {'$exists': False}},
-                {'$set': {update_dotpath: default}},
-                array_filters=array_filters
+        def by_path(ctx: ByPathContext):
+            ctx.collection.update_many(
+                {ctx.filter_dotpath: {'$exists': False}},
+                {'$set': {ctx.update_dotpath: default}},
+                array_filters=ctx.array_filters
             )
 
         is_required = self._run_ctx['left_field_schema'].get('required')

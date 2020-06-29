@@ -6,7 +6,13 @@ import bson
 from dateutil.parser import parse as dateutil_parse
 
 from mongoengine_migrate.exceptions import MigrationError
-from mongoengine_migrate.mongo import check_empty_result, mongo_version, DocumentUpdater
+from mongoengine_migrate.mongo import (
+    check_empty_result,
+    mongo_version,
+    DocumentUpdater,
+    ByDocContext,
+    ByPathContext
+)
 
 
 def nothing(*args, **kwargs):
@@ -22,8 +28,9 @@ def deny(updater: DocumentUpdater):
 
 def drop_field(updater: DocumentUpdater):
     """Drop field"""
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
-        col.update_many({filter_dotpath: {'$exists': True}}, {'$unset': {update_dotpath: ''}})
+    def by_path(ctx: ByPathContext):
+        ctx.collection.update_many({ctx.filter_dotpath: {'$exists': True}},
+                                   {'$unset': {ctx.update_dotpath: ''}})
 
     updater.update_by_path(by_path)
 
@@ -31,20 +38,20 @@ def drop_field(updater: DocumentUpdater):
 @mongo_version(min_version='3.6')
 def item_to_list(updater: DocumentUpdater):
     """Make a list with single element from every non-array value"""
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
-        col.aggregate([
+    def by_path(ctx: ByPathContext):
+        ctx.collection.aggregate([
             {'$match': {
-                filter_dotpath: {"$exists": True},
+                ctx.filter_dotpath: {"$exists": True},
                 # $expr >= 3.6, $type >= 3.4
-                "$expr": {"$ne": [{"$type": f'${filter_dotpath}'}, 'array']}
+                "$expr": {"$ne": [{"$type": f'${ctx.filter_dotpath}'}, 'array']}
             }},
-            {'$addFields': {filter_dotpath: [f"${filter_dotpath}"]}},  # >=3.4
-            {'$out': col.name}  # >= 2.6
+            {'$addFields': {ctx.filter_dotpath: [f"${ctx.filter_dotpath}"]}},  # >=3.4
+            {'$out': ctx.collection.name}  # >= 2.6
         ])
 
-    def by_doc(col, doc, filter_dotpath):
-        if isinstance(doc, dict) and updater.field_name in doc:
-            doc[updater.field_name] = [doc[updater.field_name]]
+    def by_doc(ctx: ByDocContext):
+        if isinstance(ctx.document, dict) and updater.field_name in ctx.document:
+            ctx.document[updater.field_name] = [ctx.document[updater.field_name]]
 
     updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
 
@@ -52,19 +59,21 @@ def item_to_list(updater: DocumentUpdater):
 @mongo_version(min_version='3.6')
 def extract_from_list(updater: DocumentUpdater):
     """Replace every list which was met with its first element"""
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
-        col.aggregate([
+    def by_path(ctx: ByPathContext):
+        ctx.collection.aggregate([
             {'$match': {
-                filter_dotpath: {"$ne": None},
+                ctx.filter_dotpath: {"$ne": None},
                 # $expr >= 3.6, $type >= 3.4
                 # FIXME: what if nested list (not idempotent query)
-                "$expr": {"$eq": [{"$type": f'${filter_dotpath}'}, 'array']}
+                "$expr": {"$eq": [{"$type": f'${ctx.filter_dotpath}'}, 'array']}
             }},
-            {'$addFields': {filter_dotpath: {"$arrayElemAt": [f"${filter_dotpath}", 0]}}},  # >=3.4
-            {'$out': col.name}  # >= 2.6
+            # $addFields >=3.4
+            {'$addFields': {ctx.filter_dotpath: {"$arrayElemAt": [f"${ctx.filter_dotpath}", 0]}}},
+            {'$out': ctx.collection.name}  # >= 2.6
         ])
 
-    def by_doc(col, doc, filter_dotpath):
+    def by_doc(ctx: ByDocContext):
+        doc = ctx.document
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), (list, tuple)):
             doc[updater.field_name] = doc[updater.field_name][0]
 
@@ -120,34 +129,34 @@ def to_uuid(updater: DocumentUpdater):
         }
         check_empty_result(col, filter_dotpath, fltr)
 
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(ctx: ByPathContext):
         # Convert fields to string where value has type other than binData
-        col.aggregate([
+        ctx.collection.aggregate([
             {'$match': {
-                filter_dotpath: {'$ne': None}, # Field exists and not null
+                ctx.filter_dotpath: {'$ne': None}, # Field exists and not null
                 '$expr': {  # >= 3.6
                     '$not': [
                         # $type >= 3.4, $in >= 3.4
-                        {'$in': [{'$type': f'${filter_dotpath}'}, ['binData', 'string']]}
+                        {'$in': [{'$type': f'${ctx.filter_dotpath}'}, ['binData', 'string']]}
                     ]
                 }
             }},
             {'$addFields': {  # >= 3.4
                 '$convert': {  # >= 4.0
-                    'input': f'${filter_dotpath}',
+                    'input': f'${ctx.filter_dotpath}',
                     'to': 'string'
                 }
             }},
-            {'$out': col.name}  # >= 2.6
+            {'$out': ctx.collection.name}  # >= 2.6
         ])
 
-    def by_doc(col, doc, filter_dotpath):
-        if not isinstance(doc, dict):
+    def by_doc(ctx: ByDocContext):
+        if not isinstance(ctx.document, dict):
             return
-        item = doc.get(updater.field_name)
+        item = ctx.document.get(updater.field_name)
 
         if item is not None and not isinstance(item, (bson.Binary, str)):
-            doc[updater.field_name] = str(doc)
+            ctx.document[updater.field_name] = str(ctx.document)
         # FIXME: call post_check for every filter_dotpath, not for doc
 
     updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
@@ -156,9 +165,9 @@ def to_uuid(updater: DocumentUpdater):
 
 def to_url_string(updater: DocumentUpdater):
     """Cast fields to string and then verify if they contain URLs"""
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
-        fltr = {filter_dotpath: {'$not': url_regex, '$ne': None}}
-        check_empty_result(col, filter_dotpath, fltr)
+    def by_path(ctx: ByPathContext):
+        fltr = {ctx.filter_dotpath: {'$not': url_regex, '$ne': None}}
+        check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
     to_string(updater)
 
@@ -170,9 +179,9 @@ def to_url_string(updater: DocumentUpdater):
 
 
 def to_complex_datetime(updater: DocumentUpdater):
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
-        fltr = {filter_dotpath: {'$not': regex, '$ne': None}}
-        check_empty_result(col, filter_dotpath, fltr)
+    def by_path(ctx: ByPathContext):
+        fltr = {ctx.filter_dotpath: {'$not': regex, '$ne': None}}
+        check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
     to_string(updater)
 
@@ -197,18 +206,19 @@ def ref_to_cached_reference(updater: DocumentUpdater):
         }
         check_empty_result(col, filter_dotpath, fltr)
 
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
-        col.aggregate([
+    def by_path(ctx: ByPathContext):
+        ctx.collection.aggregate([
             {'$match': {
-                filter_dotpath: {"$ne": None},
+                ctx.filter_dotpath: {"$ne": None},
                 # $expr >= 3.6, $type >= 3.4
-                "$expr": {"$eq": [{"$type": f'${filter_dotpath}'}, 'objectId']}
+                "$expr": {"$eq": [{"$type": f'${ctx.filter_dotpath}'}, 'objectId']}
             }},
-            {'$addFields': {filter_dotpath: {'_id': f"${filter_dotpath}"}}},  # >= 3.4
-            {'$out': col.name}  # >= 2.6
+            {'$addFields': {ctx.filter_dotpath: {'_id': f"${ctx.filter_dotpath}"}}},  # >= 3.4
+            {'$out': ctx.collection.name}  # >= 2.6
         ])
 
-    def by_doc(col, doc, filter_dotpath):
+    def by_doc(ctx: ByDocContext):
+        doc = ctx.document
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), bson.ObjectId):
             doc[updater.field_name] = {'_id': doc[updater.field_name]}
 
@@ -233,18 +243,19 @@ def cached_reference_to_ref(updater: DocumentUpdater):
         }
         check_empty_result(col, filter_dotpath, fltr)
 
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
-        col.aggregate([
+    def by_path(ctx: ByPathContext):
+        ctx.collection.aggregate([
             {'$match': {
-                f'{filter_dotpath}._id': {"$ne": None},
+                f'{ctx.filter_dotpath}._id': {"$ne": None},
                 # $expr >= 3.6, $type >= 3.4
-                "$expr": {"$eq": [{"$type": f'${filter_dotpath}'}, 'object']}
+                "$expr": {"$eq": [{"$type": f'${ctx.filter_dotpath}'}, 'object']}
             }},
-            {'$addFields': {filter_dotpath: f"${filter_dotpath}._id"}},  # >= 3.4
-            {'$out': col.name}  # >= 2.6
+            {'$addFields': {ctx.filter_dotpath: f"${ctx.filter_dotpath}._id"}},  # >= 3.4
+            {'$out': ctx.collection.name}  # >= 2.6
         ])
 
-    def by_doc(col, doc, filter_dotpath):
+    def by_doc(ctx: ByDocContext):
+        doc = ctx.document
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
             doc[updater.field_name] = doc[updater.field_name].get('_id')
 
@@ -263,26 +274,26 @@ def __mongo_convert(updater: DocumentUpdater, target_type: str):
     :param target_type: MongoDB type name
     :return:
     """
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(ctx: ByPathContext):
         # TODO: implement also for mongo 3.x
         # TODO: use $convert with onError and onNull
-        col.aggregate([
+        ctx.collection.aggregate([
             # Field exists and not null
             {'$match': {
-                filter_dotpath: {'$ne': None},  # Field exists and not null
+                ctx.filter_dotpath: {'$ne': None},  # Field exists and not null
                 # $expr >= 3.6, $type >= 3.4
-                "$expr": {"$ne": [{"$type": f'${filter_dotpath}'}, target_type]}
+                "$expr": {"$ne": [{"$type": f'${ctx.filter_dotpath}'}, target_type]}
             }},
             {'$addFields': {
                 '$convert': {  # >= 4.0
-                    'input': f'${filter_dotpath}',
+                    'input': f'${ctx.filter_dotpath}',
                     'to': target_type
                 }
             }},
-            {'$out': col.name}  # >= 2.6
+            {'$out': ctx.collection.name}  # >= 2.6
         ])
 
-    def by_doc(col, doc, filter_dotpath):
+    def by_doc(ctx: ByDocContext):
         # https://docs.mongodb.com/manual/reference/operator/aggregation/convert/
         type_map = {
             'double': float,
@@ -296,11 +307,12 @@ def __mongo_convert(updater: DocumentUpdater, target_type: str):
         }
         assert target_type in type_map
 
-        if isinstance(doc, dict) \
-                and not isinstance(doc.get(updater.field_name), type_map[target_type]):
+        doc = ctx.document
+        field_name = updater.field_name
+        if isinstance(doc, dict) and not isinstance(doc.get(field_name), type_map[target_type]):
             if target_type == 'date':
-                doc[updater.field_name] = dateutil_parse(str(doc[updater.field_name]))
+                doc[field_name] = dateutil_parse(str(doc[field_name]))
             else:
-                doc[updater.field_name] = type_map[target_type]()
+                doc[field_name] = type_map[target_type]()
 
     updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)

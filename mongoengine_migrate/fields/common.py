@@ -8,7 +8,9 @@ from mongoengine_migrate.exceptions import MigrationError
 from mongoengine_migrate.mongo import (
     check_empty_result,
     mongo_version,
-    DocumentUpdater
+    DocumentUpdater,
+    ByPathContext,
+    ByDocContext
 )
 from mongoengine_migrate.utils import get_document_type
 from .base import CommonFieldHandler, Diff, UNSET
@@ -28,11 +30,11 @@ class NumberFieldHandler(CommonFieldHandler):
         Change min_value of field. Force set to minimum if value is
         less than limitation (if any)
         """
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
-            col.update_many(
-                {filter_dotpath: {'$lt': diff.new}},
-                {'$set': {update_dotpath: diff.new}},
-                array_filters=array_filters
+        def by_path(ctx: ByPathContext):
+            ctx.collection.update_many(
+                {ctx.filter_dotpath: {'$lt': diff.new}},
+                {'$set': {ctx.update_dotpath: diff.new}},
+                array_filters=ctx.array_filters
             )
 
         self._check_diff(updater.field_name, diff, True, (int, float))
@@ -46,11 +48,11 @@ class NumberFieldHandler(CommonFieldHandler):
         Change max_value of field. Force set to maximum if value is
         more than limitation (if any)
         """
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
-            col.update_many(
-                {filter_dotpath: {'$gt': diff.new}},
-                {'$set': {update_dotpath: diff.new}},
-                array_filters=array_filters
+        def by_path(ctx: ByPathContext):
+            ctx.collection.update_many(
+                {ctx.filter_dotpath: {'$gt': diff.new}},
+                {'$set': {ctx.update_dotpath: diff.new}},
+                array_filters=ctx.array_filters
             )
 
         self._check_diff(updater.field_name, diff, True, (int, float))
@@ -70,19 +72,20 @@ class StringFieldHandler(CommonFieldHandler):
     @mongo_version(min_version='3.6')
     def change_max_length(self, updater: DocumentUpdater, diff: Diff):
         """Cut off a string if it longer than limitation (if any)"""
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
-            col.aggregate([
+        def by_path(ctx: ByPathContext):
+            ctx.collection.aggregate([
                 {'$match': {
-                    filter_dotpath: {"$ne": None},
-                    "$expr": {"$gt": [{"$strLenCP": f"${filter_dotpath}"}, diff.new]},  # >= 3.6
+                    ctx.filter_dotpath: {"$ne": None},
+                    "$expr": {"$gt": [{"$strLenCP": f"${ctx.filter_dotpath}"}, diff.new]},  # >= 3.6
                 }},
                 {'$addFields': {  # >= 3.4
-                    filter_dotpath: {"$substr": [f'${filter_dotpath}', 0, diff.new]}
+                    ctx.filter_dotpath: {"$substr": [f'${ctx.filter_dotpath}', 0, diff.new]}
                 }},
-                {'$out': col.name}  # >= 2.6
+                {'$out': ctx.collection.name}  # >= 2.6
             ])
 
-        def by_doc(col, doc, filter_path):
+        def by_doc(ctx: ByDocContext):
+            doc = ctx.document
             if isinstance(doc, dict):
                 match = updater.field_name in doc and len(doc[updater.field_name]) > diff.new
                 if match:
@@ -100,20 +103,21 @@ class StringFieldHandler(CommonFieldHandler):
     @mongo_version(min_version='3.6')
     def change_min_length(self, updater: DocumentUpdater, diff: Diff):
         """Raise error if string is shorter than limitation (if any)"""
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
+        def by_path(ctx: ByPathContext):
             fltr = {
-                filter_dotpath: {'$ne': None},
-                "$expr": {"$lt": [{"$strLenCP": f"${filter_dotpath}"}, diff.new]},  # >= 3.6
+                ctx.filter_dotpath: {'$ne': None},
+                "$expr": {"$lt": [{"$strLenCP": f"${ctx.filter_dotpath}"}, diff.new]},  # >= 3.6
             }
-            check_empty_result(col, filter_dotpath, fltr)
+            check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
-        def by_doc(col, doc, filter_path):
+        def by_doc(ctx: ByDocContext):
+            doc = ctx.document
             if isinstance(doc, dict):
                 val = doc.get(updater.field_name)
                 if isinstance(val, str) and len(val) < diff.new:
                     raise MigrationError(
-                        f"String field {col.name}.{filter_path} on one of records "
-                        f"has length less than minimum: {doc}")
+                        f"String field {ctx.collection.name}.{ctx.filter_dotpath} on one of "
+                        f"records has length less than minimum: {doc}")
 
         self._check_diff(updater.field_name, diff, True, int)
         if diff.new in (UNSET, None):
@@ -127,9 +131,9 @@ class StringFieldHandler(CommonFieldHandler):
 
     def change_regex(self, updater: DocumentUpdater, diff: Diff):
         """Raise error if string does not match regex (if any)"""
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
-            fltr = {filter_dotpath: {'$not': re.compile(diff.new), '$ne': None}}
-            check_empty_result(col, filter_dotpath, fltr)
+        def by_path(ctx: ByPathContext):
+            fltr = {ctx.filter_dotpath: {'$not': re.compile(diff.new), '$ne': None}}
+            check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
         self._check_diff(updater.field_name, diff, True, (str, type(re.compile('.'))))
         if diff.new in (UNSET, None):
@@ -147,9 +151,9 @@ class URLFieldHandler(StringFieldHandler):
 
     def change_schemes(self, updater: DocumentUpdater, diff: Diff):
         """Raise error if url has scheme not from list"""
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
-            fltr = {filter_dotpath: {'$not': scheme_regex, '$ne': None}}
-            check_empty_result(col, filter_dotpath, fltr)
+        def by_path(ctx: ByPathContext):
+            fltr = {ctx.filter_dotpath: {'$not': scheme_regex, '$ne': None}}
+            check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
         self._check_diff(updater.field_name, diff, False, Collection)
         if not diff.new or diff.new == UNSET:
@@ -205,10 +209,10 @@ class EmailFieldHandler(StringFieldHandler):
 
     def change_allow_utf8_user(self, updater: DocumentUpdater, diff: Diff):
         """Raise error if email address has wrong user name"""
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
+        def by_path(ctx: ByPathContext):
             # Find records which doesn't match to the regex
-            fltr = {filter_dotpath: {'$not': regex, '$ne': None}}
-            check_empty_result(col, filter_dotpath, fltr)
+            fltr = {ctx.filter_dotpath: {'$not': regex, '$ne': None}}
+            check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
         self._check_diff(updater.field_name, diff, False, bool)
         if diff.new == UNSET:
@@ -222,14 +226,14 @@ class EmailFieldHandler(StringFieldHandler):
         Raise error if email has domain which not in `domain_whitelist`
         when `allow_ip_domain` is True. Otherwise do nothing
         """
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
+        def by_path(ctx: ByPathContext):
             # Find records with ip domains and raise error if found
             fltr = {"$and": [
-                {filter_dotpath: {'$ne': None}},
-                {filter_dotpath: self.IP_DOMAIN_REGEX},
-                {filter_dotpath: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
+                {ctx.filter_dotpath: {'$ne': None}},
+                {ctx.filter_dotpath: self.IP_DOMAIN_REGEX},
+                {ctx.filter_dotpath: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
             ]}
-            check_empty_result(col, filter_dotpath, fltr)
+            check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
         self._check_diff(updater.field_name, diff, False, bool)
         if diff.new is True or diff.new == UNSET:
@@ -244,14 +248,14 @@ class EmailFieldHandler(StringFieldHandler):
                      updater: DocumentUpdater,
                      from_field_cls: Type[mongoengine.fields.BaseField],
                      to_field_cls: Type[mongoengine.fields.BaseField]):
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
+        def by_path(ctx: ByPathContext):
             fltr = {'$and': [
-                {filter_dotpath: {'$ne': None}},
-                {filter_dotpath: {'$not': self.DOMAIN_REGEX}},
-                {filter_dotpath: {'$not': self.IP_DOMAIN_REGEX}},
-                {filter_dotpath: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
+                {ctx.filter_dotpath: {'$ne': None}},
+                {ctx.filter_dotpath: {'$not': self.DOMAIN_REGEX}},
+                {ctx.filter_dotpath: {'$not': self.IP_DOMAIN_REGEX}},
+                {ctx.filter_dotpath: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
             ]}
-            check_empty_result(col, filter_dotpath, fltr)
+            check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
         to_string(updater)
 
@@ -306,30 +310,32 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
     @mongo_version(min_version='3.4')
     def change_separator(self, updater: DocumentUpdater, diff: Diff):
         """Change separator in datetime strings"""
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
-            col.aggregate([
+        def by_path(ctx: ByPathContext):
+            ctx.collection.aggregate([
                 {'$match': {
                     '$and': [
-                        {filter_dotpath: {"$ne": None}},
-                        {filter_dotpath: re.compile(old_regex)},
+                        {ctx.filter_dotpath: {"$ne": None}},
+                        {ctx.filter_dotpath: re.compile(old_regex)},
                     ]
                 }},
                 {'$addFields': {  # >=3.4
-                    filter_dotpath: {
+                    ctx.filter_dotpath: {
                         '$reduce': {  # >=3.4
-                            'input': {'$split': [f'${filter_dotpath}', diff.old]},  # $split >=3.4
+                            # $split >=3.4
+                            'input': {'$split': [f'${ctx.filter_dotpath}', diff.old]},
                             'initialValue': '',
                             'in': {'$concat': ['$$value', diff.new, '$$this']}
                         }
                     }
                 }},
                 {'$addFields': {  # >=3.4
-                    filter_dotpath: {"$substr": [f'${filter_dotpath}', 1, -1]}
+                    ctx.filter_dotpath: {"$substr": [f'${ctx.filter_dotpath}', 1, -1]}
                 }},
-                {'$out': col.name}  # >= 2.6
+                {'$out': ctx.collection.name}  # >= 2.6
             ])
 
-        def by_doc(col, doc, filter_path):
+        def by_doc(ctx: ByDocContext):
+            doc = ctx.document
             if isinstance(doc, dict) and updater.field_name in doc:
                 doc[updater.field_name] = doc[updater.field_name].replace(diff.old, diff.new)
 
@@ -372,19 +378,22 @@ class ListFieldHandler(CommonFieldHandler):
     @mongo_version(min_version='3.6')
     def change_max_length(self, updater: DocumentUpdater, diff: Diff):
         """Cut off a list if it longer than limitation (if any)"""
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
-            col.aggregate([
+        def by_path(ctx: ByPathContext):
+            ctx.collection.aggregate([
                 {'$match': {
-                    filter_dotpath: {"$ne": None},
-                    "$expr": {"$gt": [{"$size": f"${filter_dotpath}"}, diff.new]},  # $expr >= 3.6
+                    ctx.filter_dotpath: {"$ne": None},
+                    # $expr >= 3.6
+                    "$expr": {"$gt": [{"$size": f"${ctx.filter_dotpath}"}, diff.new]},
                 }},
                 {'$addFields': {  # >=3.4
-                    filter_dotpath: {"$slice": [f'${filter_dotpath}', diff.new]}  # $slice >=3.2
+                    # $slice >=3.2
+                    ctx.filter_dotpath: {"$slice": [f'${ctx.filter_dotpath}', diff.new]}
                 }},
-                {'$out': col.name}  # >= 2.6
+                {'$out': ctx.collection.name}  # >= 2.6
             ])
 
-        def by_doc(col, doc, filter_path):
+        def by_doc(ctx: ByDocContext):
+            doc = ctx.document
             if isinstance(doc, dict):
                 match = updater.field_name in doc and len(doc[updater.field_name]) > diff.new
                 if match:
@@ -486,43 +495,48 @@ class ReferenceFieldHandler(CommonFieldHandler):
 
     @mongo_version(min_version='3.6')
     def _objectid_to_dbref(self, updater: DocumentUpdater):
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
-            col.aggregate([
+        def by_path(ctx: ByPathContext):
+            ctx.collection.aggregate([
                 {'$match': {
-                    filter_dotpath: {"$ne": None},
+                    ctx.filter_dotpath: {"$ne": None},
                     # $expr >= 3.6, $type >= 3.4
-                    "$expr": {"$eq": [{"$type": f'${filter_dotpath}'}, 'objectId']}
+                    "$expr": {"$eq": [{"$type": f'${ctx.filter_dotpath}'}, 'objectId']}
                 }},
                 {'$addFields': {  # >= 3.4
-                    filter_dotpath: {
-                        '$ref': col.name,
-                        '$id': f"${filter_dotpath}"
+                    ctx.filter_dotpath: {
+                        '$ref': ctx.collection.name,
+                        '$id': f"${ctx.filter_dotpath}"
                     }
                 }},
-                {'$out': col.name}  # >= 2.6
+                {'$out': ctx.collection.name}  # >= 2.6
             ])
 
-        def by_doc(col, doc, filter_path):
+        def by_doc(ctx: ByDocContext):
+            doc = ctx.document
             if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), bson.ObjectId):
-                doc[updater.field_name] = {'$ref': col.name, '$id': doc[updater.field_name]}
+                doc[updater.field_name] = {
+                    '$ref': ctx.collection.name,
+                    '$id': doc[updater.field_name]
+                }
 
         updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
 
     @mongo_version(min_version='3.6')
     def _dbref_to_objectid(self, updater: DocumentUpdater):
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
-            col.aggregate([
+        def by_path(ctx: ByPathContext):
+            ctx.collection.aggregate([
                 {'$match': {
-                    f'{filter_dotpath}.$id': {"$ne": None},
-                    f'{filter_dotpath}.$ref': {"$ne": None},
+                    f'{ctx.filter_dotpath}.$id': {"$ne": None},
+                    f'{ctx.filter_dotpath}.$ref': {"$ne": None},
                     # $expr >= 3.6, $type >= 3.4
-                    "$expr": {"$eq": [{"$type": f'${filter_dotpath}.$id'}, 'objectId']}
+                    "$expr": {"$eq": [{"$type": f'${ctx.filter_dotpath}.$id'}, 'objectId']}
                 }},
-                {'$addFields': {filter_dotpath: f"${filter_dotpath}.$id"}},  # >= 3.4
-                {'$out': col.name}  # >= 2.6
+                {'$addFields': {ctx.filter_dotpath: f"${ctx.filter_dotpath}.$id"}},  # >= 3.4
+                {'$out': ctx.collection.name}  # >= 2.6
             ])
 
-        def by_doc(col, doc, filter_path):
+        def by_doc(ctx: ByDocContext):
+            doc = ctx.document
             if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), bson.DBRef):
                 doc[updater.field_name] = doc[updater.field_name].id
 
@@ -553,11 +567,11 @@ class CachedReferenceFieldHandler(CommonFieldHandler):
     schema_skel_keys = {'fields'}
 
     def change_fields(self, updater: DocumentUpdater, diff: Diff):
-        def by_path(col, filter_dotpath, update_dotpath, array_filters):
+        def by_path(ctx: ByPathContext):
             if to_remove:
-                paths = {f'{update_dotpath}.{f}': '' for f in to_remove}
-                col.update_many(
-                    {filter_dotpath: {'$ne': None}},
+                paths = {f'{ctx.update_dotpath}.{f}': '' for f in to_remove}
+                ctx.collection.update_many(
+                    {ctx.filter_dotpath: {'$ne': None}},
                     {'$unset': paths}
                 )
 

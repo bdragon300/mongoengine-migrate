@@ -1,5 +1,5 @@
 import functools
-from typing import Optional, Callable, Tuple, Generator
+from typing import Optional, Callable, Tuple, Generator, NamedTuple, List
 
 import jsonpath_rw
 from pymongo import ReplaceOne
@@ -67,6 +67,21 @@ def mongo_version(min_version: str = None, max_version: str = None, throw_error:
     return dec
 
 
+class ByPathContext(NamedTuple):
+    """Context of `by_path` callback"""
+    collection: Collection
+    filter_dotpath: str
+    update_dotpath: str
+    array_filters: Optional[List[dict]]
+
+
+class ByDocContext(NamedTuple):
+    """Context of `by_document` callback"""
+    collection: Optional[Collection]
+    document: dict
+    filter_dotpath: str
+
+
 class DocumentUpdater:
     """Document updater class. Used to update certain field in
     collection or embedded document
@@ -116,7 +131,11 @@ class DocumentUpdater:
         """
         if not self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
             collection_name = self.db_schema[self.document_type].properties['collection']
-            callback(self.db[collection_name], self.field_name, self.field_name, None)
+            ctx = ByPathContext(collection=self.db[collection_name],
+                                filter_dotpath=self.field_name,
+                                update_dotpath=self.field_name,
+                                array_filters=None)
+            callback(ctx)
             return
 
         for collection, update_path, filter_path in self._get_update_paths():
@@ -126,7 +145,11 @@ class DocumentUpdater:
         update_path, array_filters = self._inject_array_filters(update_path)
         filter_dotpath = '.'.join(filter_path)
         update_dotpath = '.'.join(update_path)
-        callback(collection, filter_dotpath, update_dotpath, array_filters)
+        ctx = ByPathContext(collection=collection,
+                            filter_dotpath=filter_dotpath,
+                            update_dotpath=update_dotpath,
+                            array_filters=array_filters)
+        callback(ctx)
 
     def update_by_document(self, callback: Callable) -> None:
         """
@@ -149,7 +172,10 @@ class DocumentUpdater:
             collection_name = self.db_schema[self.document_type].properties['collection']
             collection = self.db[collection_name]
             for doc in collection.find():
-                callback(collection, doc, self.field_name)
+                ctx = ByDocContext(collection=collection,
+                                   document=doc,
+                                   filter_dotpath=self.field_name)
+                callback(ctx)
             return
 
         for collection, update_path, filter_path in self._get_update_paths():
@@ -164,7 +190,10 @@ class DocumentUpdater:
         for doc in collection.find({'.'.join(filter_path): {'$exists': True}}):
             # Recursively apply the callback to every embedded doc
             for embedded_doc in parser.find(doc):
-                callback(collection, embedded_doc, filter_path)
+                ctx = ByDocContext(collection=collection,
+                                   document=embedded_doc,
+                                   filter_dotpath=filter_path)
+                callback(ctx)
             buf.append(ReplaceOne({'_id': doc['_id']}, doc, upsert=False))
 
             # Flush buffer

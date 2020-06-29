@@ -1,7 +1,13 @@
 import functools
 from typing import List
 
-from mongoengine_migrate.mongo import check_empty_result, mongo_version, DocumentUpdater
+from mongoengine_migrate.mongo import (
+    check_empty_result,
+    mongo_version,
+    DocumentUpdater,
+    ByPathContext,
+    ByDocContext
+)
 
 #: GeoJSON field convertions in order of increasing the nested array
 #  depth in `coordinates` subfield.
@@ -47,26 +53,27 @@ def convert_geojson(updater: DocumentUpdater, from_type: str, to_type: str):
 @mongo_version(min_version='3.6')
 def legacy_pairs_to_geojson(updater: DocumentUpdater, to_type: str):
     """Convert legacy coordinate pairs to GeoJSON objects of given type"""
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(ctx: ByPathContext):
         # Convert to GeoJSON Point object
-        col.aggregate([
+        ctx.collection.aggregate([
             {'$match': {
                 "$and": [
-                    {filter_dotpath: {"$ne": None}},
+                    {ctx.filter_dotpath: {"$ne": None}},
                     # $expr >= 3.6
-                    {"$expr": {"$eq": [{"$isArray": f"${filter_dotpath}"}, True]}}
+                    {"$expr": {"$eq": [{"$isArray": f"${ctx.filter_dotpath}"}, True]}}
                 ]}
             },
             {'$addFields': {  # >= 3.4
-                filter_dotpath: {
+                ctx.filter_dotpath: {
                     'type': 'Point',
-                    'coordinates': f'${filter_dotpath}'
+                    'coordinates': f'${ctx.filter_dotpath}'
                 }
             }},
-            {'$out': col.name}  # >= 2.6
+            {'$out': ctx.collection.name}  # >= 2.6
         ])
 
-    def by_doc(col, doc, filter_dotpath):
+    def by_doc(ctx: ByDocContext):
+        doc = ctx.document
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), (list, tuple)):
             doc[updater.field_name] = {'type': 'Point', 'coordinates': doc[updater.field_name]}
 
@@ -81,19 +88,20 @@ def legacy_pairs_to_geojson(updater: DocumentUpdater, to_type: str):
 @mongo_version(min_version='3.6')
 def geojson_to_legacy_pairs(updater: DocumentUpdater, from_type: str):
     """Convert GeoJSON objects of given type to legacy coordinate pairs"""
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
-        col.aggregate([
+    def by_path(ctx: ByPathContext):
+        ctx.collection.aggregate([
             {'$match': {
-                filter_dotpath: {"$ne": None},
-                f'{filter_dotpath}.type': "Point"
+                ctx.filter_dotpath: {"$ne": None},
+                f'{ctx.filter_dotpath}.type': "Point"
             }},
             {'$addFields': {  # >= 3.4
-                filter_dotpath: f'${filter_dotpath}.coordinates'
+                ctx.filter_dotpath: f'${ctx.filter_dotpath}.coordinates'
             }},
-            {'$out': col.name}  # >= 2.6
+            {'$out': ctx.collection.name}  # >= 2.6
         ])
 
-    def by_doc(col, doc, filter_dotpath):
+    def by_doc(ctx: ByDocContext):
+        doc = ctx.document
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
             if 'Point' in doc[updater.field_name]:
                 doc[updater.field_name] = doc[updater.field_name].get('coordinates')
@@ -123,26 +131,27 @@ def __increase_geojson_nesting(updater: DocumentUpdater,
     """
     assert depth > 0
 
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(ctx: ByPathContext):
         add_fields = [
             {'$addFields': {  # >= 3.4
-                f'{filter_dotpath}.coordinates': [f'${filter_dotpath}.coordinates']
+                f'{ctx.filter_dotpath}.coordinates': [f'${ctx.filter_dotpath}.coordinates']
             }}
         ] * depth
 
-        col.aggregate([
+        ctx.collection.aggregate([
             {'$match': {
-                filter_dotpath: {"$ne": None},
-                f'{filter_dotpath}.type': from_type
+                ctx.filter_dotpath: {"$ne": None},
+                f'{ctx.filter_dotpath}.type': from_type
             }},
             *add_fields,
             {'$addFields': {  # >= 3.4
-                f'{filter_dotpath}.type': to_type
+                f'{ctx.filter_dotpath}.type': to_type
             }},
-            {'$out': col.name}  # >= 2.6
+            {'$out': ctx.collection.name}  # >= 2.6
         ])
 
-    def by_doc(col, doc, filter_dotpath):
+    def by_doc(ctx: ByDocContext):
+        doc = ctx.document
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
             match = doc[updater.field_name].get('type') == from_type \
                     and doc[updater.field_name].get('coordinates')
@@ -172,29 +181,30 @@ def __decrease_geojson_nesting(updater: DocumentUpdater,
     """
     assert depth > 0
 
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(ctx: ByPathContext):
         add_fields = [
             {'$addFields': {  # >= 3.4
                 # $arrayElemAt >= 3.2
-                f'{filter_dotpath}.coordinates': {
-                    "$arrayElemAt": [f'${filter_dotpath}.coordinates', 0]
+                f'{ctx.filter_dotpath}.coordinates': {
+                    "$arrayElemAt": [f'${ctx.filter_dotpath}.coordinates', 0]
                 }
             }},
         ] * depth
 
-        col.aggregate([
+        ctx.collection.aggregate([
             {'$match': {
-                filter_dotpath: {"$ne": None},
-                f'{filter_dotpath}.type': from_type
+                ctx.filter_dotpath: {"$ne": None},
+                f'{ctx.filter_dotpath}.type': from_type
             }},
             *add_fields,
             {'$addFields': {  # >= 3.4
-                f'{filter_dotpath}.type': to_type
+                f'{ctx.filter_dotpath}.type': to_type
             }},
-            {'$out': col.name}  # >= 2.6
+            {'$out': ctx.collection.name}  # >= 2.6
         ])
 
-    def by_doc(col, doc, filter_dotpath):
+    def by_doc(ctx: ByDocContext):
+        doc = ctx.document
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
             match = doc[updater.field_name].get('type') == from_type \
                     and doc[updater.field_name].get('coordinates')
@@ -217,14 +227,14 @@ def __check_geojson_objects(updater: DocumentUpdater, geojson_types: List[str]):
     :param geojson_types:
     :return:
     """
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(ctx: ByPathContext):
         fltr = {"$and": [
-            {filter_dotpath: {"$ne": None}},
-            {f'{filter_dotpath}.type': {'$nin': geojson_types}},
+            {ctx.filter_dotpath: {"$ne": None}},
+            {f'{ctx.filter_dotpath}.type': {'$nin': geojson_types}},
             # $expr >= 3.6
-            {"$expr": {"$eq": [{"$type": f'${filter_dotpath}'}, 'object']}}
+            {"$expr": {"$eq": [{"$type": f'${ctx.filter_dotpath}'}, 'object']}}
         ]}
-        check_empty_result(col, filter_dotpath, fltr)
+        check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
     updater.update_by_path(by_path)
 
@@ -237,15 +247,15 @@ def __check_legacy_point_coordinates(updater: DocumentUpdater):
     :param updater:
     :return:
     """
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(ctx: ByPathContext):
         fltr = {"$and": [
-            {filter_dotpath: {"$ne": None}},
+            {ctx.filter_dotpath: {"$ne": None}},
             # $expr >= 3.6, $isArray >= 3.2
-            {"$expr": {"$eq": [{"$isArray": f"${filter_dotpath}"}, True]}},
-            {"$expr": {"$ne": [{"$size": f"${filter_dotpath}"}, 2]}},  # $expr >= 3.6
+            {"$expr": {"$eq": [{"$isArray": f"${ctx.filter_dotpath}"}, True]}},
+            {"$expr": {"$ne": [{"$size": f"${ctx.filter_dotpath}"}, 2]}},  # $expr >= 3.6
             # TODO: add element type check
         ]}
-        check_empty_result(col, filter_dotpath, fltr)
+        check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
     updater.update_by_path(by_path)
 
@@ -259,13 +269,13 @@ def __check_value_types(updater: DocumentUpdater, allowed_types: List[str]):
     :param allowed_types:
     :return:
     """
-    def by_path(col, filter_dotpath, update_dotpath, array_filters):
+    def by_path(ctx: ByPathContext):
         # Check for data types other than objects or arrays
         fltr = {"$and": [
-            {filter_dotpath: {"$ne": None}},
+            {ctx.filter_dotpath: {"$ne": None}},
             # $expr >= 3.6, $type >= 3.4
-            {"$expr": {"$not": [{"$in": [{"$type": f'${filter_dotpath}'}, allowed_types]}]}}
+            {"$expr": {"$not": [{"$in": [{"$type": f'${ctx.filter_dotpath}'}, allowed_types]}]}}
         ]}
-        check_empty_result(col, filter_dotpath, fltr)
+        check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
     updater.update_by_path(by_path)

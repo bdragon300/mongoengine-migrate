@@ -196,7 +196,7 @@ class MongoengineMigrate:
         fltr = {'type': 'schema'}
         res = self.migration_collection.find_one(fltr)
         schema = Schema()
-        schema.load(res.get('value') if res else None)
+        schema.load(res.get('value', {}) if res else {})
         return schema
 
     def write_db_schema(self, schema: Schema) -> None:

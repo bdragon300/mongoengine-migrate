@@ -9,9 +9,10 @@ class Schema(dict):
         def parameters(self) -> dict:
             return self.__parameters
 
-        def load(self, document_schema: dict) -> None:
+        def load(self, document_schema: dict):
             self.__parameters = document_schema.get('parameters', {})
             self.update(document_schema.get('fields', {}))
+            return self
 
         def dump(self) -> dict:
             return {'fields': dict(self.items()), 'parameters': self.__parameters}
@@ -33,9 +34,10 @@ class Schema(dict):
         def __repr__(self):
             return f'Document({super().__repr__()}, parameters={self.parameters!r}'
 
-    def load(self, db_schema: dict) -> None:
+    def load(self, db_schema: dict):
         """Load schema from db dict schema representation"""
         self.update({name: Schema.Document().load(schema) for name, schema in db_schema.items()})
+        return self
 
     def dump(self) -> dict:
         """Return schema representation for write to db"""

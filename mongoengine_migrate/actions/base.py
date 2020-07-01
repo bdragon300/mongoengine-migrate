@@ -67,7 +67,14 @@ class BaseAction(metaclass=BaseActionMeta):
         :param left_schema: db schema before migration (left side)
         :return:
         """
-        collection = db[left_schema[self.document_type].parameters['collection']]
+        collection_name = self.parameters.get('collection')
+        if not collection_name:
+            docschema = left_schema.get(self.document_type)
+            if docschema:
+                collection_name = docschema.parameters.get('collection')
+
+        collection = db[collection_name] if collection_name else db['COLLECTION_PLACEHOLDER']
+
         self._run_ctx = {
             'left_schema': left_schema,
             'db': db,
@@ -272,9 +279,13 @@ class BaseDocumentAction(BaseAction):
 
     def _is_my_collection_used_by_other_documents(self) -> bool:
         """Return True if some of documents uses the same collection"""
-        self_schema = self._run_ctx['left_schema'][self.document_type]
-        collection_name = self_schema.parameters['collection']
-        return any(
+        docschema = self._run_ctx['left_schema'].get(self.document_type)
+        if docschema:
+            collection_name = docschema.parameters.get('collection')
+        else:
+            collection_name = self.parameters.get('collection')
+
+        return collection_name and any(
             v.parameters.get('collection') == collection_name
             for k, v in self._run_ctx['left_schema'].items()
             if k != self.document_type and not k.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)

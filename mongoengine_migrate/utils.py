@@ -90,3 +90,19 @@ def get_document_type(document_cls: Type[BaseDocument]) -> Optional[str]:
         document_type = f'{EMBEDDED_DOCUMENT_NAME_PREFIX}{document_type}'
 
     return document_type
+
+
+def document_type_to_class_name(document_type: str) -> str:
+    """
+    Convert document type string to class name used by mongoengine
+     (`Document._class_name` property).
+     E.g. '~Doc1->Doc2' to 'Doc1.Doc2'
+    :param document_type:
+    :return:
+    """
+    cls_name = document_type.replace(DOCUMENT_NAME_SEPARATOR, '.')
+    emb_prefix = EMBEDDED_DOCUMENT_NAME_PREFIX
+    if cls_name.startswith(emb_prefix):
+        cls_name = cls_name[emb_prefix:]
+
+    return cls_name

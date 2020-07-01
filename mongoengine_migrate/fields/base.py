@@ -15,7 +15,7 @@ from mongoengine_migrate.mongo import (
     ByDocContext
 )
 from mongoengine_migrate.schema import Schema
-from mongoengine_migrate.utils import get_closest_parent
+from mongoengine_migrate.utils import get_closest_parent, document_type_to_class_name
 from .registry import CONVERTION_MATRIX
 
 
@@ -167,7 +167,13 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         )
 
         method = getattr(self, f'change_{name}')
-        updater = DocumentUpdater(self.db, self.document_type, db_field, self.left_schema)
+        inherit = self.left_schema[self.document_type].parameters.get('inherit')
+        document_cls = document_type_to_class_name(self.document_type) if inherit else None
+        updater = DocumentUpdater(self.db,
+                                  self.document_type,
+                                  db_field,
+                                  self.left_schema,
+                                  document_cls)
         return method(updater, diff)
 
     def change_db_field(self, updater: DocumentUpdater, diff: Diff):

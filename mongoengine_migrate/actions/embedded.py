@@ -1,6 +1,6 @@
 from mongoengine_migrate.flags import EMBEDDED_DOCUMENT_NAME_PREFIX
 from mongoengine_migrate.schema import Schema
-from .base import BaseCreateDocument, BaseDropDocument, BaseRenameDocument
+from .base import BaseCreateDocument, BaseDropDocument, BaseRenameDocument, BaseAlterDocument
 
 
 class CreateEmbedded(BaseCreateDocument):
@@ -71,3 +71,22 @@ class RenameEmbedded(BaseRenameDocument):
 
     def run_backward(self):
         """Embedded documents are not required to do anything"""
+
+
+class AlterEmbedded(BaseAlterDocument):
+    """Alter whole embedded document changes"""
+    @classmethod
+    def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
+        if not document_type.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):
+            # This is not an embedded document
+            return None
+
+        return super(AlterEmbedded, cls).build_object(document_type, left_schema, right_schema)
+
+    def run_forward(self):
+        """Not required to do anything"""
+        # TODO: remove '_cls' after inherit becoming False
+
+    def run_backward(self):
+        """Not required to do anything"""
+        # TODO: remove '_cls' after inherit becoming False

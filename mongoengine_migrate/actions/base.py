@@ -1,5 +1,6 @@
 import weakref
 from abc import ABCMeta, abstractmethod
+from copy import deepcopy
 from typing import Dict, Type, Optional, List
 
 from pymongo.database import Database
@@ -284,10 +285,12 @@ class BaseCreateDocument(BaseDocumentAction):
     @classmethod
     def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
         if document_type not in left_schema and document_type in right_schema:
-            return cls(document_type=document_type)
+            return cls(document_type=document_type, **right_schema[document_type].parameters)
 
     def to_schema_patch(self, left_schema: Schema):
-        return [('add', '', [(self.document_type, Schema.Document())])]
+        item = Schema.Document()
+        item.parameters.update(self.parameters)
+        return [('add', '', [(self.document_type, item)])]
 
 
 class BaseDropDocument(BaseDocumentAction):
@@ -362,4 +365,25 @@ class BaseRenameDocument(BaseDocumentAction):
         return [
             ('remove', '', [(self.document_type, item)]),
             ('add', '', [(self.new_name, item)])
+        ]
+
+
+class BaseAlterDocument(BaseDocumentAction):
+    @classmethod
+    def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
+        match = document_type in left_schema \
+                and document_type in right_schema \
+                and left_schema[document_type].parameters != right_schema[document_type].parameters
+        if match:
+            return cls(document_type=document_type, **right_schema[document_type].parameters)
+
+    def to_schema_patch(self, left_schema: Schema):
+        left_item = left_schema[self.document_type]
+        right_item = deepcopy(left_item)
+        right_item.parameters.clear()
+        right_item.parameters.update(self.parameters)
+
+        return [
+            ('remove', '', [(self.document_type, left_item)]),
+            ('add', '', [(self.document_type, right_item)])
         ]

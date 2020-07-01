@@ -32,7 +32,7 @@ class NumberFieldHandler(CommonFieldHandler):
         """
         def by_path(ctx: ByPathContext):
             ctx.collection.update_many(
-                {ctx.filter_dotpath: {'$lt': diff.new}},
+                {ctx.filter_dotpath: {'$lt': diff.new}, **ctx.extra_filter},
                 {'$set': {ctx.update_dotpath: diff.new}},
                 array_filters=ctx.array_filters
             )
@@ -50,7 +50,7 @@ class NumberFieldHandler(CommonFieldHandler):
         """
         def by_path(ctx: ByPathContext):
             ctx.collection.update_many(
-                {ctx.filter_dotpath: {'$gt': diff.new}},
+                {ctx.filter_dotpath: {'$gt': diff.new}, **ctx.extra_filter},
                 {'$set': {ctx.update_dotpath: diff.new}},
                 array_filters=ctx.array_filters
             )
@@ -76,6 +76,7 @@ class StringFieldHandler(CommonFieldHandler):
             ctx.collection.aggregate([
                 {'$match': {
                     ctx.filter_dotpath: {"$ne": None},
+                    **ctx.extra_filter,
                     "$expr": {"$gt": [{"$strLenCP": f"${ctx.filter_dotpath}"}, diff.new]},  # >= 3.6
                 }},
                 {'$addFields': {  # >= 3.4
@@ -106,6 +107,7 @@ class StringFieldHandler(CommonFieldHandler):
         def by_path(ctx: ByPathContext):
             fltr = {
                 ctx.filter_dotpath: {'$ne': None},
+                **ctx.extra_filter,
                 "$expr": {"$lt": [{"$strLenCP": f"${ctx.filter_dotpath}"}, diff.new]},  # >= 3.6
             }
             check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
@@ -132,7 +134,8 @@ class StringFieldHandler(CommonFieldHandler):
     def change_regex(self, updater: DocumentUpdater, diff: Diff):
         """Raise error if string does not match regex (if any)"""
         def by_path(ctx: ByPathContext):
-            fltr = {ctx.filter_dotpath: {'$not': re.compile(diff.new), '$ne': None}}
+            fltr = {ctx.filter_dotpath: {'$not': re.compile(diff.new), '$ne': None},
+                    **ctx.extra_filter}
             check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
         self._check_diff(updater.field_name, diff, True, (str, type(re.compile('.'))))
@@ -152,7 +155,7 @@ class URLFieldHandler(StringFieldHandler):
     def change_schemes(self, updater: DocumentUpdater, diff: Diff):
         """Raise error if url has scheme not from list"""
         def by_path(ctx: ByPathContext):
-            fltr = {ctx.filter_dotpath: {'$not': scheme_regex, '$ne': None}}
+            fltr = {ctx.filter_dotpath: {'$not': scheme_regex, '$ne': None}, **ctx.extra_filter}
             check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
         self._check_diff(updater.field_name, diff, False, Collection)
@@ -211,7 +214,7 @@ class EmailFieldHandler(StringFieldHandler):
         """Raise error if email address has wrong user name"""
         def by_path(ctx: ByPathContext):
             # Find records which doesn't match to the regex
-            fltr = {ctx.filter_dotpath: {'$not': regex, '$ne': None}}
+            fltr = {ctx.filter_dotpath: {'$not': regex, '$ne': None}, **ctx.extra_filter}
             check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
         self._check_diff(updater.field_name, diff, False, bool)
@@ -231,7 +234,8 @@ class EmailFieldHandler(StringFieldHandler):
             fltr = {"$and": [
                 {ctx.filter_dotpath: {'$ne': None}},
                 {ctx.filter_dotpath: self.IP_DOMAIN_REGEX},
-                {ctx.filter_dotpath: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
+                {ctx.filter_dotpath: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}},
+                *[{k: v} for k, v in ctx.extra_filter.items()]
             ]}
             check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
@@ -253,7 +257,8 @@ class EmailFieldHandler(StringFieldHandler):
                 {ctx.filter_dotpath: {'$ne': None}},
                 {ctx.filter_dotpath: {'$not': self.DOMAIN_REGEX}},
                 {ctx.filter_dotpath: {'$not': self.IP_DOMAIN_REGEX}},
-                {ctx.filter_dotpath: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}}
+                {ctx.filter_dotpath: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}},
+                *[{k: v} for k, v in ctx.extra_filter.items()],
             ]}
             check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
@@ -316,6 +321,7 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
                     '$and': [
                         {ctx.filter_dotpath: {"$ne": None}},
                         {ctx.filter_dotpath: re.compile(old_regex)},
+                        *[{k: v} for k, v in ctx.extra_filter.items()]
                     ]
                 }},
                 {'$addFields': {  # >=3.4
@@ -382,6 +388,7 @@ class ListFieldHandler(CommonFieldHandler):
             ctx.collection.aggregate([
                 {'$match': {
                     ctx.filter_dotpath: {"$ne": None},
+                    **ctx.extra_filter,
                     # $expr >= 3.6
                     "$expr": {"$gt": [{"$size": f"${ctx.filter_dotpath}"}, diff.new]},
                 }},
@@ -499,6 +506,7 @@ class ReferenceFieldHandler(CommonFieldHandler):
             ctx.collection.aggregate([
                 {'$match': {
                     ctx.filter_dotpath: {"$ne": None},
+                    **ctx.extra_filter,
                     # $expr >= 3.6, $type >= 3.4
                     "$expr": {"$eq": [{"$type": f'${ctx.filter_dotpath}'}, 'objectId']}
                 }},
@@ -528,6 +536,7 @@ class ReferenceFieldHandler(CommonFieldHandler):
                 {'$match': {
                     f'{ctx.filter_dotpath}.$id': {"$ne": None},
                     f'{ctx.filter_dotpath}.$ref': {"$ne": None},
+                    **ctx.extra_filter,
                     # $expr >= 3.6, $type >= 3.4
                     "$expr": {"$eq": [{"$type": f'${ctx.filter_dotpath}.$id'}, 'objectId']}
                 }},
@@ -571,7 +580,7 @@ class CachedReferenceFieldHandler(CommonFieldHandler):
             if to_remove:
                 paths = {f'{ctx.update_dotpath}.{f}': '' for f in to_remove}
                 ctx.collection.update_many(
-                    {ctx.filter_dotpath: {'$ne': None}},
+                    {ctx.filter_dotpath: {'$ne': None}, **ctx.extra_filter},
                     {'$unset': paths}
                 )
 

@@ -179,7 +179,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         """
         def by_path(ctx: ByPathContext):
             ctx.collection.update_many(
-                {ctx.filter_dotpath: {'$exists': True}},
+                {ctx.filter_dotpath: {'$exists': True}, **ctx.extra_filter},
                 {'$rename': {ctx.filter_dotpath: diff.new}}
             )
 
@@ -204,7 +204,8 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         """
         def by_path(ctx: ByPathContext):
             ctx.collection.update_many(
-                {ctx.filter_dotpath: None},  # Both null and nonexistent field
+                # Both null and nonexistent field
+                {ctx.filter_dotpath: None, **ctx.extra_filter},
                 {'$set': {ctx.update_dotpath: default}},
                 array_filters=ctx.array_filters
             )
@@ -256,7 +257,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             choices = diff.new
             check_empty_result(ctx.collection,
                                ctx.filter_dotpath,
-                               {ctx.filter_dotpath: {'$nin': choices}})
+                               {ctx.filter_dotpath: {'$nin': choices}, **ctx.extra_filter})
 
         self._check_diff(updater.field_name, diff, True, Collection)
 

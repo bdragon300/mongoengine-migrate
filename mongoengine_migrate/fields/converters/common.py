@@ -29,7 +29,7 @@ def deny(updater: DocumentUpdater):
 def drop_field(updater: DocumentUpdater):
     """Drop field"""
     def by_path(ctx: ByPathContext):
-        ctx.collection.update_many({ctx.filter_dotpath: {'$exists': True}},
+        ctx.collection.update_many({ctx.filter_dotpath: {'$exists': True}, **ctx.extra_filter},
                                    {'$unset': {ctx.update_dotpath: ''}})
 
     updater.update_by_path(by_path)
@@ -42,8 +42,9 @@ def item_to_list(updater: DocumentUpdater):
         ctx.collection.aggregate([
             {'$match': {
                 ctx.filter_dotpath: {"$exists": True},
+                **ctx.extra_filter,
                 # $expr >= 3.6, $type >= 3.4
-                "$expr": {"$ne": [{"$type": f'${ctx.filter_dotpath}'}, 'array']}
+                "$expr": {"$ne": [{"$type": f'${ctx.filter_dotpath}'}, 'array']},
             }},
             {'$addFields': {ctx.filter_dotpath: [f"${ctx.filter_dotpath}"]}},  # >=3.4
             {'$out': ctx.collection.name}  # >= 2.6
@@ -63,6 +64,7 @@ def extract_from_list(updater: DocumentUpdater):
         ctx.collection.aggregate([
             {'$match': {
                 ctx.filter_dotpath: {"$ne": None},
+                **ctx.extra_filter,
                 # $expr >= 3.6, $type >= 3.4
                 # FIXME: what if nested list (not idempotent query)
                 "$expr": {"$eq": [{"$type": f'${ctx.filter_dotpath}'}, 'array']}
@@ -134,6 +136,7 @@ def to_uuid(updater: DocumentUpdater):
         ctx.collection.aggregate([
             {'$match': {
                 ctx.filter_dotpath: {'$ne': None}, # Field exists and not null
+                **ctx.extra_filter,
                 '$expr': {  # >= 3.6
                     '$not': [
                         # $type >= 3.4, $in >= 3.4
@@ -166,7 +169,7 @@ def to_uuid(updater: DocumentUpdater):
 def to_url_string(updater: DocumentUpdater):
     """Cast fields to string and then verify if they contain URLs"""
     def by_path(ctx: ByPathContext):
-        fltr = {ctx.filter_dotpath: {'$not': url_regex, '$ne': None}}
+        fltr = {ctx.filter_dotpath: {'$not': url_regex, '$ne': None}, **ctx.extra_filter}
         check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
     to_string(updater)
@@ -180,7 +183,7 @@ def to_url_string(updater: DocumentUpdater):
 
 def to_complex_datetime(updater: DocumentUpdater):
     def by_path(ctx: ByPathContext):
-        fltr = {ctx.filter_dotpath: {'$not': regex, '$ne': None}}
+        fltr = {ctx.filter_dotpath: {'$not': regex, '$ne': None}, **ctx.extra_filter}
         check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
     to_string(updater)
@@ -210,6 +213,7 @@ def ref_to_cached_reference(updater: DocumentUpdater):
         ctx.collection.aggregate([
             {'$match': {
                 ctx.filter_dotpath: {"$ne": None},
+                **ctx.extra_filter,
                 # $expr >= 3.6, $type >= 3.4
                 "$expr": {"$eq": [{"$type": f'${ctx.filter_dotpath}'}, 'objectId']}
             }},
@@ -247,6 +251,7 @@ def cached_reference_to_ref(updater: DocumentUpdater):
         ctx.collection.aggregate([
             {'$match': {
                 f'{ctx.filter_dotpath}._id': {"$ne": None},
+                **ctx.extra_filter,
                 # $expr >= 3.6, $type >= 3.4
                 "$expr": {"$eq": [{"$type": f'${ctx.filter_dotpath}'}, 'object']}
             }},
@@ -281,6 +286,7 @@ def __mongo_convert(updater: DocumentUpdater, target_type: str):
             # Field exists and not null
             {'$match': {
                 ctx.filter_dotpath: {'$ne': None},  # Field exists and not null
+                **ctx.extra_filter,
                 # $expr >= 3.6, $type >= 3.4
                 "$expr": {"$ne": [{"$type": f'${ctx.filter_dotpath}'}, target_type]}
             }},

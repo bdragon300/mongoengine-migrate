@@ -59,6 +59,7 @@ def legacy_pairs_to_geojson(updater: DocumentUpdater, to_type: str):
             {'$match': {
                 "$and": [
                     {ctx.filter_dotpath: {"$ne": None}},
+                    *[{k: v} for k, v in ctx.extra_filter.items()],
                     # $expr >= 3.6
                     {"$expr": {"$eq": [{"$isArray": f"${ctx.filter_dotpath}"}, True]}}
                 ]}
@@ -92,7 +93,8 @@ def geojson_to_legacy_pairs(updater: DocumentUpdater, from_type: str):
         ctx.collection.aggregate([
             {'$match': {
                 ctx.filter_dotpath: {"$ne": None},
-                f'{ctx.filter_dotpath}.type': "Point"
+                **ctx.extra_filter,
+                f'{ctx.filter_dotpath}.type': "Point",
             }},
             {'$addFields': {  # >= 3.4
                 ctx.filter_dotpath: f'${ctx.filter_dotpath}.coordinates'
@@ -141,6 +143,7 @@ def __increase_geojson_nesting(updater: DocumentUpdater,
         ctx.collection.aggregate([
             {'$match': {
                 ctx.filter_dotpath: {"$ne": None},
+                **ctx.extra_filter,
                 f'{ctx.filter_dotpath}.type': from_type
             }},
             *add_fields,
@@ -194,6 +197,7 @@ def __decrease_geojson_nesting(updater: DocumentUpdater,
         ctx.collection.aggregate([
             {'$match': {
                 ctx.filter_dotpath: {"$ne": None},
+                **ctx.extra_filter,
                 f'{ctx.filter_dotpath}.type': from_type
             }},
             *add_fields,
@@ -230,6 +234,7 @@ def __check_geojson_objects(updater: DocumentUpdater, geojson_types: List[str]):
     def by_path(ctx: ByPathContext):
         fltr = {"$and": [
             {ctx.filter_dotpath: {"$ne": None}},
+            *[{k: v} for k, v in ctx.extra_filter.items()],
             {f'{ctx.filter_dotpath}.type': {'$nin': geojson_types}},
             # $expr >= 3.6
             {"$expr": {"$eq": [{"$type": f'${ctx.filter_dotpath}'}, 'object']}}
@@ -250,6 +255,7 @@ def __check_legacy_point_coordinates(updater: DocumentUpdater):
     def by_path(ctx: ByPathContext):
         fltr = {"$and": [
             {ctx.filter_dotpath: {"$ne": None}},
+            *[{k: v} for k, v in ctx.extra_filter.items()],
             # $expr >= 3.6, $isArray >= 3.2
             {"$expr": {"$eq": [{"$isArray": f"${ctx.filter_dotpath}"}, True]}},
             {"$expr": {"$ne": [{"$size": f"${ctx.filter_dotpath}"}, 2]}},  # $expr >= 3.6
@@ -273,6 +279,7 @@ def __check_value_types(updater: DocumentUpdater, allowed_types: List[str]):
         # Check for data types other than objects or arrays
         fltr = {"$and": [
             {ctx.filter_dotpath: {"$ne": None}},
+            *[{k: v} for k, v in ctx.extra_filter.items()],
             # $expr >= 3.6, $type >= 3.4
             {"$expr": {"$not": [{"$in": [{"$type": f'${ctx.filter_dotpath}'}, allowed_types]}]}}
         ]}

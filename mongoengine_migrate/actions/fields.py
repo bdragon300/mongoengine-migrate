@@ -57,7 +57,7 @@ class CreateField(BaseFieldAction):
         """
         def by_path(ctx: ByPathContext):
             ctx.collection.update_many(
-                {ctx.filter_dotpath: {'$exists': False}},
+                {ctx.filter_dotpath: {'$exists': False}, **ctx.extra_filter},
                 {'$set': {ctx.update_dotpath: default}},
                 array_filters=ctx.array_filters
             )
@@ -76,7 +76,7 @@ class CreateField(BaseFieldAction):
         """Drop field"""
         def by_path(ctx: ByPathContext):
             ctx.collection.update_many(
-                {ctx.filter_dotpath: {'$exists': True}},
+                {ctx.filter_dotpath: {'$exists': True}, **ctx.extra_filter},
                 {'$unset': {ctx.update_dotpath: ''}}
             )
 
@@ -120,7 +120,7 @@ class DropField(BaseFieldAction):
         """Drop field"""
         def by_path(ctx: ByPathContext):
             ctx.collection.update_many(
-                {ctx.filter_dotpath: {'$exists': True}},
+                {ctx.filter_dotpath: {'$exists': True}, **ctx.extra_filter},
                 {'$unset': {ctx.update_dotpath: ''}}
             )
 
@@ -139,7 +139,7 @@ class DropField(BaseFieldAction):
         """
         def by_path(ctx: ByPathContext):
             ctx.collection.update_many(
-                {ctx.filter_dotpath: {'$exists': False}},
+                {ctx.filter_dotpath: {'$exists': False}, **ctx.extra_filter},
                 {'$set': {ctx.update_dotpath: default}},
                 array_filters=ctx.array_filters
             )

@@ -49,15 +49,15 @@ dependencies = [
 ]
 
 forward = [
-    CreateDocument('author'),
-    CreateField('author', 'name', choices=None, db_field='name', default=None, max_length=None,
+    CreateDocument('Author', collection='author'),
+    CreateField('Author', 'name', choices=None, db_field='name', default=None, max_length=None,
         min_length=None, null=False, primary_key=False, regex=None, required=True,
         sparse=False, type_key='StringField', unique=False, unique_with=None),
-    RenameField('books', 'name', new_name='caption'),
-    AlterField('books', 'caption', required=True, db_field='caption'),
-    AlterField('books', 'year', type_key='IntField', min_value=None, max_value=None),
-    DropField('books', 'isbn'),
-    CreateField('books', 'author', choices=None, db_field='author', dbref=False, default=None,
+    RenameField('Books', 'name', new_name='caption'),
+    AlterField('Books', 'caption', required=True, db_field='caption'),
+    AlterField('Books', 'year', type_key='IntField', min_value=None, max_value=None),
+    DropField('Books', 'isbn'),
+    CreateField('Books', 'author', choices=None, db_field='author', dbref=False, default=None,
         link_collection='author', null=False, primary_key=False, required=False, sparse=False,
         type_key='ReferenceField', unique=False, unique_with=None),
 ]

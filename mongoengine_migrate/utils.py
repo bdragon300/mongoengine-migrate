@@ -1,9 +1,7 @@
 import inspect
 from typing import Type, Iterable, Optional
-
-from mongoengine import EmbeddedDocument, Document
 from mongoengine.base import BaseDocument
-
+from mongoengine import EmbeddedDocument
 from .flags import EMBEDDED_DOCUMENT_NAME_PREFIX, DOCUMENT_NAME_SEPARATOR
 
 
@@ -82,18 +80,12 @@ def get_document_type(document_cls: Type[BaseDocument]) -> Optional[str]:
     :return: document type or None if unable to get it (if document_cls
      is abstract)
     """
-    # Mongoengine places class name only to
-    # `EmbeddedDocument._class_name` instead of all classes in
-    # hierarchy.
-    # As a workaround we construct class name here by hand both for
-    # embedded documents and not embedded
-    base_classes = (EmbeddedDocument, Document)
-    bases = [base.__name__ for base in inspect.getmro(document_cls)
-             if (issubclass(base, base_classes)
-                 and base not in base_classes
-                 and not getattr(base, "_meta", {}).get("abstract", False))]
-    document_type = DOCUMENT_NAME_SEPARATOR.join(reversed(bases))
-
+    # Class name consisted of its name and all parent names separated
+    # by dots, see mongoengine.base.DocumentMetaclass
+    document_type = getattr(document_cls, '_class_name')
+    # Replace dots on our separator since "dictdiffer" package
+    # treats dot in key as dict keys path
+    document_type = document_type.replace('.', DOCUMENT_NAME_SEPARATOR)
     if issubclass(document_cls, EmbeddedDocument):
         document_type = f'{EMBEDDED_DOCUMENT_NAME_PREFIX}{document_type}'
 

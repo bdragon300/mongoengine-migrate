@@ -120,16 +120,16 @@ def to_uuid(updater: DocumentUpdater):
     other types to a string. Then verify if these strings contain
     UUIDs. Raise error if not
     """
-    def post_check(col, filter_dotpath):
+    def post_check(ctx: ByPathContext):
         # Verify strings. There are only binData and string values now in db
         fltr = {
-            filter_dotpath: {
+            ctx.filter_dotpath: {
                 '$not': re.compile(r'\A[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}\Z'),
                 '$ne': None,
                 '$type': "string"
             }
         }
-        check_empty_result(col, filter_dotpath, fltr)
+        check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
     def by_path(ctx: ByPathContext):
         # Convert fields to string where value has type other than binData
@@ -199,15 +199,15 @@ def ref_to_cached_reference(updater: DocumentUpdater):
     """Convert ObjectId values to Manual Reference SON object.
     Leave DBRef objects as is.
     """
-    def post_check(col, filter_dotpath, update_dotpath, array_filters):
+    def post_check(ctx: ByPathContext):
         # Check if all values in collection are DBRef or Manual reference
         # objects because we could miss other value types on a previous step
         fltr = {
-            filter_dotpath: {"$ne": None},
-            f'{filter_dotpath}.$id': {"$exists": False},  # Exclude DBRef objects
-            f'{filter_dotpath}._id': {"$exists": False},  # Exclude Manual refs
+            ctx.filter_dotpath: {"$ne": None},
+            f'{ctx.filter_dotpath}.$id': {"$exists": False},  # Exclude DBRef objects
+            f'{ctx.filter_dotpath}._id': {"$exists": False},  # Exclude Manual refs
         }
-        check_empty_result(col, filter_dotpath, fltr)
+        check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
     def by_path(ctx: ByPathContext):
         ctx.collection.aggregate([
@@ -235,17 +235,17 @@ def cached_reference_to_ref(updater: DocumentUpdater):
     """Convert Manual Reference SON object to ObjectId value.
     Leave DBRef objects as is.
     """
-    def post_check(col, filter_dotpath, update_dotpath, array_filters):
+    def post_check(ctx: ByPathContext):
         # Check if all values in collection are DBRef or ObjectId because
         # we could miss other value types on a previous step
         fltr = {
-            filter_dotpath: {"$ne": None},
-            f'{filter_dotpath}.$id': {"$exists": False},  # Exclude DBRef objects
+            ctx.filter_dotpath: {"$ne": None},
+            f'{ctx.filter_dotpath}.$id': {"$exists": False},  # Exclude DBRef objects
             "$expr": {  # >= 3.6
                 "$ne": [{"$type": "$key"}, 'objectId']
             }
         }
-        check_empty_result(col, filter_dotpath, fltr)
+        check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
     def by_path(ctx: ByPathContext):
         ctx.collection.aggregate([

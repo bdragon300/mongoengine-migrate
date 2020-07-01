@@ -73,7 +73,7 @@ class ByPathContext(NamedTuple):
     filter_dotpath: str
     update_dotpath: str
     array_filters: Optional[List[dict]]
-    apply_filter: dict
+    extra_filter: dict
 
 
 class ByDocContext(NamedTuple):
@@ -147,7 +147,7 @@ class DocumentUpdater:
                                 filter_dotpath=self.field_name,
                                 update_dotpath=self.field_name,
                                 array_filters=None,
-                                apply_filter=class_fltr)
+                                extra_filter=class_fltr)
             callback(ctx)
             return
 
@@ -163,7 +163,7 @@ class DocumentUpdater:
                             filter_dotpath=filter_dotpath,
                             update_dotpath=update_dotpath,
                             array_filters=array_filters,
-                            apply_filter=class_fltr)
+                            extra_filter=class_fltr)
         callback(ctx)
 
     def update_by_document(self, callback: Callable) -> None:

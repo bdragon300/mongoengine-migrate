@@ -67,7 +67,7 @@ class BaseAction(metaclass=BaseActionMeta):
         :param left_schema: db schema before migration (left side)
         :return:
         """
-        collection = db[left_schema[self.document_type].properties['collection']]
+        collection = db[left_schema[self.document_type].parameters['collection']]
         self._run_ctx = {
             'left_schema': left_schema,
             'db': db,
@@ -273,7 +273,7 @@ class BaseDocumentAction(BaseAction):
     def _is_my_collection_used_by_other_documents(self) -> bool:
         """Return True if some of documents uses the same collection"""
         self_schema = self._run_ctx['left_schema'][self.document_type]
-        collection_name = self_schema.properties['collection']
+        collection_name = self_schema.parameters['collection']
         return any(
             v.parameters.get('collection') == collection_name
             for k, v in self._run_ctx['left_schema'].items()

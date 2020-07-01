@@ -142,7 +142,7 @@ class DocumentUpdater:
         """
         class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
         if not self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-            collection_name = self.db_schema[self.document_type].properties['collection']
+            collection_name = self.db_schema[self.document_type].parameters['collection']
             ctx = ByPathContext(collection=self.db[collection_name],
                                 filter_dotpath=self.field_name,
                                 update_dotpath=self.field_name,
@@ -185,7 +185,7 @@ class DocumentUpdater:
         """
         class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
         if not self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-            collection_name = self.db_schema[self.document_type].properties['collection']
+            collection_name = self.db_schema[self.document_type].parameters['collection']
             collection = self.db[collection_name]
             for doc in collection.find(class_fltr):
                 ctx = ByDocContext(collection=collection,
@@ -297,8 +297,8 @@ class DocumentUpdater:
         document_types = ((name, schema) for name, schema in self.db_schema.items()
                           if not name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX))
 
-        for document_type, schema in document_types:
-            collection = self.db[schema.properties['collection']]
+        for document_type, document_schema in document_types:
+            collection = self.db[document_schema.parameters['collection']]
             for path in self._find_embedded_fields(collection,
                                                    document_type,
                                                    self.document_type,  # FIXME: could not be an embedded!

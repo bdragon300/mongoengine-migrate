@@ -103,6 +103,6 @@ def document_type_to_class_name(document_type: str) -> str:
     cls_name = document_type.replace(DOCUMENT_NAME_SEPARATOR, '.')
     emb_prefix = EMBEDDED_DOCUMENT_NAME_PREFIX
     if cls_name.startswith(emb_prefix):
-        cls_name = cls_name[emb_prefix:]
+        cls_name = cls_name[len(emb_prefix):]
 
     return cls_name

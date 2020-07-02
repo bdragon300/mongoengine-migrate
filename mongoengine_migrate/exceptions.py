@@ -9,7 +9,7 @@ __all__ = [
 
 
 class MongoengineMigrateError(Exception):
-    """Generic migration error"""
+    """Generic error"""
 
 
 class MigrationGraphError(MongoengineMigrateError):
@@ -17,11 +17,11 @@ class MigrationGraphError(MongoengineMigrateError):
 
 
 class ActionError(MongoengineMigrateError):
-    """Generic error occured during migration actions executing"""
+    """Error related to Action itself"""
 
 
 class SchemaError(MongoengineMigrateError):
-    """Generic error in db schema"""
+    """Error related to schema errors"""
 
 
 class MigrationError(MongoengineMigrateError):
@@ -30,4 +30,5 @@ class MigrationError(MongoengineMigrateError):
 
 class InconsistencyError(MigrationError):
     """Error which could occur during migration if data inconsistency
-    was detected"""
+    was detected
+    """

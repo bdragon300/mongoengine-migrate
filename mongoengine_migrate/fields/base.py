@@ -13,7 +13,7 @@ import mongoengine.fields
 from pymongo.database import Database
 
 import mongoengine_migrate.flags as flags
-from mongoengine_migrate.exceptions import SchemaError, MigrationError
+from mongoengine_migrate.exceptions import SchemaError, MigrationError, ActionError
 from mongoengine_migrate.fields.registry import type_key_registry, add_field_handler
 from mongoengine_migrate.mongo import (
     check_empty_result,
@@ -122,13 +122,13 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
     @classmethod
     def build_schema(cls, field_obj: mongoengine.fields.BaseField) -> dict:
         """
-        Return db schema from a given mongoengine field object
+        Return schema of a given mongoengine field object
 
         'type_key' schema item will get filled with a mongoengine field
         class name or one of its parents which have its own type key
         in registry
         :param field_obj: mongoengine field object
-        :return: schema dict
+        :return: field schema dict
         """
         schema_skel = cls.schema_skel()
         schema = {f: getattr(field_obj, f, val) for f, val in schema_skel.items()}
@@ -148,7 +148,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                 (x.field_cls for x in type_key_registry.values())
             )
             if registry_field_cls is None:
-                raise SchemaError(f'Could not find {field_class!r} or one of its base classes '
+                raise ActionError(f'Could not find {field_class!r} or one of its base classes '
                                   f'in type_key registry')
 
             schema['type_key'] = registry_field_cls.__name__
@@ -203,7 +203,8 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         self._check_diff(updater.field_name, diff, False, str)
         if not diff.new or not diff.old:
-            raise MigrationError("db_field must be a non-empty string")
+            raise SchemaError(f"{updater.document_type}{updater.field_name}.db_field "
+                              f"must be a non-empty string")
 
         updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
 
@@ -229,9 +230,8 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             default = self.right_field_schema.get('default')
             # None and UNSET default has the same meaning here
             if default is None:
-                raise MigrationError(f'Cannot mark field '
-                                     f'{self.collection.name}.{updater.field_name} '
-                                     f'as required because default value is not set')
+                raise SchemaError(f'{updater.document_type}{updater.field_name}.default is not '
+                                  f'set for required field')
 
             updater.update_by_path(by_path)
 
@@ -291,13 +291,14 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         """
         self._check_diff(updater.field_name, diff, False, str)
         if not diff.old or not diff.new:
-            raise MigrationError(f"'type_key' has empty values: {diff!r}")
+            raise SchemaError(f"Old or new {updater.document_type}{updater.field_name}.type_key "
+                              f"values are not set")
 
         field_classes = []
         for val in (diff.old, diff.new):
             if val not in type_key_registry:
-                raise MigrationError(f'Could not find {val!r} or one of its base classes '
-                                     f'in type_key registry')
+                raise SchemaError(f'Unknown type_key {updater.document_type}{updater.field_name}: '
+                                  f'{val!r}')
             field_classes.append(type_key_registry[val].field_cls)
 
         new_handler_cls = type_key_registry[diff.new].field_handler_cls
@@ -350,18 +351,19 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         type_converter(updater)
 
     def _check_diff(self, db_field: str, diff: Diff, can_be_none=True, check_type=None):
+        # TODO: pass updater here
         if diff.new == diff.old:
-            raise MigrationError(f'Diff of field {db_field} has the equal old and new values')
+            raise SchemaError(f'Diff of field {db_field} has the equal old and new values')
 
         if check_type is not None:
             if diff.old not in (UNSET, None) and not isinstance(diff.old, check_type) \
                     or diff.new not in (UNSET, None) and not isinstance(diff.new, check_type):
-                raise MigrationError(f'Field {db_field}, diff {diff!s} values must be of type '
-                                     f'{check_type!r}')
+                raise SchemaError(f'Field {db_field}, diff {diff!s} values must be of type '
+                                  f'{check_type!r}')
 
         if not can_be_none:
             if diff.old is None or diff.new is None:
-                raise MigrationError(f'{db_field} could not be None')
+                raise SchemaError(f'{db_field} could not be None')
 
     @classmethod
     def _normalize_default(cls, default):

@@ -3,7 +3,7 @@ import random
 import pytest
 
 from mongoengine_migrate.migration import Migration, MigrationsGraph
-from mongoengine_migrate.exceptions import MigrationError
+from mongoengine_migrate.exceptions import MongoengineMigrateError
 
 
 @pytest.fixture
@@ -209,7 +209,7 @@ class TestMigrationGraph:
         for m in migration_tree:
             self.obj.add(m)
 
-        with pytest.raises(MigrationError) as e:
+        with pytest.raises(MongoengineMigrateError) as e:
             self.obj.verify()
 
         assert 'Unknown dependencies' in str(e)
@@ -221,7 +221,7 @@ class TestMigrationGraph:
         for m in migration_tree:
             self.obj.add(m)
 
-        with pytest.raises(MigrationError) as e:
+        with pytest.raises(MongoengineMigrateError) as e:
             self.obj.verify()
 
         assert 'dependent on itself' in str(e)
@@ -232,7 +232,7 @@ class TestMigrationGraph:
         for m in migration_tree:
             self.obj.add(m)
 
-        with pytest.raises(MigrationError) as e:
+        with pytest.raises(MongoengineMigrateError) as e:
             self.obj.verify()
 
         assert 'Migrations graph is disconnected' in str(e)
@@ -246,7 +246,7 @@ class TestMigrationGraph:
         for m in migration_tree:
             self.obj.add(m)
 
-        with pytest.raises(MigrationError) as e:
+        with pytest.raises(MongoengineMigrateError) as e:
             self.obj.verify()
 
         assert 'Several initial migrations' in str(e)
@@ -260,7 +260,7 @@ class TestMigrationGraph:
         for m in migration_tree:
             self.obj.add(m)
 
-        with pytest.raises(MigrationError) as e:
+        with pytest.raises(MongoengineMigrateError) as e:
             self.obj.verify()
 
         assert 'Several last migrations' in str(e)
@@ -274,7 +274,7 @@ class TestMigrationGraph:
         for m in migration_tree:
             self.obj.add(m)
 
-        with pytest.raises(MigrationError) as e:
+        with pytest.raises(MongoengineMigrateError) as e:
             self.obj.verify()
 
         assert 'No initial or last children' in str(e)

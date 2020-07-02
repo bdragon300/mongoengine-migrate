@@ -14,6 +14,7 @@ from mongoengine_migrate.mongo import (
     ByPathContext,
     ByDocContext
 )
+from mongoengine_migrate.exceptions import MigrationError
 
 #: GeoJSON field convertions in order of increasing the nested array
 #  depth in `coordinates` subfield.
@@ -47,7 +48,7 @@ def convert_geojson(updater: DocumentUpdater, from_type: str, to_type: str):
             to_ind = ind
 
     if from_ind is None or to_ind is None:
-        raise ValueError(f"Unknown geo field type. Was requested: {from_type}, {to_type}")
+        raise MigrationError(f"Unknown geo field type. Was requested: {from_type}, {to_type}")
 
     depth = abs(from_ind - to_ind)
     if from_ind <= to_ind:
@@ -232,7 +233,7 @@ def __decrease_geojson_nesting(updater: DocumentUpdater,
 def __check_geojson_objects(updater: DocumentUpdater, geojson_types: List[str]):
     """
     Check if all object values in field are GeoJSON objects of given
-    types. Raise MigrationError if other objects found
+    types. Raise InconsistencyError if other objects found
     :param updater:
     :param geojson_types:
     :return:
@@ -254,7 +255,7 @@ def __check_geojson_objects(updater: DocumentUpdater, geojson_types: List[str]):
 def __check_legacy_point_coordinates(updater: DocumentUpdater):
     """
     Check if all array values in field has legacy geo point
-    coordinates type. Raise MigrationError if other arrays was found
+    coordinates type. Raise InconsistencyError if other arrays was found
     :param updater:
     :return:
     """
@@ -276,7 +277,7 @@ def __check_legacy_point_coordinates(updater: DocumentUpdater):
 def __check_value_types(updater: DocumentUpdater, allowed_types: List[str]):
     """
     Check if given field contains only given types of value.
-    Raise if other value types was found
+    Raise InconsistencyError if other value types was found
     :param updater:
     :param allowed_types:
     :return:

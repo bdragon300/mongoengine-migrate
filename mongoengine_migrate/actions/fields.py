@@ -7,7 +7,7 @@ __all__ = {
 
 from typing import Mapping, Any
 
-from mongoengine_migrate.exceptions import ActionError
+from mongoengine_migrate.exceptions import ActionError, SchemaError
 from mongoengine_migrate.mongo import DocumentUpdater, ByPathContext
 from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.utils import document_type_to_class_name
@@ -30,21 +30,22 @@ class CreateField(BaseFieldAction):
             field_params = right_schema[document_type][field_name]
             return cls(document_type=document_type,
                        field_name=field_name,
-                       **field_params
-                       )
+                       **field_params)
 
     def to_schema_patch(self, left_schema: Schema):
         keys_to_check = {'type_key', 'db_field'}
-        if not(keys_to_check < self.parameters.keys()):
-            raise ActionError(f"{keys_to_check} parameters are required in CreateField action")
+        missed_keys = keys_to_check - self.parameters.keys()
+        if missed_keys:
+            raise SchemaError(f"Missed required parameters in "
+                              f"CreateField({self.document_type}...): {missed_keys}")
 
         # Get schema skeleton for field type
         field_handler_cls = self.get_field_handler_cls(self.parameters['type_key'])
         right_field_schema_skel = field_handler_cls.schema_skel()
         extra_keys = self.parameters.keys() - right_field_schema_skel.keys()
         if extra_keys:
-            raise ActionError(f'Unknown CreateField action parameters: {extra_keys} '
-                              f'({field_handler_cls!r})')
+            raise SchemaError(f'Unknown CreateField({self.document_type}...) parameters: '
+                              f'{extra_keys}')
 
         field_params = {
             **right_field_schema_skel,
@@ -118,11 +119,12 @@ class DropField(BaseFieldAction):
             return cls(document_type=document_type, field_name=field_name)
 
     def to_schema_patch(self, left_schema: Schema):
-        try:
-            left_field_schema = left_schema[self.document_type][self.field_name]
-        except KeyError:
-            raise ActionError(f'Cannot alter field {self.document_type}.{self.field_name} '
-                              f'since the collection {self.document_type} is not in schema')
+        if self.document_type not in left_schema:
+            raise SchemaError(f'Document {self.document_type!r} is not in schema')
+        if self.field_name not in left_schema[self.document_type]:
+            raise SchemaError(f'Field {self.document_type}.{self.field_name} is not in schema')
+
+        left_field_schema = left_schema[self.document_type][self.field_name]
 
         return [(
             'remove',
@@ -204,11 +206,12 @@ class AlterField(BaseFieldAction):
             return cls(document_type=document_type, field_name=field_name, **action_params)
 
     def to_schema_patch(self, left_schema: Schema):
-        try:
-            left_field_schema = left_schema[self.document_type][self.field_name]
-        except KeyError:
-            raise ActionError(f'Cannot alter field {self.document_type}.{self.field_name} '
-                              f'since the collection {self.document_type} is not in schema')
+        if self.document_type not in left_schema:
+            raise SchemaError(f'Document {self.document_type!r} is not in schema')
+        if self.field_name not in left_schema[self.document_type]:
+            raise SchemaError(f'Field {self.document_type}.{self.field_name} is not in schema')
+
+        left_field_schema = left_schema[self.document_type][self.field_name]
 
         # Get schema skeleton for field type
         field_handler_cls = self.get_field_handler_cls(
@@ -217,7 +220,8 @@ class AlterField(BaseFieldAction):
         right_schema_skel = field_handler_cls.schema_skel()
         extra_keys = self.parameters.keys() - right_schema_skel.keys()
         if extra_keys:
-            raise ActionError(f'Unknown schema parameters: {extra_keys}')
+            raise SchemaError(f'Unknown keys in schema of field '
+                              f'{self.document_type}.{self.field_name}: {extra_keys}')
 
         # Shortcuts
         left = left_field_schema
@@ -292,13 +296,13 @@ class AlterField(BaseFieldAction):
         Search for potential problems which could be happened during
         migration and return fixed field schema. If such problem
         could not be resolved only by changing parameters then raise
-        an ActionError
+        an SchemaError
         :param document_type:
         :param field_name:
         :param field_params:
         :param old_schema:
         :param new_schema:
-        :raises ActionError: when some problem found
+        :raises SchemaError: when some problem found
         :return:
         """
         # TODO: Check all defaults in diffs against choices, required, etc.
@@ -316,7 +320,7 @@ class AlterField(BaseFieldAction):
             or new_schema.get(field_name, {}).get('default')
         if become_required and default is None:
             # TODO: replace following error on interactive mode
-            raise ActionError(f'Field {document_type}.{field_name} could not be '
+            raise SchemaError(f'Field {document_type}.{field_name} could not be '
                               f'created since it defined as required but has not a default value')
 
         return field_params
@@ -383,11 +387,12 @@ class RenameField(BaseFieldAction):
                        new_name=candidates[0][0])
 
     def to_schema_patch(self, left_schema: Schema):
-        try:
-            left_field_schema = left_schema[self.document_type][self.field_name]
-        except KeyError:
-            raise ActionError(f'Cannot alter field {self.document_type}.{self.field_name} '
-                              f'since the collection {self.document_type} is not in schema')
+        if self.document_type not in left_schema:
+            raise SchemaError(f'Document {self.document_type!r} is not in schema')
+        if self.field_name not in left_schema[self.document_type]:
+            raise SchemaError(f'Field {self.document_type}.{self.field_name} is not in schema')
+
+        left_field_schema = left_schema[self.document_type][self.field_name]
 
         return [
             ('remove', f'{self.document_type}', [(self.field_name, left_field_schema)]),

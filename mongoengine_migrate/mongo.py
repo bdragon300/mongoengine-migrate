@@ -14,7 +14,7 @@ from pymongo import ReplaceOne
 from pymongo.collection import Collection
 from pymongo.database import Database
 
-from mongoengine_migrate.exceptions import MigrationError
+from mongoengine_migrate.exceptions import MigrationError, InconsistencyError
 from mongoengine_migrate.schema import Schema
 from . import flags
 
@@ -34,9 +34,9 @@ def check_empty_result(collection: Collection, db_field: str, find_filter: dict)
             f'{{_id: {x.get("_id", "unknown")},...{db_field}: {x.get(db_field, "unknown")}}}'
             for x in bad_records
         )
-        raise MigrationError(f"Field {collection.name}.{db_field} in some records "
-                             f"has wrong values. First several examples: "
-                             f"{','.join(examples)}")
+        raise InconsistencyError(f"Field {collection.name}.{db_field} in some records "
+                                 f"has wrong values. First several examples: "
+                                 f"{','.join(examples)}")
 
 
 def mongo_version(min_version: str = None, max_version: str = None, throw_error: bool = False):
@@ -67,7 +67,9 @@ def mongo_version(min_version: str = None, max_version: str = None, throw_error:
                     (">=" + min_version if min_version else ""),
                     ("<" + max_version if max_version else "")
                 ])
-                raise MigrationError(f'Commands are valid only for MongoDB version {version_msg}')
+                raise MigrationError(
+                    f'Commands are valid only for MongoDB version {version_msg}'
+                )
             elif not invalid:
                 return f(*args, **kwargs)
 

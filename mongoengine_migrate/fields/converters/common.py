@@ -43,8 +43,8 @@ def nothing(*args, **kwargs):
 
 def deny(updater: DocumentUpdater):
     """Convertion is denied"""
-    raise MigrationError(f"Convertion of field {updater.document_type}.{updater.field_name} "
-                         f"is forbidden")
+    raise MigrationError(f"Such type_key convertion for field "
+                         f"{updater.document_type}.{updater.field_name} is forbidden")
 
 
 def drop_field(updater: DocumentUpdater):

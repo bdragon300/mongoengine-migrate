@@ -18,7 +18,7 @@ from typing import Dict, Type, Optional, List
 from pymongo.database import Database
 
 import mongoengine_migrate.flags as flags
-from mongoengine_migrate.exceptions import MigrationError, ActionError
+from mongoengine_migrate.exceptions import ActionError, SchemaError
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.query_tracer import HistoryCall
 from mongoengine_migrate.schema import Schema
@@ -162,13 +162,14 @@ class BaseFieldAction(BaseAction):
 
         db_field = kwargs.get('db_field')
         if db_field and '.' in db_field:
-            raise ActionError("Field name must not contain dots")
+            raise ActionError(f"db_field must not contain dots "
+                              f"{self.document_type}.{self.field_name}")
 
     def get_field_handler_cls(self, type_key: str):
         """Concrete FieldHandler class for a given type key"""
         if type_key not in type_key_registry:
-            raise MigrationError(f'Could not find field {type_key!r} or one of its base classes '
-                                 f'in type_key registry')
+            raise SchemaError(f'Unknown type_key in {self.document_type}.{self.field_name}: '
+                              f'{type_key}')
 
         return type_key_registry[type_key].field_handler_cls
 

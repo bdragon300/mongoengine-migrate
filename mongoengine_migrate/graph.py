@@ -2,7 +2,7 @@ __all__ = ['Migration', 'MigrationsGraph']
 
 from typing import Dict, List
 
-from mongoengine_migrate.exceptions import MigrationError
+from mongoengine_migrate.exceptions import MigrationGraphError
 from mongoengine_migrate.utils import Slotinit
 
 
@@ -90,7 +90,7 @@ class MigrationsGraph:
         Graph must not have loops, disconnections.
         Also it should have single initial migration and (for a while)
         single last migration.
-        :raises MigrationError: if problem in graph was found
+        :raises MigrationGraphError: if problem in graph was found
         :return:
         """
         # FIXME: This function is not used anywhere
@@ -104,21 +104,21 @@ class MigrationsGraph:
                 last_children.append(name)
             if len(obj.dependencies) > len(self._parents[name]):
                 diff = set(obj.dependencies) - {x.name for x in self._parents[name]}
-                raise MigrationError(f'Unknown dependencies in migration {name!r}: {diff}')
+                raise MigrationGraphError(f'Unknown dependencies in migration {name!r}: {diff}')
             if name in (x.name for x in self._children[name]):
-                raise MigrationError(f'Found migration which dependent on itself: {name!r}')
+                raise MigrationGraphError(f'Found migration which dependent on itself: {name!r}')
 
         if len(initials) == len(last_children) and len(initials) > 1:
-            raise MigrationError(f'Migrations graph is disconnected, history segments '
+            raise MigrationGraphError(f'Migrations graph is disconnected, history segments '
                                  f'started on: {initials!r}, ended on: {last_children!r}')
         if len(initials) > 1:
-            raise MigrationError(f'Several initial migrations found: {initials!r}')
+            raise MigrationGraphError(f'Several initial migrations found: {initials!r}')
 
         if len(last_children) > 1:
-            raise MigrationError(f'Several last migrations found: {last_children!r}')
+            raise MigrationGraphError(f'Several last migrations found: {last_children!r}')
 
         if not initials or not last_children:
-            raise MigrationError(f'No initial or last children found')
+            raise MigrationGraphError(f'No initial or last children found')
 
     def walk_down(self, from_node: Migration, unapplied_only=True, _node_counters=None):
         """
@@ -149,7 +149,7 @@ class MigrationsGraph:
         :param unapplied_only: if True then return only unapplied migrations
          or return all migrations otherwise
         :param _node_counters:
-        :raises MigrationError: if graph has a closed cycle
+        :raises MigrationGraphError: if graph has a closed cycle
         :return: Migration objects generator
         """
         # FIXME: may yield nodes not related to target migration if branchy graph
@@ -169,8 +169,8 @@ class MigrationsGraph:
         if _node_counters[from_node.name] < 0:
             # A node was already returned and we're reached it again
             # This means there is a closed cycle
-            raise MigrationError(f'Found closed cycle in migration graph, '
-                                 f'{from_node.name!r} is repeated twice')
+            raise MigrationGraphError(f'Found closed cycle in migration graph, '
+                                      f'{from_node.name!r} is repeated twice')
 
         if not (from_node.applied and unapplied_only):
             yield from_node
@@ -194,7 +194,7 @@ class MigrationsGraph:
         :param applied_only: if True then return only applied migrations,
          return all migrations otherwise
         :param _node_counters:
-        :raises MigrationError: if graph has a closed cycle
+        :raises MigrationGraphError: if graph has a closed cycle
         :return: Migration objects generator
         """
         # FIXME: may yield nodes not related to reverting if branchy graph
@@ -213,8 +213,8 @@ class MigrationsGraph:
         if _node_counters[from_node.name] < 0:
             # A node was already returned and we're reached it again
             # This means there is a closed cycle
-            raise MigrationError(f'Found closed cycle in migration graph, '
-                                 f'{from_node.name!r} is repeated twice')
+            raise MigrationGraphError(f'Found closed cycle in migration graph, '
+                                      f'{from_node.name!r} is repeated twice')
 
         if from_node.applied or not applied_only:
             yield from_node

@@ -98,8 +98,8 @@ def add_field_handler(field_cls: Type[fields.BaseField], handler_cls: Type['Comm
     :return:
     """
     if field_cls.__name__ not in type_key_registry:
-        raise ValueError(f'Could not find {field_cls!r} or one of its base classes '
-                         f'in type_key registry')
+        raise ValueError(f'Could not add handler {handler_cls!r} for unknown mongoengine field '
+                         f'class {field_cls!r}')
 
     # Handlers can be added in any order
     # So set a handler only on those registry items where no handler

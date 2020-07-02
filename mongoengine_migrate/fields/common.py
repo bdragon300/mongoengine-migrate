@@ -24,7 +24,7 @@ from typing import Type, Collection, Union
 import bson
 import mongoengine.fields
 
-from mongoengine_migrate.exceptions import MigrationError
+from mongoengine_migrate.exceptions import SchemaError, InconsistencyError
 from mongoengine_migrate.mongo import (
     check_empty_result,
     mongo_version,
@@ -137,9 +137,10 @@ class StringFieldHandler(CommonFieldHandler):
             if isinstance(doc, dict):
                 val = doc.get(updater.field_name)
                 if isinstance(val, str) and len(val) < diff.new:
-                    raise MigrationError(
+                    raise InconsistencyError(
                         f"String field {ctx.collection.name}.{ctx.filter_dotpath} on one of "
-                        f"records has length less than minimum: {doc}")
+                        f"records has length less than minimum: {doc}"
+                    )
 
         self._check_diff(updater.field_name, diff, True, int)
         if diff.new in (UNSET, None):
@@ -367,7 +368,8 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
 
         self._check_diff(updater.field_name, diff, False, str)
         if not diff.new or not diff.old:
-            raise MigrationError('Empty separator specified')
+            raise SchemaError(f'{updater.document_type}{updater.field_name}.separator '
+                              f'must not be empty')
         if diff.new == UNSET:
             return
 

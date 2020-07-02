@@ -20,7 +20,7 @@ from pymongo import MongoClient
 
 import mongoengine_migrate.flags as runtime_flags
 from mongoengine_migrate.actions.factory import build_actions_chain
-from mongoengine_migrate.exceptions import MigrationError, SchemaError
+from mongoengine_migrate.exceptions import MongoengineMigrateError, ActionError, MigrationGraphError
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.graph import Migration, MigrationsGraph
 from mongoengine_migrate.query_tracer import DatabaseQueryTracer
@@ -90,10 +90,10 @@ def collect_models_schema() -> Schema:
 
         document_type = get_document_type(model_cls)
         if document_type is None:
-            raise SchemaError(f'Could not get document type for {model_cls!r}')
+            raise ActionError(f'Could not get document type for {model_cls!r}')
 
         if document_type in schema:  # FIXME: inherited documents could have the same collection
-            raise SchemaError(f'Models with the same document types {document_type!r} found')
+            raise ActionError(f'Models with the same document types {document_type!r} found')
 
         schema[document_type] = Schema.Document()
         if not document_type.startswith(runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
@@ -123,7 +123,7 @@ def collect_models_schema() -> Schema:
                 )
 
             if registry_field_cls is None:
-                raise SchemaError(f'Could not find {field_cls!r} or one of its base classes '
+                raise ActionError(f'Could not find {field_cls!r} or one of its base classes '
                                   f'in type_key registry')
 
             handler_cls = field_mapping_registry[registry_field_cls].field_handler_cls
@@ -152,9 +152,11 @@ class MongoengineMigrate:
                 server_info = self.client.server_info()
                 runtime_flags.mongo_version = server_info['version']
             except pymongo.errors.OperationFailure as e:
-                raise MigrationError('Could not figure out MongoDB version. Please set up '
-                                     'right permissions to be able to execute "buildinfo" '
-                                     'command or specify version explicitly') from e
+                raise MongoengineMigrateError(
+                    'Could not figure out MongoDB version. Please set up '
+                    'right permissions to be able to execute "buildinfo" '
+                    'command or specify version explicitly'
+                ) from e
 
     @property
     def db(self) -> pymongo.database.Database:
@@ -234,7 +236,7 @@ class MongoengineMigrate:
         """
         # FIXME: do not load to current namespace
         if not directory.exists():
-            raise MigrationError(f"Directory '{directory}' does not exist")
+            raise MongoengineMigrateError(f"Directory '{directory}' does not exist")
 
         for module_file in directory.glob("*.py"):
             if module_file.name.startswith("__"):
@@ -260,7 +262,7 @@ class MongoengineMigrate:
         for migration_name in self.get_db_migration_names():
             if migration_name not in graph.migrations:
                 # TODO: ability to override with --force
-                raise MigrationError(f'Migration module {migration_name} not found')
+                raise MigrationGraphError(f'Migration module {migration_name} not found')
             graph.migrations[migration_name].applied = True
 
         return graph
@@ -275,7 +277,7 @@ class MongoengineMigrate:
         current_schema = self.load_db_schema()
 
         if migration_name not in graph.migrations:
-            raise MigrationError(f'Migration {migration_name} not found')
+            raise MigrationGraphError(f'Migration {migration_name} not found')
 
         # TODO: error handling
         for migration in graph.walk_down(graph.initial, unapplied_only=True):
@@ -311,7 +313,7 @@ class MongoengineMigrate:
         left_schema = self.load_db_schema()
 
         if migration_name not in graph.migrations:
-            raise MigrationError(f'Migration {migration_name} not found')
+            raise MigrationGraphError(f'Migration {migration_name} not found')
 
         # Collect schema diffs across all migrations
         migration_diffs = {}  # {migration_name: [action1_diff, ...]}
@@ -357,13 +359,13 @@ class MongoengineMigrate:
         """
         graph = self.build_graph()
         if not graph.last:
-            raise MigrationError('No migrations found')
+            raise MigrationGraphError('No migrations found')
 
         if migration_name is None:
             migration_name = graph.last.name
 
         if migration_name not in graph.migrations:
-            raise MigrationError(f'Migration {migration_name} not found')
+            raise MigrationGraphError(f'Migration {migration_name} not found')
 
         migration = graph.migrations[migration_name]
         if migration.applied:

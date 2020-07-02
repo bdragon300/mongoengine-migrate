@@ -1,3 +1,11 @@
+__all__ = [
+    'TypeKeyRegistryItem',
+    'type_key_registry',
+    'add_type_key',
+    'add_field_handler',
+    'CONVERTION_MATRIX'
+]
+
 import inspect
 from functools import partial
 from typing import Dict, Type, Optional, NamedTuple

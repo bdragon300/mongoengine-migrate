@@ -1,3 +1,11 @@
+__all__ = [
+    'check_empty_result',
+    'mongo_version',
+    'ByPathContext',
+    'ByDocContext',
+    'DocumentUpdater'
+]
+
 import functools
 from typing import Optional, Callable, Tuple, Generator, NamedTuple, List
 

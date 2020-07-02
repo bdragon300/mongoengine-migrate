@@ -1,3 +1,9 @@
+__all__ = [
+    'convert_geojson',
+    'legacy_pairs_to_geojson',
+    'geojson_to_legacy_pairs'
+]
+
 import functools
 from typing import List
 

@@ -1,3 +1,6 @@
+__all__ = ['Schema']
+
+
 class Schema(dict):
     """Database schema wrapper"""
     class Document(dict):

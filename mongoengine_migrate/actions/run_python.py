@@ -1,3 +1,7 @@
+__all__ = [
+    'RunPython'
+]
+
 from mongoengine_migrate.exceptions import ActionError
 from mongoengine_migrate.schema import Schema
 from .base import BaseAction

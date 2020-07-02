@@ -1,3 +1,10 @@
+__all__ = {
+    'CreateField',
+    'DropField',
+    'AlterField',
+    'RenameField'
+}
+
 from typing import Mapping, Any
 
 from mongoengine_migrate.exceptions import ActionError

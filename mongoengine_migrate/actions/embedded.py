@@ -1,3 +1,10 @@
+__all__ = [
+    'CreateEmbedded',
+    'DropEmbedded',
+    'RenameEmbedded',
+    'AlterEmbedded'
+]
+
 from mongoengine_migrate.flags import EMBEDDED_DOCUMENT_NAME_PREFIX
 from mongoengine_migrate.schema import Schema
 from .base import BaseCreateDocument, BaseDropDocument, BaseRenameDocument, BaseAlterDocument

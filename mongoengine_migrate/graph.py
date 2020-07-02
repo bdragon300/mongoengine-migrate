@@ -1,9 +1,9 @@
-from mongoengine_migrate.exceptions import MigrationError
-from mongoengine_migrate.utils import Slotinit
+__all__ = ['Migration', 'MigrationsGraph']
 
 from typing import Dict, List
 
-# TODO: __all__ to all modules
+from mongoengine_migrate.exceptions import MigrationError
+from mongoengine_migrate.utils import Slotinit
 
 
 class Migration(Slotinit):

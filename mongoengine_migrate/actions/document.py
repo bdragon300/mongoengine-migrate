@@ -1,4 +1,9 @@
-from copy import deepcopy
+__all__ = [
+    'CreateDocument',
+    'DropDocument',
+    'RenameDocument',
+    'AlterDocument'
+]
 
 from mongoengine_migrate.flags import EMBEDDED_DOCUMENT_NAME_PREFIX
 from mongoengine_migrate.schema import Schema

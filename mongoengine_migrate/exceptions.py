@@ -1,3 +1,10 @@
+__all__ = [
+    'MigrationError',
+    'ActionError',
+    'SchemaError'
+]
+
+
 class MigrationError(Exception):
     """Generic migration error"""
 

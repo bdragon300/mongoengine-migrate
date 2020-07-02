@@ -81,6 +81,8 @@ class RenameEmbedded(BaseRenameDocument):
 
 
 class AlterEmbedded(BaseAlterDocument):
+    priority = 5
+
     """Alter whole embedded document changes"""
     @classmethod
     def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):

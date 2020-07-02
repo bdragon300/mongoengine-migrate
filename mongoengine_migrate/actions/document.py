@@ -93,7 +93,8 @@ class RenameDocument(BaseRenameDocument):
 
 
 class AlterDocument(BaseAlterDocument):
-    # FIXME: set prioriry
+    priority = 9
+
     @classmethod
     def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
         if document_type.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX):

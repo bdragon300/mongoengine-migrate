@@ -329,8 +329,6 @@ class BaseDropDocument(BaseDocumentAction):
 
 
 class BaseRenameDocument(BaseDocumentAction):
-    priority = 3
-
     #: How much percent of items in schema diff of two collections
     #: should be equal to consider such change as collection rename
     #: instead of drop/create

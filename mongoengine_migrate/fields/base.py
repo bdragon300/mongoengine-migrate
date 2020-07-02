@@ -27,15 +27,16 @@ from .registry import CONVERTION_MATRIX
 
 
 class Diff(NamedTuple):
-    """Diff values for alter methods"""
+    """Diff of schema key values for alter methods"""
     old: Any
     new: Any
+    key: str
 
     def __str__(self):
-        return f"Diff({self.old}, {self.new})"
+        return f"Diff({self.key}: {self.old}, {self.new})"
 
     def __repr__(self):
-        return f"<Diff({self.old}, {self.new})>"
+        return f"<Diff({self.key}: {self.old}, {self.new})>"
 
 
 #: Value indicates that such schema key is unset
@@ -169,8 +170,9 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         assert name != 'param', "Schema key could not be 'param'"
 
         diff = Diff(
-            self.left_field_schema.get(name, UNSET),
-            self.right_field_schema.get(name, UNSET)
+            old=self.left_field_schema.get(name, UNSET),
+            new=self.right_field_schema.get(name, UNSET),
+            key=name
         )
 
         method = getattr(self, f'change_{name}')

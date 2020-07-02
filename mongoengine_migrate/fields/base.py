@@ -203,7 +203,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             if isinstance(doc, dict) and diff.old in doc:
                 doc[diff.new] = doc.pop(diff.old)
 
-        self._check_diff(updater.field_name, diff, False, str)
+        self._check_diff(updater, diff, False, str)
         if not diff.new or not diff.old:
             raise SchemaError(f"{updater.document_type}{updater.field_name}.db_field "
                               f"must be a non-empty string")
@@ -226,7 +226,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                 array_filters=ctx.array_filters
             )
 
-        self._check_diff(updater.field_name, diff, False, bool)
+        self._check_diff(updater, diff, False, bool)
 
         if diff.old is not True and diff.new is True:
             default = self.right_field_schema.get('default')
@@ -256,7 +256,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
-        self._check_diff(updater.field_name, diff, False, bool)
+        self._check_diff(updater, diff, False, bool)
         self.change_required(updater, diff),  # FIXME: should not consider default value, but check if field is required
         # self.change_unique([], []) or []  # TODO
 
@@ -274,7 +274,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                                ctx.filter_dotpath,
                                {ctx.filter_dotpath: {'$nin': choices}, **ctx.extra_filter})
 
-        self._check_diff(updater.field_name, diff, True, Collection)
+        self._check_diff(updater, diff, True, Collection)
 
         updater.update_by_path(by_path)
 
@@ -291,7 +291,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
-        self._check_diff(updater.field_name, diff, False, str)
+        self._check_diff(updater, diff, False, str)
         if not diff.old or not diff.new:
             raise SchemaError(f"Old or new {updater.document_type}{updater.field_name}.type_key "
                               f"values are not set")
@@ -352,20 +352,22 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         type_converter(updater)
 
-    def _check_diff(self, db_field: str, diff: Diff, can_be_none=True, check_type=None):
-        # TODO: pass updater here
+    @staticmethod
+    def _check_diff(updater: DocumentUpdater, diff: Diff, can_be_none=True, check_type=None):
         if diff.new == diff.old:
-            raise SchemaError(f'Diff of field {db_field} has the equal old and new values')
+            raise SchemaError(f'{updater.document_type}.{updater.field_name}.{diff.key} '
+                              f'does not changed from previous Action')
 
         if check_type is not None:
             if diff.old not in (UNSET, None) and not isinstance(diff.old, check_type) \
                     or diff.new not in (UNSET, None) and not isinstance(diff.new, check_type):
-                raise SchemaError(f'Field {db_field}, diff {diff!s} values must be of type '
-                                  f'{check_type!r}')
+                raise SchemaError(f'{updater.document_type}.{updater.field_name}.{diff.key} '
+                                  f'must have type {check_type!r}')
 
         if not can_be_none:
             if diff.old is None or diff.new is None:
-                raise SchemaError(f'{db_field} could not be None')
+                raise SchemaError(f'{updater.document_type}.{updater.field_name}.{diff.key} '
+                                  f'could not be None')
 
     @classmethod
     def _normalize_default(cls, default):

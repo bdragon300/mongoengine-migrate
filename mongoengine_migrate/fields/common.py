@@ -57,7 +57,7 @@ class NumberFieldHandler(CommonFieldHandler):
                 array_filters=ctx.array_filters
             )
 
-        self._check_diff(updater.field_name, diff, True, (int, float))
+        self._check_diff(updater, diff, True, (int, float))
         if diff.new in (UNSET, None):
             return
 
@@ -75,7 +75,7 @@ class NumberFieldHandler(CommonFieldHandler):
                 array_filters=ctx.array_filters
             )
 
-        self._check_diff(updater.field_name, diff, True, (int, float))
+        self._check_diff(updater, diff, True, (int, float))
         if diff.new in (UNSET, None):
             return
 
@@ -112,7 +112,7 @@ class StringFieldHandler(CommonFieldHandler):
                 if match:
                     doc[updater.field_name] = doc[updater.field_name][:diff.new]
 
-        self._check_diff(updater.field_name, diff, True, int)
+        self._check_diff(updater, diff, True, int)
         if diff.new in (UNSET, None):
             return
         if diff.new < 0:
@@ -142,7 +142,7 @@ class StringFieldHandler(CommonFieldHandler):
                         f"records has length less than minimum: {doc}"
                     )
 
-        self._check_diff(updater.field_name, diff, True, int)
+        self._check_diff(updater, diff, True, int)
         if diff.new in (UNSET, None):
             return
         if diff.new < 0:
@@ -159,7 +159,7 @@ class StringFieldHandler(CommonFieldHandler):
                     **ctx.extra_filter}
             check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
-        self._check_diff(updater.field_name, diff, True, (str, type(re.compile('.'))))
+        self._check_diff(updater, diff, True, (str, type(re.compile('.'))))
         if diff.new in (UNSET, None):
             return
 
@@ -179,7 +179,7 @@ class URLFieldHandler(StringFieldHandler):
             fltr = {ctx.filter_dotpath: {'$not': scheme_regex, '$ne': None}, **ctx.extra_filter}
             check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
-        self._check_diff(updater.field_name, diff, False, Collection)
+        self._check_diff(updater, diff, False, Collection)
         if not diff.new or diff.new == UNSET:
             return
 
@@ -238,7 +238,7 @@ class EmailFieldHandler(StringFieldHandler):
             fltr = {ctx.filter_dotpath: {'$not': regex, '$ne': None}, **ctx.extra_filter}
             check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
-        self._check_diff(updater.field_name, diff, False, bool)
+        self._check_diff(updater, diff, False, bool)
         if diff.new == UNSET:
             return
 
@@ -260,7 +260,7 @@ class EmailFieldHandler(StringFieldHandler):
             ]}
             check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
-        self._check_diff(updater.field_name, diff, False, bool)
+        self._check_diff(updater, diff, False, bool)
         if diff.new is True or diff.new == UNSET:
             return
 
@@ -301,7 +301,7 @@ class DecimalFieldHandler(NumberFieldHandler):
         """
         Convert to string or decimal depending on `force_string` flag
         """
-        self._check_diff(updater.field_name, diff, False, bool)
+        self._check_diff(updater, diff, False, bool)
         if diff.new == UNSET:
             return
 
@@ -366,7 +366,7 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
             if isinstance(doc, dict) and updater.field_name in doc:
                 doc[updater.field_name] = doc[updater.field_name].replace(diff.old, diff.new)
 
-        self._check_diff(updater.field_name, diff, False, str)
+        self._check_diff(updater, diff, False, str)
         if not diff.new or not diff.old:
             raise SchemaError(f'{updater.document_type}{updater.field_name}.separator '
                               f'must not be empty')
@@ -428,7 +428,7 @@ class ListFieldHandler(CommonFieldHandler):
                 if match:
                     doc[updater.field_name] = doc[updater.field_name][:diff.new]
 
-        self._check_diff(updater.field_name, diff, True, int)
+        self._check_diff(updater, diff, True, int)
         if diff.new in (UNSET, None):
             return
 
@@ -452,7 +452,7 @@ class BinaryFieldHandler(CommonFieldHandler):
         so do nothing
         """
         # TODO: add python update
-        self._check_diff(updater.field_name, diff, True, int)
+        self._check_diff(updater, diff, True, int)
         if diff.new in (UNSET, None):
             return
 
@@ -472,14 +472,14 @@ class SequenceFieldHandler(CommonFieldHandler):
         """Typically changing the collection name should not require
         to do any changes
         """
-        self._check_diff(updater.field_name, diff, False, str)
+        self._check_diff(updater, diff, False, str)
         pass
 
     def change_sequence_name(self, updater: DocumentUpdater, diff: Diff):
         """Typically changing the sequence name should not require
         to do any changes
         """
-        self._check_diff(updater.field_name, diff, False, str)
+        self._check_diff(updater, diff, False, str)
         pass
 
 
@@ -491,7 +491,7 @@ class UUIDFieldHandler(CommonFieldHandler):
     schema_skel_keys = {'binary'}
 
     def change_binary(self, updater: DocumentUpdater, diff: Diff):
-        self._check_diff(updater.field_name, diff, False, bool)
+        self._check_diff(updater, diff, False, bool)
 
         if diff.new is True:
             pass
@@ -511,11 +511,11 @@ class ReferenceFieldHandler(CommonFieldHandler):
 
     def change_target_doctype(self, updater: DocumentUpdater, diff: Diff):
         """Collection could not exist in db, so do nothing"""
-        self._check_diff(updater.field_name, diff, False, str)
+        self._check_diff(updater, diff, False, str)
 
     def change_dbref(self, updater: DocumentUpdater, diff: Diff):
         """Change reference storing format: ObjectId or DBRef"""
-        self._check_diff(updater.field_name, diff, False, bool)
+        self._check_diff(updater, diff, False, bool)
 
         if diff.new is True:
             self._objectid_to_dbref(updater)
@@ -606,7 +606,7 @@ class CachedReferenceFieldHandler(CommonFieldHandler):
                     {'$unset': paths}
                 )
 
-        self._check_diff(updater.field_name, diff, False, (list, tuple))
+        self._check_diff(updater, diff, False, (list, tuple))
 
         to_remove = set(diff.old) - set(diff.new)
         updater.update_by_path(by_path)
@@ -624,7 +624,7 @@ class FileFieldHandler(CommonFieldHandler):
         """Typically changing the collection name should not require
         to do any changes
         """
-        self._check_diff(updater.field_name, diff, False, str)
+        self._check_diff(updater, diff, False, str)
         pass
 
 
@@ -639,14 +639,14 @@ class ImageFieldHandler(FileFieldHandler):
         """Typically changing the attribute should not require
         to do any changes
         """
-        self._check_diff(updater.field_name, diff, False, (list, tuple))
+        self._check_diff(updater, diff, False, (list, tuple))
         pass
 
     def change_size(self, updater: DocumentUpdater, diff: Diff):
         """Typically changing the attribute should not require
         to do any changes
         """
-        self._check_diff(updater.field_name, diff, False, (list, tuple))
+        self._check_diff(updater, diff, False, (list, tuple))
         pass
 
 
@@ -658,7 +658,7 @@ class EmbeddedDocumentFieldHandler(CommonFieldHandler):
     schema_skel_keys = {'target_doctype'}
 
     def change_target_doctype(self, updater: DocumentUpdater, diff: Diff):
-        self._check_diff(updater.field_name, diff, False, str)
+        self._check_diff(updater, diff, False, str)
         # FIXME: decide what to do with existed embedded docs?
 
     @classmethod
@@ -684,7 +684,7 @@ class EmbeddedDocumentListFieldHandler(ListFieldHandler):
     schema_skel_keys = {'target_doctype'}
 
     def change_target_doctype(self, updater: DocumentUpdater, diff: Diff):
-        self._check_diff(updater.field_name, diff, False, str)
+        self._check_diff(updater, diff, False, str)
         # FIXME: decide what to do with existed embedded docs?
 
     @classmethod

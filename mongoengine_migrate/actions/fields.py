@@ -1,9 +1,9 @@
-__all__ = {
+__all__ = [
     'CreateField',
     'DropField',
     'AlterField',
     'RenameField'
-}
+]
 
 from typing import Mapping, Any
 

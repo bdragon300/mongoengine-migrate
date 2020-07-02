@@ -58,7 +58,7 @@ forward = [
     AlterField('Books', 'year', type_key='IntField', min_value=None, max_value=None),
     DropField('Books', 'isbn'),
     CreateField('Books', 'author', choices=None, db_field='author', dbref=False, default=None,
-        link_collection='author', null=False, primary_key=False, required=False, sparse=False,
+        target_doctype='Author', null=False, primary_key=False, required=False, sparse=False,
         type_key='ReferenceField', unique=False, unique_with=None),
 ]
 ```

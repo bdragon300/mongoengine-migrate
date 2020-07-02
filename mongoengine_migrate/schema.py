@@ -1,19 +1,50 @@
 __all__ = ['Schema']
 
+from mongoengine_migrate.exceptions import SchemaError
 
-class Schema(dict):
+
+class SchemaAccessMixin:
+    """Replace possible KeyError exceptions to SchemaError in dict key
+    access methods
+    """
+    def __access(self, method, item):
+        try:
+            return method(item)
+        except KeyError as e:
+            raise SchemaError(f'Unknown key {item!r}') from e
+
+    def __getitem__(self, item):
+        return self.__access(super().__getitem__, item)
+
+    def __delitem__(self, key):
+        return self.__access(super().__delitem__, key)
+
+    def pop(self, key):
+        return self.__access(super().pop, key)
+
+    def popitem(self):
+        try:
+            return super().popitem()
+        except KeyError as e:
+            raise SchemaError(f'Schema is empty') from e
+
+
+class Schema(SchemaAccessMixin, dict):
     """Database schema wrapper"""
-    class Document(dict):
+    class Document(SchemaAccessMixin, dict):
+        class Parameters(SchemaAccessMixin, dict):
+            pass
+
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            self.__parameters = {}
+            self.__parameters = Schema.Document.Parameters()
 
         @property
         def parameters(self) -> dict:
             return self.__parameters
 
         def load(self, document_schema: dict):
-            self.__parameters = document_schema.get('parameters', {})
+            self.__parameters = Schema.Document.Parameters(document_schema.get('parameters', {}))
             self.update(document_schema.get('fields', {}))
             return self
 

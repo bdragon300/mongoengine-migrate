@@ -235,6 +235,8 @@ class MigrationsGraph:
     def __eq__(self, other):
         if other is self:
             return True
+        if not isinstance(other, MigrationsGraph):
+            return False
 
         return all(migr == other._migrations.get(name) for name, migr in self._migrations.items())
 

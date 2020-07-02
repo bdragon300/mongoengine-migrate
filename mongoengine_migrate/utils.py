@@ -35,6 +35,8 @@ class Slotinit(object):
     def __eq__(self, other):
         if self is other:
             return True
+        if not isinstance(other, Slotinit):
+            return False
 
         try:
             return all((

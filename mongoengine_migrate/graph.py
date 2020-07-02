@@ -7,8 +7,6 @@ from typing import Dict, List
 
 
 class Migration(Slotinit):
-    # TODO: make it dict-like, not list-like
-    # TODO: derive from OrderedDict
     """Object represents one migration
 
     Contains information which is set in migration:
@@ -27,6 +25,7 @@ class Migration(Slotinit):
 
 
 class MigrationsGraph:
+    # TODO: make it dict-like, not list-like
     def __init__(self):
         # Following two variables contains the same migrations digraph
         # but from different points of view

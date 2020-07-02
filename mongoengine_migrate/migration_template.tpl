@@ -1,5 +1,4 @@
 from mongoengine_migrate.actions import *
-from mongoengine_migrate.fields import *
 
 
 dependencies = [

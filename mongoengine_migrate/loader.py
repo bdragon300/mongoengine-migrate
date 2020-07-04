@@ -6,6 +6,7 @@ __all__ = [
 
 import importlib.util
 import logging
+import functools
 from datetime import timezone, datetime
 from pathlib import Path
 from types import ModuleType
@@ -173,10 +174,9 @@ class MongoengineMigrate:
                     'command or use --mongo-version argument to set version by hand'
                 ) from e
 
-    @property
+    @functools.cached_property
     def db(self) -> pymongo.database.Database:
         """Return MongoDB database object"""
-        # FIXME: cache property
         db = self.client.get_database()
         if runtime_flags.dry_run:
             log.debug('> Dry run mode requested, use mock database object')

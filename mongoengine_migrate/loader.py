@@ -98,7 +98,7 @@ def collect_models_schema() -> Schema:
         if document_type is None:
             raise ActionError(f'Could not get document type for {model_cls!r}')
 
-        if document_type in schema:  # FIXME: inherited documents could have the same collection
+        if document_type in schema:
             raise ActionError(f'Models with the same document types {document_type!r} found')
 
         schema[document_type] = Schema.Document()

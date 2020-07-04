@@ -57,7 +57,7 @@ def cli_options(f):
             "-d",
             "--directory",
             default=MongoengineMigrate.default_directory,
-            envvar="MONGOENGINE_MIGRATE_DIR",
+            envvar="MONGOENGINE_MIGRATE_DIRECTORY",
             metavar="DIR",
             help="Directory with migrations",
             show_default=True,
@@ -75,7 +75,7 @@ def cli_options(f):
             '--mongo-version',
             help="Manually set MongoDB server version. By default it's determined automatically, "
                  "but this requires a permission for 'buildinfo' admin command",
-            # FIXME: add envvar
+            envvar="MONGOENGINE_MIGRATE_MONGO_VERSION",
             metavar="MONGO_VERSION"
         ),
         click.option(
@@ -125,7 +125,6 @@ def cli(uri, directory, collection, **kwargs):
     mongoengine_migrate = MongoengineMigrate(mongo_uri=uri,
                                              collection_name=collection,
                                              migrations_dir=directory)
-
 
 
 @click.command(short_help='Upgrade db to the given migration')

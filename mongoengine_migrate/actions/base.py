@@ -21,7 +21,6 @@ from pymongo.database import Database
 import mongoengine_migrate.flags as flags
 from mongoengine_migrate.exceptions import ActionError, SchemaError
 from mongoengine_migrate.fields.registry import type_key_registry
-from mongoengine_migrate.query_tracer import HistoryCall
 from mongoengine_migrate.schema import Schema
 
 #: Migration Actions registry. Mapping of class name and its class
@@ -99,8 +98,6 @@ class BaseAction(metaclass=BaseActionMeta):
 
     def cleanup(self):
         """Cleanup after Action run (both forward and backward)"""
-        if flags.dry_run:
-            self._run_ctx['collection'].call_history.clear()
 
     @abstractmethod
     def run_forward(self):
@@ -142,13 +139,6 @@ class BaseAction(metaclass=BaseActionMeta):
         Return string of python code which creates current object with
         the same state
         """
-
-    def get_call_history(self) -> List[HistoryCall]:
-        """Return call history of collection modification methods"""
-        if flags.dry_run:
-            return self._run_ctx['collection'].call_history
-
-        return []
 
     def __repr__(self):
         params_str = ', '.join(f'{k!r}={v!r}' for k, v in self.parameters.items())

@@ -1,11 +1,10 @@
 __all__ = [
-    'HistoryCall',
     'HistoryCallKind',
     'CollectionQueryTracer',
     'DatabaseQueryTracer'
 ]
 
-from datetime import datetime
+import logging
 from enum import Enum
 from typing import NamedTuple, Dict, Tuple, Any
 
@@ -16,28 +15,13 @@ from pymongo.collection import Collection
 _sentinel = object()
 
 
+log = logging.getLogger('mongoengine-migrate')
+
+
 class HistoryCallKind(Enum):
     READ = 'READ'
     MODIFY = "MODIFY"
     AGGREGATE = "AGGREGATE"
-
-
-class HistoryCall(NamedTuple):
-    collection_name: str
-    method_name: str
-    method_kind: HistoryCallKind
-    call_datetime: datetime
-    args: Tuple[Any]
-    kwargs: Dict[str, Any]
-
-    def __str__(self):
-        args_str = ', '.join(f'\n  {arg}' for arg in self.args)
-        kwargs_str = ', '.join(f"\n  {name}={val}"
-                               for name, val in sorted(self.kwargs.items()))
-        arguments = f'{args_str}{"," if kwargs_str else ""}{kwargs_str}'
-        if arguments:
-            arguments += '\n'
-        return f'[{self.call_datetime}] {self.collection_name}.{self.method_name}({arguments})'
 
 
 class InsertOneResultMock(NamedTuple):
@@ -72,7 +56,13 @@ class BulkWriteResultMock(NamedTuple):
 
 def make_history_method(func_name, method_kind, return_value=_sentinel):
     def w(instance, *args, **kwargs):
-        instance.add_history_call(func_name, method_kind, args, kwargs)
+        args_str = ', '.join(f'\n  {arg}' for arg in args)
+        kwargs_str = ', '.join(f"\n  {name}={val}" for name, val in sorted(kwargs.items()))
+        arguments = f'{args_str}{"," if kwargs_str else ""}{kwargs_str}'
+        if arguments:
+            arguments += '\n'
+        collection_name = instance.__wrapped__.full_name
+        log.info('* %s.%s(%s)', collection_name, func_name, arguments)
 
         if return_value == _sentinel:
             f = getattr(instance.__wrapped__, func_name)
@@ -88,9 +78,8 @@ class CollectionQueryTracer(wrapt.ObjectProxy):
     calls and writes their call to history
     """
 
-    def __init__(self, *args, call_history, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.call_history = call_history
 
     # Collection modification methods
     bulk_write = make_history_method('bulk_write', 'MODIFY', return_value=BulkWriteResultMock())
@@ -139,18 +128,6 @@ class CollectionQueryTracer(wrapt.ObjectProxy):
     map_reduce = make_history_method('map_reduce', 'READ')
     inline_map_reduce = make_history_method('inline_map_reduce', 'READ')
 
-    def add_history_call(self, func_name, method_kind, args, kwargs):
-        self.call_history.append(
-            HistoryCall(
-                collection_name=self.__wrapped__.full_name,
-                method_name=func_name,
-                method_kind=method_kind,
-                call_datetime=datetime.now(),
-                args=args,
-                kwargs=kwargs
-            )
-        )
-
 
 class DatabaseQueryTracer(wrapt.ObjectProxy):
     """pymongo.Database wrapper which is acting as original object,
@@ -158,23 +135,22 @@ class DatabaseQueryTracer(wrapt.ObjectProxy):
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.call_history = []
 
     def __getitem__(self, item):
         col = super().__getitem__(item)
-        return CollectionQueryTracer(col, call_history=self.call_history)
+        return CollectionQueryTracer(col)
 
     def __getattr__(self, item):
         val = super().__getattr__(item)
         if isinstance(val, Collection):
-            return CollectionQueryTracer(val, call_history=self.call_history)
+            return CollectionQueryTracer(val)
 
         return val
 
     def get_collection(self, *args, **kwargs):
         col = super().get_collection(*args, **kwargs)
-        return CollectionQueryTracer(col, call_history=self.call_history)
+        return CollectionQueryTracer(col)
 
     def create_collection(self, *args, **kwargs):
         col = super().create_collection(*args, **kwargs)
-        return CollectionQueryTracer(col, call_history=self.call_history)
+        return CollectionQueryTracer(col)

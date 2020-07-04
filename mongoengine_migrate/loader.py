@@ -319,10 +319,6 @@ class MongoengineMigrate:
                 if not action_object.dummy_action and not runtime_flags.schema_only:
                     action_object.prepare(db, current_schema)
                     action_object.run_forward()
-                    if runtime_flags.dry_run:
-                        for call in action_object.get_call_history():
-                            print(call)
-                            print()
                     action_object.cleanup()
                 # TODO: move the following to the place before cleanup
                 # TODO: handle patch errors (if schema is corrupted)
@@ -386,10 +382,6 @@ class MongoengineMigrate:
                 if not action_object.dummy_action and not runtime_flags.schema_only:
                     action_object.prepare(db, left_schema)
                     action_object.run_backward()
-                    if runtime_flags.dry_run:
-                        for call in action_object.get_call_history():
-                            print(call)
-                            print()
                     action_object.cleanup()
                 # TODO: handle patch errors (if schema is corrupted)
 

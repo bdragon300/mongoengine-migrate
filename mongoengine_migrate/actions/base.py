@@ -10,6 +10,7 @@ __all__ = [
     'BaseAlterDocument'
 ]
 
+import logging
 import weakref
 from abc import ABCMeta, abstractmethod
 from copy import deepcopy
@@ -25,6 +26,9 @@ from mongoengine_migrate.schema import Schema
 
 #: Migration Actions registry. Mapping of class name and its class
 actions_registry: Dict[str, Type['BaseAction']] = {}
+
+
+log = logging.getLogger('mongoengine-migrate')
 
 
 class BaseActionMeta(ABCMeta):
@@ -84,6 +88,8 @@ class BaseAction(metaclass=BaseActionMeta):
             docschema = left_schema.get(self.document_type)
             if docschema:
                 collection_name = docschema.parameters.get('collection')
+
+        log.debug('> %s; collection: %s', str(self), collection_name)
 
         collection = db[collection_name] if collection_name else db['COLLECTION_PLACEHOLDER']
 

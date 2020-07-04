@@ -5,13 +5,16 @@ __all__ = [
     'RenameField'
 ]
 
+import logging
 from typing import Mapping, Any
 
-from mongoengine_migrate.exceptions import ActionError, SchemaError
+from mongoengine_migrate.exceptions import SchemaError
 from mongoengine_migrate.mongo import DocumentUpdater, ByPathContext
 from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.utils import document_type_to_class_name
 from .base import BaseFieldAction
+
+log = logging.getLogger('mongoengine-migrate')
 
 
 class CreateField(BaseFieldAction):
@@ -265,6 +268,9 @@ class AlterField(BaseFieldAction):
         # Change field type first, obtain new field handler object
         # and process other parameters with it
         if type_key != right_field_schema['type_key']:
+            log.debug(">> Change 'type_key': %s => %s",
+                      repr(type_key),
+                      repr(right_field_schema['type_key']))
             field_handler.change_param(db_field, 'type_key')
             field_handler = self._get_field_handler(right_field_schema['type_key'],
                                                     left_field_schema,
@@ -279,6 +285,7 @@ class AlterField(BaseFieldAction):
             if name == 'type_key' or new_value == old_value:
                 continue
 
+            log.debug(">> Change %s: %s => %s", repr(name), repr(old_value), repr(new_value))
             field_handler.change_param(db_field, name)
 
             # If `db_field` was changed then work with new name further
@@ -405,7 +412,6 @@ class RenameField(BaseFieldAction):
         which could exist during field renaming, is handled by
         AlterField action
         """
-        pass
 
     def run_backward(self):
         """Renaming mongoengine model field does not required some
@@ -413,4 +419,3 @@ class RenameField(BaseFieldAction):
         which could exist during field renaming, is handled by
         AlterField action
         """
-        pass

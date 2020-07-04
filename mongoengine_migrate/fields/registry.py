@@ -220,6 +220,7 @@ CONVERTION_MATRIX = {
         fields.ListField: converters.item_to_list,
         fields.EmbeddedDocumentListField: converters.item_to_list,
         fields.CachedReferenceField: converters.nothing
+        # TODO: to DynamicField: val["_cls"] = cls.__name__
         # fields.GeoJsonBaseField: converters.dict_to_geojson,
     },
     # DynamicField can contain any type, so no convertation is requried
@@ -249,12 +250,12 @@ CONVERTION_MATRIX = {
         fields.CachedReferenceField: converters.deny
         # fields.GeoJsonBaseField: converters.dict_to_geojson,
     },
-    fields.ReferenceField: OBJECTID_CONVERTERS.copy(),
-    fields.LazyReferenceField: OBJECTID_CONVERTERS.copy(),
+    fields.ReferenceField: OBJECTID_CONVERTERS.copy(),  # TODO: to DynamicField: val = {"_ref": value.to_dbref(), "_cls": cls.__name__}
+    fields.LazyReferenceField: OBJECTID_CONVERTERS.copy(),  # TODO: to DynamicField: val = {"_ref": value.to_dbref(), "_cls": cls.__name__}
     fields.ObjectIdField: OBJECTID_CONVERTERS.copy(),
     fields.FileField: OBJECTID_CONVERTERS.copy(),
     fields.ImageField: OBJECTID_CONVERTERS.copy(),
-    fields.CachedReferenceField: {
+    fields.CachedReferenceField: {  # TODO: to DynamicField: val = {"_ref": value.to_dbref(), "_cls": cls.__name__}
         fields.EmbeddedDocumentField: converters.nothing,
         fields.ListField: converters.item_to_list,
         fields.ReferenceField: converters.cached_reference_to_ref,

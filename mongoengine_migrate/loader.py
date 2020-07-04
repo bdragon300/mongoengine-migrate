@@ -5,10 +5,11 @@ __all__ = [
 ]
 
 import importlib.util
+import logging
 from datetime import timezone, datetime
 from pathlib import Path
 from types import ModuleType
-from typing import Tuple, Iterable
+from typing import Tuple, Iterable, Optional
 
 import pymongo.database
 import pymongo.errors
@@ -26,6 +27,8 @@ from mongoengine_migrate.graph import Migration, MigrationsGraph
 from mongoengine_migrate.query_tracer import DatabaseQueryTracer
 from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.utils import get_closest_parent, get_document_type
+
+log = logging.getLogger('mongoengine-migrate')
 
 
 def symbol_wrap(value: str, width: int = 80, wrap_by: str = ',', wrapstring: str = '\n'):
@@ -83,9 +86,11 @@ def collect_models_schema() -> Schema:
 
     # Retrieve models from mongoengine global document registry
     for model_cls in _document_registry.values():
+        log.debug('> Reading document %s', repr(model_cls))
         # NOTE: EmbeddedDocuments are not append 'abstract' in meta if
         # `meta` is defined
         if model_cls._meta.get('abstract'):
+            log.debug('> Skip %s since it is an abstract document')
             continue
 
         document_type = get_document_type(model_cls)
@@ -131,6 +136,10 @@ def collect_models_schema() -> Schema:
             # TODO: warning about field type not implemented
             # TODO: validate default against all field restrictions such as min_length, regex, etc.
 
+        log.debug("> Schema '%s' => %s",
+                  document_type,
+                  str(schema[document_type]))
+
     return schema
 
 
@@ -146,23 +155,31 @@ class MongoengineMigrate:
         self._kwargs = kwargs
         self.client = MongoClient(mongo_uri)
 
+        # Initiate immediate connect to MongoDB in order to ensure
+        # that it is accessible
+        log.debug('Connecting to MongoDB...')
+        self.client.get_database().command('ping')
+
         # Trying to figure out server version if not specified
         if runtime_flags.mongo_version is None:
             try:
                 server_info = self.client.server_info()
                 runtime_flags.mongo_version = server_info['version']
+                log.info('MongoDB version: %s', runtime_flags.mongo_version)
             except pymongo.errors.OperationFailure as e:
                 raise MongoengineMigrateError(
                     'Could not figure out MongoDB version. Please set up '
                     'right permissions to be able to execute "buildinfo" '
-                    'command or specify version explicitly'
+                    'command or use --mongo-version argument to set version by hand'
                 ) from e
 
     @property
     def db(self) -> pymongo.database.Database:
         """Return MongoDB database object"""
+        # FIXME: cache property
         db = self.client.get_database()
         if runtime_flags.dry_run:
+            log.debug('> Dry run mode requested, use mock database object')
             db = DatabaseQueryTracer(db)
 
         return db
@@ -241,6 +258,8 @@ class MongoengineMigrate:
         for module_file in directory.glob("*.py"):
             if module_file.name.startswith("__"):
                 continue
+
+            log.debug('> Loading migration file %s', module_file)
             migration_name = module_file.stem
             spec = importlib.util.spec_from_file_location(
                 f"{namespace}.{migration_name}", str(module_file)
@@ -259,21 +278,33 @@ class MongoengineMigrate:
         for m in self.load_migrations(Path(self.migration_dir)):
             graph.add(m)
 
+        applied = []
         for migration_name in self.get_db_migration_names():
             if migration_name not in graph.migrations:
                 # TODO: ability to override with --force
-                raise MigrationGraphError(f'Migration module {migration_name} not found')
+                raise MigrationGraphError(
+                    f'Migration {migration_name} was applied, but its python module not found'
+                )
             graph.migrations[migration_name].applied = True
+            applied.append(migration_name)
+
+        log.debug('> Applied migrations: %s', applied)
+        log.debug('> Last migration is: %s', graph.last.name)
 
         return graph
 
-    def upgrade(self, migration_name: str):
+    def upgrade(self, migration_name: str, graph: Optional[MigrationsGraph] = None):
         """
         Upgrade db to the given migration
         :param migration_name: target migration name
+        :param graph: Optional. Migrations graph. If omitted, then it
+         will be loaded
         :return:
         """
-        graph = self.build_graph()
+        if graph is None:
+            log.debug('Loading migration files...')
+            graph = self.build_graph()
+        log.debug('Loading schema from database...')
         current_schema = self.load_db_schema()
 
         if migration_name not in graph.migrations:
@@ -281,6 +312,7 @@ class MongoengineMigrate:
 
         # TODO: error handling
         for migration in graph.walk_down(graph.initial, unapplied_only=True):
+            log.info('Upgrading %s...', migration.name)
             for action_object in migration.get_actions():
                 if not action_object.dummy_action and not runtime_flags.schema_only:
                     action_object.prepare(self.db, current_schema)
@@ -297,24 +329,31 @@ class MongoengineMigrate:
 
             graph.migrations[migration.name].applied = True
             if migration.name == migration_name:
-                break   # We're reached the target migration
+                break   # We've reached the target migration
 
         if not runtime_flags.dry_run:
+            log.debug('Writing db schema, applied migrations list...')
             self.write_db_schema(current_schema)
             self.write_db_migrations_graph(graph)
 
-    def downgrade(self, migration_name: str):
+    def downgrade(self, migration_name: str, graph: Optional[MigrationsGraph] = None):
         """
         Downgrade db to the given migration
         :param migration_name: target migration name
+        :param graph: Optional. Migrations graph. If omitted, then it
+         will be loaded
         :return:
         """
-        graph = self.build_graph()
+        if graph is None:
+            log.debug('Loading migration files...')
+            graph = self.build_graph()
+        log.debug('Loading schema from database...')
         left_schema = self.load_db_schema()
 
         if migration_name not in graph.migrations:
             raise MigrationGraphError(f'Migration {migration_name} not found')
 
+        log.debug('Precalculating schema diffs...')
         # Collect schema diffs across all migrations
         migration_diffs = {}  # {migration_name: [action1_diff, ...]}
         temp_left_schema = Schema()
@@ -328,7 +367,9 @@ class MongoengineMigrate:
         # TODO: error handling
         for migration in graph.walk_up(graph.last, applied_only=True):
             if migration.name == migration_name:
-                break  # We're reached the target migration
+                break  # We've reached the target migration
+
+            log.info('Downgrading %s...', migration.name)
 
             action_diffs = zip(migration.get_actions(), migration_diffs[migration.name])
             for action_object, action_diff in reversed(list(action_diffs)):
@@ -347,6 +388,7 @@ class MongoengineMigrate:
             graph.migrations[migration.name].applied = False
 
         if not runtime_flags.dry_run:
+            log.debug('Writing db schema, applied migrations list...')
             self.write_db_schema(left_schema)
             self.write_db_migrations_graph(graph)
 
@@ -357,6 +399,7 @@ class MongoengineMigrate:
         :param migration_name: target migration name
         :return:
         """
+        log.debug('Loading migration files...')
         graph = self.build_graph()
         if not graph.last:
             raise MigrationGraphError('No migrations found')
@@ -369,16 +412,18 @@ class MongoengineMigrate:
 
         migration = graph.migrations[migration_name]
         if migration.applied:
-            self.downgrade(migration_name)
+            self.downgrade(migration_name, graph)
         else:
-            self.upgrade(migration_name)
+            self.upgrade(migration_name, graph)
 
     def makemigrations(self):
         """
         Compare current mongoengine documents state and the last db
         state and make a migration file if needed
         """
+        log.debug('Loading migration files...')
         graph = self.build_graph()
+        log.debug('Loading schema from database...')
         db_schema = self.load_db_schema()
 
         # Obtain schema changes which migrations would make (including
@@ -389,13 +434,16 @@ class MongoengineMigrate:
             for action_object in migration.get_actions():
                 db_schema = patch(action_object.to_schema_patch(db_schema), db_schema)
 
+        log.debug('Collecting schema from mongoengine documents...')
         models_schema = collect_models_schema()
         if db_schema == models_schema:
-            print('No changes detected')
+            log.info('No changes detected')
             return
 
+        log.debug('Building actions chain...')
         actions_chain = build_actions_chain(db_schema, models_schema)
 
+        log.debug('Writing migrations file...')
         env = Environment()
         env.filters['symbol_wrap'] = symbol_wrap
         tpl_ctx = {
@@ -410,3 +458,5 @@ class MongoengineMigrate:
         name = f'{seq_number}_auto_{datetime.now().strftime("%Y%m%d_%H%M")}.py'
         migration_file = Path(self.migration_dir) / name
         migration_file.write_text(migration_source)
+
+        log.info('Migration file "%s" was created', migration_file)

@@ -5,10 +5,11 @@ __all__ = [
     'get_all_document_types'
 ]
 
+import logging
 from copy import copy
 from typing import Iterable, Type
 
-from dictdiffer import patch
+from dictdiffer import patch, diff
 
 import mongoengine_migrate.flags as flags
 from mongoengine_migrate.exceptions import ActionError
@@ -19,6 +20,8 @@ from .base import (
     BaseDocumentAction,
     BaseAction
 )
+
+log = logging.getLogger('mongoengine-migrate')
 
 
 def build_actions_chain(left_schema: Schema, right_schema: Schema) -> Iterable[BaseAction]:
@@ -49,17 +52,21 @@ def build_actions_chain(left_schema: Schema, right_schema: Schema) -> Iterable[B
             continue
 
         for action in new_actions:
+            log.debug('> %s', action)
             left_schema = patch(action.to_schema_patch(left_schema), left_schema)
         action_chain.extend(new_actions)
         document_types = get_all_document_types(left_schema, right_schema)
 
     if right_schema != left_schema:
-        from dictdiffer import diff
-        print(list(diff(left_schema, right_schema)))
+        log.error(
+            'Schema is still not reached the target state after applying all actions. '
+            'Changes left to make (diff): %s',
+            list(diff(left_schema, right_schema))
+        )
         # TODO: ability to force process without error
-        raise ActionError('Could not reach current schema after applying whole Action chain. '
-                          'This could be a problem in some Action which does not react to schema'
-                          ' change it should react or produces wrong schema diff')
+        raise ActionError('Could not reach target schema state after applying whole Action chain. '
+                          'This could be a problem in some Action which does not process schema '
+                          'properly or produces wrong schema diff. This is a programming error')
 
     return action_chain
 

@@ -2,9 +2,13 @@ __all__ = [
     'RunPython'
 ]
 
+import logging
+
 from mongoengine_migrate.exceptions import ActionError
 from mongoengine_migrate.schema import Schema
 from .base import BaseAction
+
+log = logging.getLogger('mongoengine-migrate')
 
 
 class RunPython(BaseAction):

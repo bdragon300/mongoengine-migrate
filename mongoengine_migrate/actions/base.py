@@ -89,8 +89,6 @@ class BaseAction(metaclass=BaseActionMeta):
             if docschema:
                 collection_name = docschema.parameters.get('collection')
 
-        log.debug('> %s; collection: %s', str(self), collection_name)
-
         collection = db[collection_name] if collection_name else db['COLLECTION_PLACEHOLDER']
 
         self._run_ctx = {
@@ -151,6 +149,19 @@ class BaseAction(metaclass=BaseActionMeta):
             return self._run_ctx['collection'].call_history
 
         return []
+
+    def __repr__(self):
+        params_str = ', '.join(f'{k!r}={v!r}' for k, v in self.parameters.items())
+        args_str = repr(self.document_type)
+        if self.dummy_action:
+            params_str += f', dummy_action={self.dummy_action}'
+        return f'{self.__class__.__name__}({args_str}, {params_str})'
+
+    def __str__(self):
+        args_str = repr(self.document_type)
+        if self.dummy_action:
+            args_str += f', dummy_action={self.dummy_action}'
+        return f'{self.__class__.__name__}({args_str}, ...)'
 
 
 class BaseFieldAction(BaseAction):
@@ -247,6 +258,19 @@ class BaseFieldAction(BaseAction):
                               left_field_schema,
                               right_field_schema)
         return handler
+
+    def __repr__(self):
+        params_str = ', '.join(f'{k!r}={v!r}' for k, v in self.parameters.items())
+        args_str = f'{self.document_type!r}, {self.field_name!r}'
+        if self.dummy_action:
+            params_str += f', dummy_action={self.dummy_action}'
+        return f'{self.__class__.__name__}({args_str}, {params_str})'
+
+    def __str__(self):
+        args_str = f'{self.document_type!r}, {self.field_name!r}'
+        if self.dummy_action:
+            args_str += f', dummy_action={self.dummy_action}'
+        return f'{self.__class__.__name__}({args_str}, ...)'
 
 
 class BaseDocumentAction(BaseAction):

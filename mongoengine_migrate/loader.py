@@ -311,11 +311,13 @@ class MongoengineMigrate:
             raise MigrationGraphError(f'Migration {migration_name} not found')
 
         # TODO: error handling
+        db = self.db
         for migration in graph.walk_down(graph.initial, unapplied_only=True):
             log.info('Upgrading %s...', migration.name)
-            for action_object in migration.get_actions():
+            for idx, action_object in enumerate(migration.get_actions(), start=1):
+                log.debug('> [%d] %s', idx, str(action_object))
                 if not action_object.dummy_action and not runtime_flags.schema_only:
-                    action_object.prepare(self.db, current_schema)
+                    action_object.prepare(db, current_schema)
                     action_object.run_forward()
                     if runtime_flags.dry_run:
                         for call in action_object.get_call_history():
@@ -365,18 +367,24 @@ class MongoengineMigrate:
                 temp_left_schema = patch(forward_patch, temp_left_schema)
 
         # TODO: error handling
+        db = self.db
         for migration in graph.walk_up(graph.last, applied_only=True):
             if migration.name == migration_name:
                 break  # We've reached the target migration
 
             log.info('Downgrading %s...', migration.name)
 
-            action_diffs = zip(migration.get_actions(), migration_diffs[migration.name])
-            for action_object, action_diff in reversed(list(action_diffs)):
+            action_diffs = zip(
+                migration.get_actions(),
+                migration_diffs[migration.name],
+                range(1, len(migration.get_actions()) + 1)
+            )
+            for action_object, action_diff, idx in reversed(list(action_diffs)):
+                log.debug('> [%d] %s', idx, str(action_object))
                 left_schema = patch(list(swap(action_diff)), left_schema)
 
                 if not action_object.dummy_action and not runtime_flags.schema_only:
-                    action_object.prepare(self.db, left_schema)
+                    action_object.prepare(db, left_schema)
                     action_object.run_backward()
                     if runtime_flags.dry_run:
                         for call in action_object.get_call_history():

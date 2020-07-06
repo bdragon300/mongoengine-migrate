@@ -80,11 +80,8 @@ class CreateField(BaseFieldAction):
             db_field = self.parameters['db_field']
             inherit = self._run_ctx['left_schema'][self.document_type].parameters.get('inherit')
             document_cls = document_type_to_class_name(self.document_type) if inherit else None
-            updater = DocumentUpdater(self._run_ctx['db'],
-                                      self.document_type,
-                                      db_field,
-                                      self._run_ctx['left_schema'],
-                                      document_cls)
+            updater = DocumentUpdater(self._run_ctx['db'], self.document_type,
+                                      self._run_ctx['left_schema'], db_field, document_cls)
             updater.update_by_path(by_path)
 
     def run_backward(self):
@@ -98,11 +95,8 @@ class CreateField(BaseFieldAction):
         db_field = self.parameters['db_field']
         inherit = self._run_ctx['left_schema'][self.document_type].parameters.get('inherit')
         document_cls = document_type_to_class_name(self.document_type) if inherit else None
-        updater = DocumentUpdater(self._run_ctx['db'],
-                                  self.document_type,
-                                  db_field,
-                                  self._run_ctx['left_schema'],
-                                  document_cls)
+        updater = DocumentUpdater(self._run_ctx['db'], self.document_type,
+                                  self._run_ctx['left_schema'], db_field, document_cls)
         updater.update_by_path(by_path)
 
 
@@ -146,11 +140,8 @@ class DropField(BaseFieldAction):
         db_field = self._run_ctx['left_field_schema']['db_field']
         inherit = self._run_ctx['left_schema'][self.document_type].parameters.get('inherit')
         document_cls = document_type_to_class_name(self.document_type) if inherit else None
-        updater = DocumentUpdater(self._run_ctx['db'],
-                                  self.document_type,
-                                  db_field,
-                                  self._run_ctx['left_schema'],
-                                  document_cls)
+        updater = DocumentUpdater(self._run_ctx['db'], self.document_type,
+                                  self._run_ctx['left_schema'], db_field, document_cls)
         updater.update_by_path(by_path)
 
     def run_backward(self):
@@ -172,11 +163,8 @@ class DropField(BaseFieldAction):
             db_field = self._run_ctx['left_field_schema']['db_field']
             inherit = self._run_ctx['left_schema'][self.document_type].parameters.get('inherit')
             document_cls = document_type_to_class_name(self.document_type) if inherit else None
-            updater = DocumentUpdater(self._run_ctx['db'],
-                                      self.document_type,
-                                      db_field,
-                                      self._run_ctx['left_schema'],
-                                      document_cls)
+            updater = DocumentUpdater(self._run_ctx['db'], self.document_type,
+                                      self._run_ctx['left_schema'], db_field, document_cls)
             updater.update_by_path(by_path)
 
 

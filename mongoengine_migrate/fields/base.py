@@ -161,10 +161,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         method = getattr(self, f'change_{name}')
         inherit = self.left_schema[self.document_type].parameters.get('inherit')
         document_cls = document_type_to_class_name(self.document_type) if inherit else None
-        updater = DocumentUpdater(self.db,
-                                  self.document_type,
-                                  db_field,
-                                  self.left_schema,
+        updater = DocumentUpdater(self.db, self.document_type, self.left_schema, db_field,
                                   document_cls)
         return method(updater, diff)
 

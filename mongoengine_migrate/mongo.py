@@ -101,10 +101,7 @@ class DocumentUpdater:
     """Document updater class. Used to update certain field in
     collection or embedded document
     """
-    def __init__(self, db: Database,
-                 document_type: str,
-                 field_name: str,
-                 db_schema: Schema,
+    def __init__(self, db: Database, document_type: str, db_schema: Schema, field_name: str,
                  document_cls: Optional[str] = None):
         """
         :param db: pymongo database object

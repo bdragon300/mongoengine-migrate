@@ -101,13 +101,17 @@ class DocumentUpdater:
     """Document updater class. Used to update certain field in
     collection or embedded document
     """
-    def __init__(self, db: Database, document_type: str, db_schema: Schema, field_name: str,
+    def __init__(self,
+                 db: Database,
+                 document_type: str,
+                 db_schema: Schema,
+                 field_name: Optional[str] = None,
                  document_cls: Optional[str] = None):
         """
         :param db: pymongo database object
         :param document_type: document name
-        :param field_name: field to work with
         :param db_schema: current db schema
+        :param field_name: field to work with.
         :param document_cls: if given then we ignore those documents
          and embedded documents whose '_cls' field is not equal to this
          parameter value. Documents with no '_cls' field and fields
@@ -155,8 +159,8 @@ class DocumentUpdater:
         if not self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
             collection_name = self.db_schema[self.document_type].parameters['collection']
             ctx = ByPathContext(collection=self.db[collection_name],
-                                filter_dotpath=self.field_name,
-                                update_dotpath=self.field_name,
+                                filter_dotpath=self.field_name or '',
+                                update_dotpath=self.field_name or '',
                                 array_filters=None,
                                 extra_filter=class_fltr)
             callback(ctx)
@@ -202,19 +206,21 @@ class DocumentUpdater:
             class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
             collection_name = self.db_schema[self.document_type].parameters['collection']
             collection = self.db[collection_name]
-            self._update_by_document(callback, collection, [self.field_name], None, class_fltr)
+            filter_path = [self.field_name] or None
+            self._update_by_document(callback, collection, filter_path, None, class_fltr)
 
     def _update_by_document(self,
                             callback: Callable,
                             collection: Collection,
-                            filter_path: Iterable[str],
+                            filter_path: Optional[Iterable[str]],
                             update_path: Optional[Iterable[str]],
                             extra_filter: Optional[dict] = None) -> None:
         """
         Call a callback for every document found by given filterpath
         :param callback: by_doc callback
         :param collection: pymongo.Collection object
-        :param filter_path: filter dotpath to substitute to find()
+        :param filter_path: filter dotpath to substitute to find(). If
+         None then documents will not be filtered by any field
         :param update_path: Update dotpath (with $[]) is
          pointed which document field to pick and call the callback
          for each of them (nested array of embedded documents for
@@ -223,6 +229,9 @@ class DocumentUpdater:
          to find()
         :return:
         """
+        find_fltr = {}
+        filter_dotpath = '.'.join(filter_path or ())
+
         if not update_path:
             json_path = '$'  # update_path points to any document
         else:
@@ -230,8 +239,9 @@ class DocumentUpdater:
             json_path = '.'.join(f.replace('$[]', '[*]') for f in update_path)
             json_path = json_path.replace('.[*]', '[*]')
         parser = jsonpath_rw.parse(json_path)
-        filter_dotpath = '.'.join(filter_path)
-        find_fltr = {filter_dotpath: {'$exists': True}}
+
+        if filter_path:
+            find_fltr = {filter_dotpath: {'$exists': True}}
         if extra_filter:
             find_fltr.update(extra_filter)
 
@@ -341,7 +351,7 @@ class DocumentUpdater:
                                                    document_type,
                                                    self.document_type,  # FIXME: could not be an embedded!
                                                    self.db_schema):
-                update_path = path + [self.field_name]
+                update_path = path + [self.field_name] if self.field_name else path
                 filter_path = [p for p in path if p != '$[]']
 
                 yield collection, update_path, filter_path

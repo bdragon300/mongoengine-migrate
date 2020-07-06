@@ -6,6 +6,7 @@ __all__ = [
     'DocumentUpdater'
 ]
 
+import logging
 import functools
 from typing import Optional, Callable, Tuple, Generator, NamedTuple, List
 
@@ -17,6 +18,9 @@ from pymongo.database import Database
 from mongoengine_migrate.exceptions import MigrationError, InconsistencyError
 from mongoengine_migrate.schema import Schema
 from . import flags
+
+
+log = logging.getLogger('mongoengine-migrate')
 
 
 def check_empty_result(collection: Collection, db_field: str, find_filter: dict) -> None:
@@ -194,7 +198,14 @@ class DocumentUpdater:
         :return:
         """
         class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
+        collection_name = self.db_schema[self.document_type].parameters.get('collection', '*')
+
         if not self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
+            if flags.dry_run:
+                msg = '* db.%s.find(%s) -> [Loop](%s) -> db.%s.bulk_write(...)'
+                log.info(msg, collection_name, class_fltr, self.field_name, collection_name)
+                return
+
             collection_name = self.db_schema[self.document_type].parameters['collection']
             collection = self.db[collection_name]
             for doc in collection.find(class_fltr):
@@ -202,6 +213,7 @@ class DocumentUpdater:
                                    document=doc,
                                    filter_dotpath=self.field_name)
                 callback(ctx)
+                # FIXME: where update_many?
             return
 
         for collection, update_path, filter_path in self._get_update_paths():
@@ -211,9 +223,15 @@ class DocumentUpdater:
         json_path = '.'.join(f.replace('$[]', '[*]') for f in update_path)
         json_path = json_path.replace('.[*]', '[*]')
         parser = jsonpath_rw.parse(json_path)
+        find_fltr = {'.'.join(filter_path): {'$exists': True}}
+
+        if flags.dry_run:
+            msg = '* db.%s.find(%s) -> [Loop](%s) -> db.%s.bulk_write(...)'
+            log.info(msg, collection.name, find_fltr, filter_path, collection.name)
+            return
 
         buf = []
-        for doc in collection.find({'.'.join(filter_path): {'$exists': True}}):
+        for doc in collection.find(find_fltr):
             # Recursively apply the callback to every embedded doc
             for embedded_doc in parser.find(doc):
                 if self.document_cls:

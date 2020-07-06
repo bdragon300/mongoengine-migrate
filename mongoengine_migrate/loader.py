@@ -108,6 +108,9 @@ def collect_models_schema() -> Schema:
         if model_cls._meta.get('allow_inheritance'):
             schema[document_type].parameters['inherit'] = True
 
+        if model_cls._dynamic:
+            schema[document_type].parameters['dynamic'] = True
+
         # {field_cls: TypeKeyRegistryItem}
         field_mapping_registry = {x.field_cls: x for x in type_key_registry.values()}
 

@@ -14,7 +14,7 @@ import logging
 import weakref
 from abc import ABCMeta, abstractmethod
 from copy import deepcopy
-from typing import Dict, Type, Optional, List
+from typing import Dict, Type, Optional, Mapping, Any
 
 from pymongo.database import Database
 
@@ -22,6 +22,7 @@ import mongoengine_migrate.flags as flags
 from mongoengine_migrate.exceptions import ActionError, SchemaError
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.schema import Schema
+from mongoengine_migrate.utils import Diff, UNSET
 
 #: Migration Actions registry. Mapping of class name and its class
 actions_registry: Dict[str, Type['BaseAction']] = {}
@@ -426,3 +427,50 @@ class BaseAlterDocument(BaseDocumentAction):
         right_item.parameters.update(self.parameters)
 
         return [('change', self.document_type, (left_item, right_item))]
+
+    def run_forward(self):
+        self._run_migration(self._run_ctx['left_schema'][self.document_type],
+                            self.parameters,
+                            swap=False)
+
+    def run_backward(self):
+        self._run_migration(self._run_ctx['left_schema'][self.document_type],
+                            self.parameters,
+                            swap=True)
+
+    def _run_migration(self,
+                       self_schema: Schema.Document,
+                       parameters: Mapping[str, Any],
+                       swap: bool = False):
+        # Try to process all parameters on same order to avoid
+        # potential problems on repeated launches if some query on
+        # previous launch was failed
+        for name in sorted(parameters.keys() | self_schema.parameters.keys()):
+            left_value = self_schema.parameters.get(name, UNSET)
+            right_value = parameters.get(name, UNSET)
+            diff = Diff(
+                old=right_value if swap else left_value,
+                new=left_value if swap else right_value,
+                key=name
+            )
+            if diff.old != diff.new:
+                log.debug(">> Change %s: %s => %s", repr(name), repr(diff.old), repr(diff.new))
+                try:
+                    method = getattr(self, f'change_{name}')
+                except AttributeError as e:
+                    raise SchemaError(f'Unknown document parameter: {name}') from e
+
+                method(diff)
+
+    def _check_diff(self, diff: Diff, can_be_none=True, check_type=None):
+        if diff.new == diff.old:
+            raise SchemaError(f'Parameter {diff.key} does not changed from previous Action')
+
+        if check_type is not None:
+            if diff.old not in (UNSET, None) and not isinstance(diff.old, check_type) \
+                    or diff.new not in (UNSET, None) and not isinstance(diff.new, check_type):
+                raise SchemaError(f'{diff.key} must have type {check_type!r}')
+
+        if not can_be_none:
+            if diff.old is None or diff.new is None:
+                raise SchemaError(f'{diff.key} could not be None')

@@ -425,7 +425,4 @@ class BaseAlterDocument(BaseDocumentAction):
         right_item.parameters.clear()
         right_item.parameters.update(self.parameters)
 
-        return [
-            ('remove', '', [(self.document_type, left_item)]),
-            ('add', '', [(self.document_type, right_item)])
-        ]
+        return [('change', self.document_type, (left_item, right_item))]

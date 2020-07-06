@@ -90,6 +90,7 @@ mongoengine-migrate migrate my_migration
 - [x] GridFS fields support
 - [x] Altering fields in embedded documents
 - [x] Document inheritance support
+- [x] Dynamic documents support
 - [ ] Index support
 - [ ] Generic* fields support
 - [ ] Interactive mode

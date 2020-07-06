@@ -63,10 +63,10 @@ class Schema(SchemaAccessMixin, dict):
             return not self.__eq__(other)
 
         def __str__(self):
-            return f'Document({super().__repr__()}, parameters={self.parameters!s}'
+            return f'Document({super().__repr__()}, parameters={self.parameters!s})'
 
         def __repr__(self):
-            return f'<Document({super().__repr__()}, parameters={self.parameters!r}>'
+            return f'<Document({super().__repr__()}, parameters={self.parameters!r})>'
 
     def load(self, db_schema: dict):
         """Load schema from db dict schema representation"""

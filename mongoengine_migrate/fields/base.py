@@ -1,13 +1,11 @@
 __all__ = [
-    'Diff',
-    'UNSET',
     'FieldHandlerMeta',
     'CommonFieldHandler',
 ]
 
 import inspect
 import weakref
-from typing import Type, Iterable, List, Tuple, Collection, NamedTuple, Any
+from typing import Type, Iterable, List, Tuple, Collection
 
 import mongoengine.fields
 from pymongo.database import Database
@@ -22,25 +20,8 @@ from mongoengine_migrate.mongo import (
     ByDocContext
 )
 from mongoengine_migrate.schema import Schema
-from mongoengine_migrate.utils import get_closest_parent, document_type_to_class_name
+from mongoengine_migrate.utils import get_closest_parent, document_type_to_class_name, Diff, UNSET
 from .registry import CONVERTION_MATRIX
-
-
-class Diff(NamedTuple):
-    """Diff of schema key values for alter methods"""
-    old: Any
-    new: Any
-    key: str
-
-    def __str__(self):
-        return f"Diff({self.key}: {self.old}, {self.new})"
-
-    def __repr__(self):
-        return f"<Diff({self.key}: {self.old}, {self.new})>"
-
-
-#: Value indicates that such schema key is unset
-UNSET = object()
 
 
 class FieldHandlerMeta(type):

@@ -32,8 +32,8 @@ from mongoengine_migrate.mongo import (
     ByPathContext,
     ByDocContext
 )
-from mongoengine_migrate.utils import get_document_type
-from .base import CommonFieldHandler, Diff, UNSET
+from mongoengine_migrate.utils import get_document_type, Diff, UNSET
+from .base import CommonFieldHandler
 from .converters import to_string, to_decimal
 
 

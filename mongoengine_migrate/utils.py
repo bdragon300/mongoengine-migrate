@@ -1,4 +1,6 @@
 __all__ = [
+    'UNSET',
+    'Diff',
     'Slotinit',
     'get_closest_parent',
     'get_document_type',
@@ -6,12 +8,29 @@ __all__ = [
 ]
 
 import inspect
-from typing import Type, Iterable, Optional
+from typing import Type, Iterable, Optional, NamedTuple, Any
 
 from mongoengine import EmbeddedDocument
 from mongoengine.base import BaseDocument
 
 from .flags import EMBEDDED_DOCUMENT_NAME_PREFIX, DOCUMENT_NAME_SEPARATOR
+
+
+#: Value indicates that such schema key is unset
+UNSET = object()
+
+
+class Diff(NamedTuple):
+    """Diff of schema key values for alter methods"""
+    old: Any
+    new: Any
+    key: str
+
+    def __str__(self):
+        return f"Diff({self.key}: {self.old}, {self.new})"
+
+    def __repr__(self):
+        return f"<Diff({self.key}: {self.old}, {self.new})>"
 
 
 class Slotinit(object):

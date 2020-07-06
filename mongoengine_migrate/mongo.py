@@ -8,7 +8,7 @@ __all__ = [
 
 import logging
 import functools
-from typing import Optional, Callable, Tuple, Generator, NamedTuple, List
+from typing import Optional, Callable, Tuple, Generator, NamedTuple, List, Iterable
 
 import jsonpath_rw
 from pymongo import ReplaceOne
@@ -197,37 +197,50 @@ class DocumentUpdater:
         :param callback:
         :return:
         """
-        class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
-        collection_name = self.db_schema[self.document_type].parameters.get('collection', '*')
 
-        if not self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-            if flags.dry_run:
-                msg = '* db.%s.find(%s) -> [Loop](%s) -> db.%s.bulk_write(...)'
-                log.info(msg, collection_name, class_fltr, self.field_name, collection_name)
-                return
-
+        if self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
+            for collection, update_path, filter_path in self._get_update_paths():
+                self._update_by_document(callback, collection, filter_path, update_path)
+        else:
+            class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
             collection_name = self.db_schema[self.document_type].parameters['collection']
             collection = self.db[collection_name]
-            for doc in collection.find(class_fltr):
-                ctx = ByDocContext(collection=collection,
-                                   document=doc,
-                                   filter_dotpath=self.field_name)
-                callback(ctx)
-                # FIXME: where update_many?
-            return
+            self._update_by_document(callback, collection, [self.field_name], None, class_fltr)
 
-        for collection, update_path, filter_path in self._get_update_paths():
-            self._update_by_document(callback, collection, filter_path, update_path)
-
-    def _update_by_document(self, callback, collection, filter_path, update_path) -> None:
-        json_path = '.'.join(f.replace('$[]', '[*]') for f in update_path)
-        json_path = json_path.replace('.[*]', '[*]')
+    def _update_by_document(self,
+                            callback: Callable,
+                            collection: Collection,
+                            filter_path: Iterable[str],
+                            update_path: Optional[Iterable[str]],
+                            extra_filter: Optional[dict] = None) -> None:
+        """
+        Call a callback for every document found by given filterpath
+        :param callback: by_doc callback
+        :param collection: pymongo.Collection object
+        :param filter_path: filter dotpath to substitute to find()
+        :param update_path: Update dotpath (with $[]) is
+         pointed which document field to pick and call the callback
+         for each of them (nested array of embedded documents for
+         instance). If None is passed then we pick a document itself
+        :param extra_filter: Optional. Extra filter dict to be added
+         to find()
+        :return:
+        """
+        if not update_path:
+            json_path = '$'  # update_path points to any document
+        else:
+            # update_path is mongo update path
+            json_path = '.'.join(f.replace('$[]', '[*]') for f in update_path)
+            json_path = json_path.replace('.[*]', '[*]')
         parser = jsonpath_rw.parse(json_path)
-        find_fltr = {'.'.join(filter_path): {'$exists': True}}
+        filter_dotpath = '.'.join(filter_path)
+        find_fltr = {filter_dotpath: {'$exists': True}}
+        if extra_filter:
+            find_fltr.update(extra_filter)
 
         if flags.dry_run:
             msg = '* db.%s.find(%s) -> [Loop](%s) -> db.%s.bulk_write(...)'
-            log.info(msg, collection.name, find_fltr, filter_path, collection.name)
+            log.info(msg, collection.name, find_fltr, filter_dotpath, collection.name)
             return
 
         buf = []
@@ -240,7 +253,7 @@ class DocumentUpdater:
                         continue
                 ctx = ByDocContext(collection=collection,
                                    document=embedded_doc,
-                                   filter_dotpath=filter_path)
+                                   filter_dotpath=filter_dotpath)
                 callback(ctx)
             buf.append(ReplaceOne({'_id': doc['_id']}, doc, upsert=False))
 

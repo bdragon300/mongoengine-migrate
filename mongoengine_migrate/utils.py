@@ -16,8 +16,16 @@ from mongoengine.base import BaseDocument
 from .flags import EMBEDDED_DOCUMENT_NAME_PREFIX, DOCUMENT_NAME_SEPARATOR
 
 
+class _Unset:
+    def __str__(self):
+        return 'UNSET'
+
+    def __repr__(self):
+        return '<UNSET>'
+
+
 #: Value indicates that such schema key is unset
-UNSET = object()
+UNSET = _Unset()
 
 
 class Diff(NamedTuple):

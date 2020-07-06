@@ -414,7 +414,7 @@ class DocumentUpdater:
             # element type if it is an array
             # So do the {"field.path.0": {$exists: true}} in
             # order to ensure that field contains array (non-empty)
-            array_dotpath = '.'.join(filter_path + ['.0'])
+            array_dotpath = '.'.join(filter_path + ['0'])
 
             is_object = collection.find(
                 {

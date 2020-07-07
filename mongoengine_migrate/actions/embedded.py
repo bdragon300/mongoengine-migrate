@@ -107,8 +107,9 @@ class AlterEmbedded(BaseAlterDocument):
     @mongo_version(min_version='2.6')
     def change_dynamic(self, diff: Diff):
         def by_path(ctx: ByPathContext):
+            dotpaths = {f'{ctx.filter_dotpath}.{k}': 1 for k in self_schema.keys()}
             ctx.collection.aggregate([
-                {'$project': project_fields},
+                {'$project': dotpaths},
                 {'$out': ctx.collection.name}  # >= 2.6
             ])  # FIXME: consider _cls for inherited documents
 
@@ -118,7 +119,6 @@ class AlterEmbedded(BaseAlterDocument):
 
         # Remove fields which are not in schema
         self_schema = self._run_ctx['left_schema'][self.document_type]
-        project_fields = {k: 1 for k in self_schema.keys()}
         inherit = self_schema.parameters.get('inherit')
         document_cls = document_type_to_class_name(self.document_type) if inherit else None
         updater = DocumentUpdater(self._run_ctx['db'],

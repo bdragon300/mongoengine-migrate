@@ -109,6 +109,7 @@ class AlterEmbedded(BaseAlterDocument):
         def by_path(ctx: ByPathContext):
             dotpaths = {f'{ctx.filter_dotpath}.{k}': 1 for k in self_schema.keys()}
             ctx.collection.aggregate([
+                {'$match': ctx.extra_filter},
                 {'$project': dotpaths},
                 {'$out': ctx.collection.name}  # >= 2.6
             ])  # FIXME: consider _cls for inherited documents

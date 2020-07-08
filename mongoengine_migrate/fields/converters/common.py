@@ -148,7 +148,8 @@ def to_uuid(updater: DocumentUpdater):
                 '$not': re.compile(r'\A[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}\Z'),
                 '$ne': None,
                 '$type': "string"
-            }
+            },
+            **ctx.extra_filter
         }
         check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
@@ -156,7 +157,7 @@ def to_uuid(updater: DocumentUpdater):
         # Convert fields to string where value has type other than binData
         ctx.collection.aggregate([
             {'$match': {
-                ctx.filter_dotpath: {'$ne': None}, # Field exists and not null
+                ctx.filter_dotpath: {'$ne': None},  # Field exists and not null
                 **ctx.extra_filter,
                 '$expr': {  # >= 3.6
                     '$not': [
@@ -226,7 +227,8 @@ def ref_to_cached_reference(updater: DocumentUpdater):
         fltr = {
             ctx.filter_dotpath: {"$ne": None},
             f'{ctx.filter_dotpath}.$id': {"$exists": False},  # Exclude DBRef objects
-            f'{ctx.filter_dotpath}._id': {"$exists": False},  # Exclude Manual refs
+            f'{ctx.filter_dotpath}._id': {"$exists": False},  # Exclude Manual refs,
+            **ctx.extra_filter
         }
         check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
@@ -264,7 +266,8 @@ def cached_reference_to_ref(updater: DocumentUpdater):
             f'{ctx.filter_dotpath}.$id': {"$exists": False},  # Exclude DBRef objects
             "$expr": {  # >= 3.6
                 "$ne": [{"$type": "$key"}, 'objectId']
-            }
+            },
+            **ctx.extra_filter
         }
         check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 

@@ -26,6 +26,11 @@ class SlotinitStubSlotsInAnotherOrder(Slotinit):
     defaults = {'slot2': 'default_value2', 'slot3': 'default_value3'}
 
 
+class OtherClassWithSlots:
+    __slots__ = ('slot1', 'slot2', 'slot3', 'slot4')
+    defaults = {'slot2': 'default_value2', 'slot3': 'default_value3'}
+
+
 class TestSlotinit:
     def test_init__should_initizlize_slots(self):
         slot_data = {
@@ -75,10 +80,11 @@ class TestSlotinit:
         assert obj1 == obj1
         assert not obj1 != obj1
 
-    @pytest.mark.parametrize('obj_type', (SlotinitDerivedStub, SlotinitStub2))
-    def test_eq_ne__on_different_types__should_not_be_equal(self, obj_type):
+    def test_eq_ne__on_other_comparing_object_type__should_not_be_equal(self):
         obj1 = SlotinitStub(slot1=1, slot4=4)
-        obj2 = obj_type(slot1=1, slot4=4)
+        obj2 = OtherClassWithSlots
+        obj2.slot1 = 1
+        obj2.slot4 = 4
 
         assert not obj1 == obj2
         assert obj1 != obj2

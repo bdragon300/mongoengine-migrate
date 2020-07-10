@@ -75,11 +75,8 @@ class Slotinit(object):
             return False
 
         try:
-            return all((
-                    type(self) == type(other),
-                    set(self.__slots__) == set(other.__slots__),
-                    all(getattr(self, slot) == getattr(other, slot) for slot in self.__slots__)
-            ))
+            return set(self.__slots__) == set(other.__slots__) \
+                   and all(getattr(self, slot) == getattr(other, slot) for slot in self.__slots__)
         except AttributeError:
             return False
 

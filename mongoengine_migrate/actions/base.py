@@ -83,6 +83,14 @@ class BaseAction(metaclass=BaseActionMeta):
         :param left_schema: db schema before migration (left side)
         :return:
         """
+        self._prepare(db, left_schema, True)
+
+    def _prepare(self, db: Database, left_schema: Schema, ensure_document_exist: bool):
+        if ensure_document_exist and self.document_type not in left_schema:
+            raise SchemaError(f'Document {self.document_type} does not exist in schema')
+        elif not ensure_document_exist and self.document_type in left_schema:
+            raise SchemaError(f'Document {self.document_type} already exists in schema')
+
         collection_name = self.parameters.get('collection')
         if not collection_name:
             docschema = left_schema.get(self.document_type)
@@ -215,7 +223,7 @@ class BaseFieldAction(BaseAction):
         pass
 
     def prepare(self, db: Database, left_schema: Schema):
-        super().prepare(db, left_schema)
+        super()._prepare(db, left_schema, True)
 
         self._run_ctx['left_field_schema'] = \
             left_schema[self.document_type].get(self.field_name, {})
@@ -337,6 +345,9 @@ class BaseCreateDocument(BaseDocumentAction):
         item.parameters.update(self.parameters)
         return [('add', '', [(self.document_type, item)])]
 
+    def prepare(self, db: Database, left_schema: Schema):
+        self._prepare(db, left_schema, False)
+
 
 class BaseDropDocument(BaseDocumentAction):
     @classmethod
@@ -421,6 +432,9 @@ class BaseAlterDocument(BaseDocumentAction):
             return cls(document_type=document_type, **right_schema[document_type].parameters)
 
     def to_schema_patch(self, left_schema: Schema):
+        # Constructor args are written to parameters directly, not as
+        # diff. Unlike the AlterField there are no schema skel here,
+        # so we can't delete a parameter implicitly
         left_item = left_schema[self.document_type]
         right_item = deepcopy(left_item)
         right_item.parameters.clear()

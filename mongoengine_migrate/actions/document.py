@@ -116,14 +116,16 @@ class AlterDocument(BaseAlterDocument):
     def change_collection(self, diff: Diff):
         self._check_diff(diff, False, str)
 
+        old_collection = self._run_ctx['db'][diff.old]
         collection_names = self._run_ctx['collection'].database.list_collection_names()
 
         # If the document has 'allow_inheritance' then rename only if
         # no documents left which are point to collection
         skip = self.parameters.get('inherit') and self._is_my_collection_used_by_other_documents()
-        if not skip and self._run_ctx['collection'].name in collection_names:
-            new_name = self._run_ctx['left_schema'][self.document_type].parameters['collection']
-            self._run_ctx['collection'].rename(new_name)
+        if not skip and diff.old in collection_names:
+            old_collection.rename(diff.new)
+            # Update collection object in run context after renaming
+            self._run_ctx['collection'] = self._run_ctx['db'][diff.new]
 
     def change_inherit(self, diff: Diff):
         self._check_diff(diff, False, bool)

@@ -37,7 +37,7 @@ class Schema(SchemaAccessMixin, dict):
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            self.__parameters = Schema.Document.Parameters()
+            self.__parameters = kwargs.pop('parameters', Schema.Document.Parameters())
 
         @property
         def parameters(self) -> dict:
@@ -66,7 +66,7 @@ class Schema(SchemaAccessMixin, dict):
             return f'Document({super().__repr__()}, parameters={self.parameters!s})'
 
         def __repr__(self):
-            return f'<Document({super().__repr__()}, parameters={self.parameters!r})>'
+            return f'Document({super().__repr__()}, parameters={self.parameters!r})'
 
     def load(self, db_schema: dict):
         """Load schema from db dict schema representation"""
@@ -76,3 +76,9 @@ class Schema(SchemaAccessMixin, dict):
     def dump(self) -> dict:
         """Return schema representation for write to db"""
         return {name: doc.dump() for name, doc in self.items()}
+
+    def __str__(self):
+        return f'Schema({super().__repr__()})'
+
+    def __repr__(self):
+        return f'Schema({super().__repr__()})'

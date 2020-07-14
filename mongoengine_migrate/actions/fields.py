@@ -8,6 +8,8 @@ __all__ = [
 import logging
 from typing import Mapping, Any
 
+from pymongo.database import Database
+
 from mongoengine_migrate.exceptions import SchemaError
 from mongoengine_migrate.mongo import DocumentUpdater, ByPathContext
 from mongoengine_migrate.schema import Schema
@@ -73,6 +75,8 @@ class CreateField(BaseFieldAction):
                 {'$set': {ctx.update_dotpath: default}},
                 array_filters=ctx.array_filters
             )
+            # print(list(ctx.collection.find()))
+            print(ctx)
 
         is_required = self.parameters.get('required') or self.parameters.get('primary_key')
         default = self.parameters.get('default')
@@ -98,6 +102,9 @@ class CreateField(BaseFieldAction):
         updater = DocumentUpdater(self._run_ctx['db'], self.document_type,
                                   self._run_ctx['left_schema'], db_field, document_cls)
         updater.update_by_path(by_path)
+
+    def prepare(self, db: Database, left_schema: Schema):
+        self._prepare(db, left_schema, False)
 
 
 class DropField(BaseFieldAction):

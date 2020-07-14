@@ -85,10 +85,10 @@ class BaseAction(metaclass=BaseActionMeta):
         """
         self._prepare(db, left_schema, True)
 
-    def _prepare(self, db: Database, left_schema: Schema, ensure_document_exist: bool):
-        if ensure_document_exist and self.document_type not in left_schema:
+    def _prepare(self, db: Database, left_schema: Schema, ensure_existence: bool):
+        if ensure_existence and self.document_type not in left_schema:
             raise SchemaError(f'Document {self.document_type} does not exist in schema')
-        elif not ensure_document_exist and self.document_type in left_schema:
+        elif not ensure_existence and self.document_type in left_schema:
             raise SchemaError(f'Document {self.document_type} already exists in schema')
 
         collection_name = self.parameters.get('collection')
@@ -223,10 +223,20 @@ class BaseFieldAction(BaseAction):
         pass
 
     def prepare(self, db: Database, left_schema: Schema):
-        super()._prepare(db, left_schema, True)
+        self._prepare(db, left_schema, True)
 
         self._run_ctx['left_field_schema'] = \
             left_schema[self.document_type].get(self.field_name, {})
+
+    def _prepare(self, db: Database, left_schema: Schema, ensure_existence: bool):
+        super()._prepare(db, left_schema, True)
+
+        if ensure_existence and self.field_name not in left_schema[self.document_type]:
+            raise SchemaError(f'Field {self.document_type}.{self.field_name} '
+                              f'does not exist in schema')
+        elif not ensure_existence and self.field_name in left_schema[self.document_type]:
+            raise SchemaError(f'Field {self.document_type}.{self.field_name} '
+                              f'already exists in schema')
 
     def to_python_expr(self) -> str:
         parameters = {

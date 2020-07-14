@@ -75,8 +75,6 @@ class CreateField(BaseFieldAction):
                 {'$set': {ctx.update_dotpath: default}},
                 array_filters=ctx.array_filters
             )
-            # print(list(ctx.collection.find()))
-            print(ctx)
 
         is_required = self.parameters.get('required') or self.parameters.get('primary_key')
         default = self.parameters.get('default')

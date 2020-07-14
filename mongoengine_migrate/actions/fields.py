@@ -73,7 +73,7 @@ class CreateField(BaseFieldAction):
             ctx.collection.update_many(
                 {ctx.filter_dotpath: {'$exists': False}, **ctx.extra_filter},
                 {'$set': {ctx.update_dotpath: default}},
-                array_filters=ctx.get_array_filters()
+                array_filters=ctx.get_array_filters({'$exists': False})
             )
 
         is_required = self.parameters.get('required') or self.parameters.get('primary_key')
@@ -91,7 +91,8 @@ class CreateField(BaseFieldAction):
         def by_path(ctx: ByPathContext):
             ctx.collection.update_many(
                 {ctx.filter_dotpath: {'$exists': True}, **ctx.extra_filter},
-                {'$unset': {ctx.update_dotpath: ''}}
+                {'$unset': {ctx.update_dotpath: ''}},
+                array_filters=ctx.get_array_filters()
             )
 
         db_field = self.parameters['db_field']
@@ -140,7 +141,7 @@ class DropField(BaseFieldAction):
             ctx.collection.update_many(
                 {ctx.filter_dotpath: {'$exists': True}, **ctx.extra_filter},
                 {'$unset': {ctx.update_dotpath: ''}},
-                array_filters=ctx.get_array_filters({'$exists': False})
+                array_filters=ctx.get_array_filters()
             )
 
         db_field = self._run_ctx['left_field_schema']['db_field']

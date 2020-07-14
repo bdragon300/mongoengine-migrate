@@ -83,17 +83,14 @@ def mongo_version(min_version: str = None, max_version: str = None, throw_error:
 
 class ByPathContext(NamedTuple):
     """Context of `by_path` callback"""
-    def __init__(self, *args, **kwargs):
-        self._array_filters = kwargs.pop('array_filters')
-        super().__init__(*args, **kwargs)
-
     collection: Collection
     filter_dotpath: str
     update_dotpath: str
+    array_filters: Optional[List[dict]]
     extra_filter: dict
 
-    def get_array_filters(self,
-                          value: Optional[Union[Callable, Any]] = None) -> Optional[List[dict]]:
+    def build_array_filters(self,
+                            value: Optional[Union[Callable, Any]] = None) -> Optional[List[dict]]:
         """
         Return array filters dict filled out with given value
         :param value: Optional value or callable with one argument
@@ -101,11 +98,11 @@ class ByPathContext(NamedTuple):
          Default is `{'$exists': True}`
         :return:
         """
-        if self._array_filters is None:
+        if self.array_filters is None:
             return None
 
         res = []
-        for afilter in self._array_filters:
+        for afilter in self.array_filters:
             if value is None:
                 res.append({afilter: {'$exists': True}})
             elif callable(value):

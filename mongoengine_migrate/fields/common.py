@@ -54,7 +54,7 @@ class NumberFieldHandler(CommonFieldHandler):
             ctx.collection.update_many(
                 {ctx.filter_dotpath: {'$lt': diff.new}, **ctx.extra_filter},
                 {'$set': {ctx.update_dotpath: diff.new}},
-                array_filters=ctx.get_array_filters()
+                array_filters=ctx.build_array_filters()
             )
 
         self._check_diff(updater, diff, True, (int, float))
@@ -72,7 +72,7 @@ class NumberFieldHandler(CommonFieldHandler):
             ctx.collection.update_many(
                 {ctx.filter_dotpath: {'$gt': diff.new}, **ctx.extra_filter},
                 {'$set': {ctx.update_dotpath: diff.new}},
-                array_filters=ctx.get_array_filters()
+                array_filters=ctx.build_array_filters()
             )
 
         self._check_diff(updater, diff, True, (int, float))

@@ -53,7 +53,7 @@ def drop_field(updater: DocumentUpdater):
         ctx.collection.update_many(
             {ctx.filter_dotpath: {'$exists': True}, **ctx.extra_filter},
             {'$unset': {ctx.update_dotpath: ''}},
-            array_filters=ctx.get_array_filters()
+            array_filters=ctx.build_array_filters()
         )
 
     updater.update_by_path(by_path)

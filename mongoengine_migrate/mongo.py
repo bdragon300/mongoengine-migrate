@@ -254,6 +254,7 @@ class DocumentUpdater:
         for doc in collection.find(find_fltr):
             # Recursively apply the callback to every embedded doc
             for embedded_doc in parser.find(doc):
+                embedded_doc = embedded_doc.value
                 if self.document_cls:
                     if (isinstance(embedded_doc, dict)
                             and embedded_doc.get('_cls', self.document_cls) != self.document_cls):

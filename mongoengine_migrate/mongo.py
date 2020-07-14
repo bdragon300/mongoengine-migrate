@@ -32,8 +32,8 @@ def check_empty_result(collection: Collection, db_field: str, find_filter: dict)
     :param find_filter: collection.find() method filter argument
     :raises MigrationError: if any records found
     """
-    bad_records = collection.find(find_filter, limit=3)
-    if bad_records.retrieved:
+    bad_records = list(collection.find(find_filter, limit=3))
+    if bad_records:
         examples = (
             f'{{_id: {x.get("_id", "unknown")},...{db_field}: {x.get(db_field, "unknown")}}}'
             for x in bad_records
@@ -352,8 +352,11 @@ class DocumentUpdater:
                                                    document_type,
                                                    self.document_type,  # FIXME: could not be an embedded!
                                                    self.db_schema):
-                update_path = path + [self.field_name] if self.field_name else path
+                update_path = path
                 filter_path = [p for p in path if p != '$[]']
+                if self.field_name:
+                    update_path = path + [self.field_name]
+                    filter_path = filter_path + [self.field_name]
 
                 yield collection, update_path, filter_path
 
@@ -417,14 +420,14 @@ class DocumentUpdater:
             # order to ensure that field contains array (non-empty)
             array_dotpath = '.'.join(filter_path + ['0'])
 
-            is_object = collection.find(
+            object_results = collection.count_documents(
                 {
                     array_dotpath: {'$exists': False},
                     '.'.join(filter_path): {'$type': "object"}
                 },
                 limit=1
             )
-            if is_object.retrieved > 0:
+            if object_results > 0:
                 if ref == search_doctype:
                     yield path
                 yield from self._find_embedded_fields(collection,
@@ -449,14 +452,14 @@ class DocumentUpdater:
                 # For a while I leave return here. It's better to
                 # remove it and solve the problem somehow.
                 # TODO: I'll be back
-                return
+                continue
 
             # TODO: return also empty array fields
-            is_nonempty_array = collection.find(
+            array_results = collection.count_documents(
                 {array_dotpath: {'$exists': True}},
                 limit=1
             )
-            if is_nonempty_array.retrieved > 0:
+            if array_results > 0:
                 if ref == search_doctype:
                     yield path + ['$[]']
                 yield from self._find_embedded_fields(collection,
@@ -480,4 +483,4 @@ class DocumentUpdater:
                 update_path[num] = f'$[elem{num}]'
                 array_filters[f'elem{num}.{update_path[num + 1]}'] = {"$exists": True}
 
-        return update_path, [{k: v} for k, v in array_filters] or None
+        return update_path, [{k: v} for k, v in array_filters.items()] or None

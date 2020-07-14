@@ -8,7 +8,7 @@ __all__ = [
 
 import logging
 import functools
-from typing import Optional, Callable, Tuple, Generator, NamedTuple, List, Iterable
+from typing import Optional, Callable, Tuple, Generator, NamedTuple, Iterable, Union, Any, List
 
 import jsonpath_rw
 from pymongo import ReplaceOne
@@ -83,11 +83,35 @@ def mongo_version(min_version: str = None, max_version: str = None, throw_error:
 
 class ByPathContext(NamedTuple):
     """Context of `by_path` callback"""
+    def __init__(self, *args, **kwargs):
+        self._array_filters = kwargs.pop('array_filters')
+        super().__init__(*args, **kwargs)
+
     collection: Collection
     filter_dotpath: str
     update_dotpath: str
-    array_filters: Optional[List[dict]]
     extra_filter: dict
+
+    def get_array_filters(self,
+                          value: Optional[Union[Callable, Any]] = None) -> Optional[List[dict]]:
+        """
+        Return array filters dict filled out with given value
+        :param value: Optional value or callable with one argument
+         (array filter value) to substitute to each array filter.
+         Default is `{'$exists': True}`
+        :return:
+        """
+        if self._array_filters is None:
+            return None
+
+        res = []
+        for afilter in self._array_filters:
+            if value is None:
+                res.append({afilter: {'$exists': True}})
+            elif callable(value):
+                res.append({afilter: value(afilter) if callable(value) else value})
+
+        return res
 
 
 class ByDocContext(NamedTuple):
@@ -481,6 +505,6 @@ class DocumentUpdater:
         for num, item in enumerate(update_path):
             if item == '$[]':
                 update_path[num] = f'$[elem{num}]'
-                array_filters[f'elem{num}.{update_path[num + 1]}'] = {"$exists": True}
+                array_filters[f'elem{num}.{update_path[num + 1]}'] = None
 
-        return update_path, [{k: v} for k, v in array_filters.items()] or None
+        return update_path, (list(array_filters.keys()) or None)

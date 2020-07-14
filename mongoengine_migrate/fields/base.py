@@ -203,7 +203,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                 # Both null and nonexistent field
                 {ctx.filter_dotpath: None, **ctx.extra_filter},
                 {'$set': {ctx.update_dotpath: default}},
-                array_filters=ctx.array_filters
+                array_filters=ctx.get_array_filters()
             )
 
         self._check_diff(updater, diff, False, bool)

@@ -105,7 +105,7 @@ class ByPathContext(NamedTuple):
         for afilter in self.array_filters:
             if value is None:
                 res.append({afilter: {'$exists': True}})
-            elif callable(value):
+            else:
                 res.append({afilter: value(afilter) if callable(value) else value})
 
         return res
@@ -338,20 +338,20 @@ class DocumentUpdater:
                 is_array_update = bool('$[]' in update_path)
 
                 if not is_array_update and embedded_noarray_by_path_cb:
-                    return self._update_by_path(embedded_noarray_by_path_cb,
-                                                collection,
-                                                filter_path,
-                                                update_path)
+                    self._update_by_path(embedded_noarray_by_path_cb,
+                                         collection,
+                                         filter_path,
+                                         update_path)
                 elif not is_array_update and embedded_noarray_by_document_cb:
-                    return self._update_by_document(embedded_noarray_by_document_cb,
-                                                    collection,
-                                                    filter_path,
-                                                    update_path)
+                    self._update_by_document(embedded_noarray_by_document_cb,
+                                             collection,
+                                             filter_path,
+                                             update_path)
                 else:
-                    return self._update_by_document(embedded_array_by_document_cb,
-                                                    collection,
-                                                    filter_path,
-                                                    update_path)
+                    self._update_by_document(embedded_array_by_document_cb,
+                                             collection,
+                                             filter_path,
+                                             update_path)
         else:
             return self.update_by_path(document_by_path_cb)
 

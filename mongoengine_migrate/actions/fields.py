@@ -11,7 +11,7 @@ from typing import Mapping, Any
 from pymongo.database import Database
 
 from mongoengine_migrate.exceptions import SchemaError
-from mongoengine_migrate.mongo import DocumentUpdater, ByPathContext
+from mongoengine_migrate.mongo import DocumentUpdater, ByPathContext, ByDocContext
 from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.utils import document_type_to_class_name
 from .base import BaseFieldAction
@@ -70,21 +70,26 @@ class CreateField(BaseFieldAction):
         FIXME: parameters (indexes, acl, etc.)
         """
         def by_path(ctx: ByPathContext):
+            # Update documents only
             ctx.collection.update_many(
-                {ctx.filter_dotpath: {'$exists': False}, **ctx.extra_filter},
-                {'$set': {ctx.update_dotpath: default}},
-                array_filters=ctx.build_array_filters({'$exists': False})
+                {db_field: {'$exists': False}, **ctx.extra_filter},
+                {'$set': {db_field: default}}
             )
 
-        is_required = self.parameters.get('required') or self.parameters.get('primary_key')
+        def by_doc(ctx: ByDocContext):
+            # Update embedded documents
+            if isinstance(ctx.document, dict) and db_field not in ctx.document:
+                ctx.document[db_field] = default
+
+        db_field = self.parameters['db_field']
         default = self.parameters.get('default')
+        is_required = self.parameters.get('required') or self.parameters.get('primary_key')
         if is_required:
-            db_field = self.parameters['db_field']
             inherit = self._run_ctx['left_schema'][self.document_type].parameters.get('inherit')
             document_cls = document_type_to_class_name(self.document_type) if inherit else None
             updater = DocumentUpdater(self._run_ctx['db'], self.document_type,
-                                      self._run_ctx['left_schema'], db_field, document_cls)
-            updater.update_by_path(by_path)
+                                      self._run_ctx['left_schema'], None, document_cls)
+            updater.update_combined(by_path, by_doc, embedded_noarray_by_document_cb=by_doc)
 
     def run_backward(self):
         """Drop field"""
@@ -158,21 +163,26 @@ class DropField(BaseFieldAction):
         fields automatically on value set
         """
         def by_path(ctx: ByPathContext):
+            # Update documents only
             ctx.collection.update_many(
-                {ctx.filter_dotpath: {'$exists': False}, **ctx.extra_filter},
-                {'$set': {ctx.update_dotpath: default}},
-                array_filters=ctx.build_array_filters()
+                {db_field: {'$exists': False}, **ctx.extra_filter},
+                {'$set': {db_field: default}}
             )
 
-        is_required = self._run_ctx['left_field_schema'].get('required')
+        def by_doc(ctx: ByDocContext):
+            # Update embedded documents
+            if isinstance(ctx.document, dict) and db_field not in ctx.document:
+                ctx.document[db_field] = default
+
+        db_field = self._run_ctx['left_field_schema']['db_field']
         default = self._run_ctx['left_field_schema'].get('default')
+        is_required = self._run_ctx['left_field_schema'].get('required')
         if is_required:
-            db_field = self._run_ctx['left_field_schema']['db_field']
             inherit = self._run_ctx['left_schema'][self.document_type].parameters.get('inherit')
             document_cls = document_type_to_class_name(self.document_type) if inherit else None
             updater = DocumentUpdater(self._run_ctx['db'], self.document_type,
-                                      self._run_ctx['left_schema'], db_field, document_cls)
-            updater.update_by_path(by_path)
+                                      self._run_ctx['left_schema'], None, document_cls)
+            updater.update_combined(by_path, by_doc, embedded_noarray_by_document_cb=by_doc)
 
 
 class AlterField(BaseFieldAction):

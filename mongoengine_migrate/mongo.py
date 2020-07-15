@@ -82,11 +82,35 @@ def mongo_version(min_version: str = None, max_version: str = None, throw_error:
 
 
 class ByPathContext(NamedTuple):
-    """Context of `by_path` callback"""
+    """
+    Context of `by_path` callback
+
+    Fields:
+
+    * `collection` -- current collection object
+    * `filter_dotpath` -- string dotpath to a field or document which
+      have to be updated (depends on whether `Updater.field_name` is
+      set or not). This field contains only field names separated by
+      dots which could be used for filtering in mongodb queries. Could
+      be empty string which points to all documents in collection
+    * `update_dotpath` -- string dotpath to a field or document which
+      have to be updated (depends on whether `Updater.field_name` is
+      set or not). This field contains field names with array
+      expressions `$[]` separated by dots which could be used in
+      update mongodb operations. Could be empty string which points
+      to all documents in collection.
+    * `array_filters` -- list of array filters used in mongodb
+      update operations. `update_docpath` expression relates to this
+      field by array filter names. To get value to substitute in an
+      update operation please use `build_array_filters` method
+    * `extra_filter` -- filter dict which have to AND'ed with
+      particular filters in a callback. Typically used for inherited
+      documents search.
+    """
     collection: Collection
     filter_dotpath: str
     update_dotpath: str
-    array_filters: Optional[List[dict]]
+    array_filters: Optional[List[str]]
     extra_filter: dict
 
     def build_array_filters(self,
@@ -112,9 +136,22 @@ class ByPathContext(NamedTuple):
 
 
 class ByDocContext(NamedTuple):
-    """Context of `by_document` callback"""
+    """
+    Context of `by_document` callback
+
+    Fields:
+
+    * `collection` -- current collection object
+    * `document` -- raw field value which should contain a document.
+      Typically this is a dict. But keep in mind that any other value
+      could be contained there on some data inconsistency
+    * `filter_dotpath` -- string dotpath to a field or document which
+      have to be updated (depends on whether `Updater.field_name` is
+      set or not). Could be empty string which points to all documents
+      in collection
+    """
     collection: Optional[Collection]
-    document: dict
+    document: Any
     filter_dotpath: str
 
 
@@ -132,7 +169,9 @@ class DocumentUpdater:
         :param db: pymongo database object
         :param document_type: document name
         :param db_schema: current db schema
-        :param field_name: field to work with.
+        :param field_name: If given then update only those records
+         which have this field by every dotpath, otherwise update all
+         by dotpath
         :param document_cls: if given then we ignore those documents
          and embedded documents whose '_cls' field is not equal to this
          parameter value. Documents with no '_cls' field and fields

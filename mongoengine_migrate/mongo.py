@@ -6,8 +6,9 @@ __all__ = [
     'DocumentUpdater'
 ]
 
-import logging
 import functools
+import logging
+from copy import copy
 from typing import Optional, Callable, Tuple, Generator, NamedTuple, Iterable, Union, Any, List
 
 import jsonpath_rw
@@ -18,7 +19,6 @@ from pymongo.database import Database
 from mongoengine_migrate.exceptions import MigrationError, InconsistencyError
 from mongoengine_migrate.schema import Schema
 from . import flags
-
 
 log = logging.getLogger('mongoengine-migrate')
 
@@ -230,7 +230,12 @@ class DocumentUpdater:
             self._update_by_path(callback, collection, filter_path, update_path)
 
     def _update_by_path(self, callback, collection, filter_path, update_path) -> None:
+        if self.field_name:
+            filter_path = filter_path + [self.field_name]  # Don't modify filter_path
+            update_path = update_path + [self.field_name]  #
+
         update_path, array_filters = self._inject_array_filters(update_path)
+
         filter_dotpath = '.'.join(filter_path)
         update_dotpath = '.'.join(update_path)
         class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
@@ -266,8 +271,7 @@ class DocumentUpdater:
             class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
             collection_name = self.db_schema[self.document_type].parameters['collection']
             collection = self.db[collection_name]
-            filter_path = [self.field_name] or None
-            self._update_by_document(callback, collection, filter_path, None, class_fltr)
+            self._update_by_document(callback, collection, None, None, class_fltr)
 
     def _update_by_document(self,
                             callback: Callable,
@@ -279,18 +283,20 @@ class DocumentUpdater:
         Call a callback for every document found by given filterpath
         :param callback: by_doc callback
         :param collection: pymongo.Collection object
-        :param filter_path: filter dotpath to substitute to find(). If
+        :param filter_path: filter dotpath to document. If
          None then documents will not be filtered by any field
         :param update_path: Update dotpath (with $[]) is
-         pointed which document field to pick and call the callback
+         pointed which document to pick and call the callback
          for each of them (nested array of embedded documents for
          instance). If None is passed then we pick a document itself
         :param extra_filter: Optional. Extra filter dict to be added
          to find()
         :return:
         """
-        find_fltr = {}
-        filter_dotpath = '.'.join(filter_path or ())
+        field_filter_path = copy(filter_path) or []
+        if self.field_name:
+            field_filter_path += [self.field_name]
+        filter_dotpath = '.'.join(field_filter_path)
 
         if not update_path:
             json_path = '$'  # update_path points to any document
@@ -300,7 +306,8 @@ class DocumentUpdater:
             json_path = json_path.replace('.[*]', '[*]')
         parser = jsonpath_rw.parse(json_path)
 
-        if filter_path:
+        find_fltr = {}
+        if filter_dotpath:
             find_fltr = {filter_dotpath: {'$exists': True}}
         if extra_filter:
             find_fltr.update(extra_filter)
@@ -414,9 +421,6 @@ class DocumentUpdater:
                                                    self.db_schema):
                 update_path = path
                 filter_path = [p for p in path if p != '$[]']
-                if self.field_name:
-                    update_path = path + [self.field_name]
-                    filter_path = filter_path + [self.field_name]
 
                 yield collection, update_path, filter_path
 

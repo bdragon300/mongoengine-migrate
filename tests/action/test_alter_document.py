@@ -43,17 +43,15 @@ class TestAlterDocument:
                                                                                   test_db,
                                                                                   dump_db):
         schema = load_fixture('schema1').get_schema()
-        test_db['schema1_doc1'].rename('new_name1')
         dump = dict(dump_db())
 
         action = AlterDocument('Schema1Doc1', collection='new_name1')
         action.prepare(test_db, schema)
-        expect = deepcopy(dump)
-        expect['schema1_doc1'] = expect.pop('new_name1')
+        action.run_forward()
 
         action.run_backward()
 
-        assert expect == dict(dump_db())
+        assert dump == dict(dump_db())
 
     def test_backward__on_unexistance_collection_specified__should_do_nothing(self,
                                                                               load_fixture,

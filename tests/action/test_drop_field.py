@@ -165,24 +165,7 @@ class TestCreateFieldEmbedded:
         }
         dump = dict(dump_db())
         expect = deepcopy(dump)
-        parsers = (
-            jsonpath_rw.parse(
-                'schema1_doc1[*].doc1_emb_embdoc1'
-            ),
-            jsonpath_rw.parse(
-                'schema1_doc1[*].doc1_emblist_embdoc1[*]'
-            ),
-            jsonpath_rw.parse(
-                'schema1_doc1[*].doc1_emblist_embdoc1[*].embdoc1_emb_embdoc1[*]'
-            ),
-            jsonpath_rw.parse(
-                'schema1_doc1[*].doc1_emblist_embdoc1[*].embdoc1_emb_embdoc1[*].'
-                'embdoc1_emblist_embdoc1[*]'
-            ),
-            jsonpath_rw.parse(
-                'schema1_doc1[*].doc1_emblist_embdoc1[*].embdoc1_emblist_embdoc1[*]'
-            ),
-        )
+        parsers = load_fixture('schema1').get_embdoc1_jsonpath_parsers()
         for rec in itertools.chain.from_iterable(p.find(expect) for p in parsers):
             rec.value['test_field'] = default
 
@@ -197,24 +180,7 @@ class TestCreateFieldEmbedded:
         schema = load_fixture('schema1').get_schema()
         dump = dict(dump_db())
         expect = deepcopy(dump)
-        parsers = (
-            jsonpath_rw.parse(
-                'schema1_doc1[*].doc1_emb_embdoc1'
-            ),
-            jsonpath_rw.parse(
-                'schema1_doc1[*].doc1_emblist_embdoc1[*]'
-            ),
-            jsonpath_rw.parse(
-                'schema1_doc1[*].doc1_emblist_embdoc1[*].embdoc1_emb_embdoc1[*]'
-            ),
-            jsonpath_rw.parse(
-                'schema1_doc1[*].doc1_emblist_embdoc1[*].embdoc1_emb_embdoc1[*].'
-                'embdoc1_emblist_embdoc1[*]'
-            ),
-            jsonpath_rw.parse(
-                'schema1_doc1[*].doc1_emblist_embdoc1[*].embdoc1_emblist_embdoc1[*]'
-            ),
-        )
+        parsers = load_fixture('schema1').get_embdoc1_jsonpath_parsers()
         for rec in itertools.chain.from_iterable(p.find(expect) for p in parsers):
             if 'embdoc1_str' in rec.value:
                 del rec.value['embdoc1_str']

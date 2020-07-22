@@ -163,11 +163,12 @@ class DocumentUpdater:
                  db: Database,
                  document_type: str,
                  db_schema: Schema,
-                 field_name: Optional[str] = None,
+                 field_name: str,
                  document_cls: Optional[str] = None):
         """
         :param db: pymongo database object
         :param document_type: document name
+        :param field_name: field to work with
         :param db_schema: current db schema
         :param field_name: If given then update only those records
          which have this field by every dotpath, otherwise update all
@@ -229,8 +230,8 @@ class DocumentUpdater:
         if not self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
             collection_name = self.db_schema[self.document_type].parameters['collection']
             ctx = ByPathContext(collection=self.db[collection_name],
-                                filter_dotpath=self.field_name or '',
-                                update_dotpath=self.field_name or '',
+                                filter_dotpath=self.field_name,
+                                update_dotpath=self.field_name,
                                 array_filters=None,
                                 extra_filter=class_fltr)
             callback(ctx)
@@ -293,8 +294,7 @@ class DocumentUpdater:
         Call a callback for every document found by given filterpath
         :param callback: by_doc callback
         :param collection: pymongo.Collection object
-        :param filter_path: filter dotpath to document. If
-         None then documents will not be filtered by any field
+        :param filter_path: filter dotpath to substitute to find()
         :param update_path: Update dotpath (with $[]) is
          pointed which document to pick and call the callback
          for each of them (nested array of embedded documents for

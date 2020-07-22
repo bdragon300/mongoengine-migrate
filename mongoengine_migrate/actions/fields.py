@@ -72,8 +72,9 @@ class CreateField(BaseFieldAction):
         def by_path(ctx: ByPathContext):
             # Update documents only
             ctx.collection.update_many(
-                {db_field: {'$exists': False}, **ctx.extra_filter},
-                {'$set': {db_field: default}}
+                {ctx.filter_dotpath: {'$exists': False}, **ctx.extra_filter},
+                {'$set': {ctx.update_dotpath: default}},
+                array_filters=ctx.build_array_filters()
             )
 
         def by_doc(ctx: ByDocContext):
@@ -88,8 +89,10 @@ class CreateField(BaseFieldAction):
             inherit = self._run_ctx['left_schema'][self.document_type].parameters.get('inherit')
             document_cls = document_type_to_class_name(self.document_type) if inherit else None
             updater = DocumentUpdater(self._run_ctx['db'], self.document_type,
-                                      self._run_ctx['left_schema'], None, document_cls)
-            updater.update_combined(by_path, by_doc, embedded_noarray_by_document_cb=by_doc)
+                                      self._run_ctx['left_schema'], db_field, document_cls)
+            updater.with_missed_fields().update_combined(
+                by_path, by_doc, embedded_noarray_by_document_cb=by_doc
+            )
 
     def run_backward(self):
         """Drop field"""
@@ -165,8 +168,9 @@ class DropField(BaseFieldAction):
         def by_path(ctx: ByPathContext):
             # Update documents only
             ctx.collection.update_many(
-                {db_field: {'$exists': False}, **ctx.extra_filter},
-                {'$set': {db_field: default}}
+                {ctx.filter_dotpath: {'$exists': False}, **ctx.extra_filter},
+                {'$set': {ctx.update_dotpath: default}},
+                array_filters=ctx.build_array_filters()
             )
 
         def by_doc(ctx: ByDocContext):
@@ -181,8 +185,10 @@ class DropField(BaseFieldAction):
             inherit = self._run_ctx['left_schema'][self.document_type].parameters.get('inherit')
             document_cls = document_type_to_class_name(self.document_type) if inherit else None
             updater = DocumentUpdater(self._run_ctx['db'], self.document_type,
-                                      self._run_ctx['left_schema'], None, document_cls)
-            updater.update_combined(by_path, by_doc, embedded_noarray_by_document_cb=by_doc)
+                                      self._run_ctx['left_schema'], db_field, document_cls)
+            updater.with_missed_fields().update_combined(
+                by_path, by_doc, embedded_noarray_by_document_cb=by_doc
+            )
 
 
 class AlterField(BaseFieldAction):

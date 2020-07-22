@@ -183,6 +183,7 @@ class DocumentUpdater:
         self.field_name = field_name
         self.db_schema = db_schema
         self.document_cls = document_cls
+        self._include_missed_fields = False
 
     @property
     def document_type(self):
@@ -192,6 +193,15 @@ class DocumentUpdater:
     def document_type(self, val):
         self._document_type = val
         self.is_embedded = self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
+
+    def with_missed_fields(self) -> 'DocumentUpdater':
+        """Return copy of current Updater which affects all documents
+        and embedded documents even if they have missed a field
+        """
+        res = copy(self)
+        res._include_missed_fields = True
+
+        return res
 
     def update_by_path(self, callback: Callable) -> None:
         """
@@ -307,7 +317,7 @@ class DocumentUpdater:
         parser = jsonpath_rw.parse(json_path)
 
         find_fltr = {}
-        if filter_dotpath:
+        if not self._include_missed_fields and filter_dotpath:
             find_fltr = {filter_dotpath: {'$exists': True}}
         if extra_filter:
             find_fltr.update(extra_filter)

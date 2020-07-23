@@ -5,7 +5,7 @@ from importlib import import_module, reload
 import pytest
 from mongoengine import connect
 from pymongo import MongoClient
-from mongoengine.base import _document_registry
+import mongoengine_migrate.flags as flags
 
 package_name = __package__
 
@@ -22,6 +22,7 @@ def test_db():
         raise RuntimeError(f'DATABASE_URL must point to testing db, not to master db ({db.name})')
 
     connect(host=os.environ['DATABASE_URL'])
+    flags.mongo_version = '999.9'
 
     # Drop test db if exists. (e.g if previous session was interrupted)
     client.drop_database(db.name)

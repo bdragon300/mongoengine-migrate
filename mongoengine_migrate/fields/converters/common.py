@@ -20,8 +20,6 @@ __all__ = [
 ]
 
 import re
-from datetime import date
-from decimal import Decimal
 
 import bson
 from dateutil.parser import parse as dateutil_parse
@@ -306,26 +304,6 @@ def __mongo_convert(updater: DocumentUpdater, target_type: str):
     :param target_type: MongoDB type name
     :return:
     """
-    def by_path(ctx: ByPathContext):
-        # TODO: implement also for mongo 3.x
-        # TODO: use $convert with onError and onNull
-        ctx.collection.aggregate([
-            # Field exists and not null
-            {'$match': {
-                ctx.filter_dotpath: {'$ne': None},  # Field exists and not null
-                **ctx.extra_filter,
-                # $expr >= 3.6, $type >= 3.4
-                "$expr": {"$ne": [{"$type": f'${ctx.filter_dotpath}'}, target_type]}
-            }},
-            {'$addFields': {
-                '$convert': {  # >= 4.0
-                    'input': f'${ctx.filter_dotpath}',
-                    'to': target_type
-                }
-            }},
-            {'$out': ctx.collection.name}  # >= 2.6
-        ])
-
     def by_doc(ctx: ByDocContext):
         # https://docs.mongodb.com/manual/reference/operator/aggregation/convert/
         type_map = {
@@ -333,19 +311,17 @@ def __mongo_convert(updater: DocumentUpdater, target_type: str):
             'string': str,
             'objectId': bson.ObjectId,
             'bool': bool,
-            'date': date,
+            'date': lambda x: dateutil_parse(str(x)),
             'int': int,
             'long': int,
-            'decimal': Decimal
+            'decimal': float
         }
         assert target_type in type_map
 
         doc = ctx.document
         field_name = updater.field_name
-        if isinstance(doc, dict) and not isinstance(doc.get(field_name), type_map[target_type]):
-            if target_type == 'date':
-                doc[field_name] = dateutil_parse(str(doc[field_name]))
-            else:
-                doc[field_name] = type_map[target_type]()
+        if isinstance(doc, dict) and field_name in doc:
+            if not isinstance(doc[field_name], type_map[target_type]):
+                doc[field_name] = type_map[target_type](doc[field_name])
 
-    updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
+    updater.update_by_document(by_doc)

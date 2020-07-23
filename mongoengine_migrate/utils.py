@@ -23,6 +23,9 @@ class _Unset:
     def __repr__(self):
         return '<UNSET>'
 
+    def __bool__(self):
+        return False
+
 
 #: Value indicates that such schema key is unset
 UNSET = _Unset()

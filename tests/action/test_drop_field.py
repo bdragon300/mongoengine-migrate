@@ -67,9 +67,6 @@ class TestDropFieldInDocument:
         action.prepare(test_db, schema)
 
         action.run_backward()
-        # print(expect)
-        # print('----')
-        # print(dict(dump_db()))
         assert expect == dict(dump_db())
 
     def test_backward__if_required_and_default_is_set_and_field_in_db__should_not_touch_field(

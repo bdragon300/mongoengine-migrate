@@ -28,12 +28,12 @@ def get_classes():
         embdoc2_str = fields.StringField()
         embdoc2_str_empty = fields.StringField()
         embdoc2_str_ten = fields.StringField(choices=[str(x) for x in range(11)])
-        embdoc2_list = fields.ListField()
         embdoc2_float = fields.FloatField()
         embdoc2_int_empty = fields.IntField()
         embdoc2_long = fields.LongField()
         embdoc2_decimal = fields.DecimalField()
         embdoc2_complex_datetime = fields.ComplexDateTimeField()
+        embdoc2_list = fields.ListField()
         embdoc2_ref_doc1 = fields.ReferenceField('Schema1Doc1')
         embdoc2_emb_embdoc2 = fields.EmbeddedDocumentField('self')
         embdoc2_emblist_embdoc2 = fields.EmbeddedDocumentListField('self')
@@ -85,6 +85,21 @@ def get_schema():
                     'default': None, 'sparse': False, 'unique': False, 'required': False,
                     'db_field': 'embdoc1_str_ten', 'primary_key': False, 'type_key': 'StringField',
                     'max_length': None, 'regex': None, 'min_length': None},
+                'embdoc1_float': {
+                    'unique_with': None, 'null': False, 'choices': None, 'default': None,
+                    'sparse': False, 'unique': False, 'required': False,
+                    'db_field': 'embdoc1_float', 'primary_key': False, 'type_key': 'FloatField',
+                    'max_value': None, 'min_value': None},
+                'embdoc1_long': {
+                    'unique_with': None, 'null': False, 'choices': None, 'default': None,
+                    'sparse': False, 'unique': False, 'required': False,
+                    'db_field': 'embdoc1_long', 'primary_key': False, 'type_key': 'LongField',
+                    'max_value': None, 'min_value': None},
+                'embdoc1_int_empty': {
+                    'unique_with': None, 'null': False, 'choices': None, 'default': None,
+                    'sparse': False, 'unique': False, 'required': False,
+                    'db_field': 'embdoc1_int_empty', 'primary_key': False, 'type_key': 'IntField',
+                    'max_value': None, 'min_value': None},
                 'embdoc1_decimal': {
                     'unique_with': None, 'null': False, 'choices': None, 'default': None,
                     'sparse': False, 'unique': False, 'required': False,
@@ -155,6 +170,21 @@ def get_schema():
                     'default': None, 'sparse': False, 'unique': False, 'required': False,
                     'db_field': 'embdoc2_str_ten', 'primary_key': False, 'type_key': 'StringField',
                     'max_length': None, 'regex': None, 'min_length': None},
+                'embdoc2_float': {
+                    'unique_with': None, 'null': False, 'choices': None, 'default': None,
+                    'sparse': False, 'unique': False, 'required': False,
+                    'db_field': 'embdoc2_float', 'primary_key': False, 'type_key': 'FloatField',
+                    'max_value': None, 'min_value': None},
+                'embdoc2_long': {
+                    'unique_with': None, 'null': False, 'choices': None, 'default': None,
+                    'sparse': False, 'unique': False, 'required': False,
+                    'db_field': 'embdoc2_long', 'primary_key': False, 'type_key': 'LongField',
+                    'max_value': None, 'min_value': None},
+                'embdoc2_int_empty': {
+                    'unique_with': None, 'null': False, 'choices': None, 'default': None,
+                    'sparse': False, 'unique': False, 'required': False,
+                    'db_field': 'embdoc2_int_empty', 'primary_key': False, 'type_key': 'IntField',
+                    'max_value': None, 'min_value': None},
                 'embdoc2_decimal': {
                     'unique_with': None, 'null': False, 'choices': None, 'default': None,
                     'sparse': False, 'unique': False, 'required': False,
@@ -214,6 +244,21 @@ def get_schema():
                     'default': None, 'sparse': False, 'unique': False, 'required': False,
                     'db_field': 'doc1_str_ten', 'primary_key': False, 'type_key': 'StringField',
                     'max_length': None, 'regex': None, 'min_length': None},
+                'doc1_float': {
+                    'unique_with': None, 'null': False, 'choices': None, 'default': None,
+                    'sparse': False, 'unique': False, 'required': False, 'db_field': 'doc1_float',
+                    'primary_key': False, 'type_key': 'FloatField', 'max_value': None,
+                    'min_value': None},
+                'doc1_long': {
+                    'unique_with': None, 'null': False, 'choices': None, 'default': None,
+                    'sparse': False, 'unique': False, 'required': False,
+                    'db_field': 'doc1_long', 'primary_key': False, 'type_key': 'LongField',
+                    'max_value': None, 'min_value': None},
+                'doc1_int_empty': {
+                    'unique_with': None, 'null': False, 'choices': None, 'default': None,
+                    'sparse': False, 'unique': False, 'required': False,
+                    'db_field': 'doc1_int_empty', 'primary_key': False, 'type_key': 'IntField',
+                    'max_value': None, 'min_value': None},
                 'doc1_decimal': {
                     'unique_with': None, 'null': False, 'choices': None, 'default': None,
                     'sparse': False, 'unique': False, 'required': False,
@@ -239,7 +284,7 @@ def get_schema():
                     'unique_with': None, 'null': False, 'choices': None, 'default': [],
                     'sparse': False, 'unique': False, 'required': False,
                     'db_field': 'doc1_cachedref_self', 'primary_key': False,
-                    'type_key': 'CachedReferenceField', 'target_doctype': 'self', 'dbref': False},
+                    'type_key': 'CachedReferenceField', 'target_doctype': 'self', 'fields': []},
                 'doc1_emb_embdoc1': {
                     'unique_with': None, 'null': False, 'choices': None, 'default': None,
                     'sparse': False, 'unique': False, 'required': False,

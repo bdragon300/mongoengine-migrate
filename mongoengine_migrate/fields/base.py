@@ -173,9 +173,10 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :return:
         """
         def by_path(ctx: ByPathContext):
+            path = ctx.filter_dotpath.split('.')[:-1]
             ctx.collection.update_many(
                 {ctx.filter_dotpath: {'$exists': True}, **ctx.extra_filter},
-                {'$rename': {ctx.filter_dotpath: diff.new}}
+                {'$rename': {ctx.filter_dotpath: '.'.join(path + [diff.new])}}
             )
 
         def by_doc(ctx: ByDocContext):
@@ -199,12 +200,17 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :return:
         """
         def by_path(ctx: ByPathContext):
+            # Update documents only
             ctx.collection.update_many(
-                # Both null and nonexistent field
-                {ctx.filter_dotpath: None, **ctx.extra_filter},
+                {ctx.filter_dotpath: {'$exists': False}, **ctx.extra_filter},
                 {'$set': {ctx.update_dotpath: default}},
                 array_filters=ctx.build_array_filters()
             )
+
+        def by_doc(ctx: ByDocContext):
+            # Update embedded documents
+            if isinstance(ctx.document, dict) and updater.field_name not in ctx.document:
+                ctx.document.setdefault(updater.field_name, default)
 
         self._check_diff(updater, diff, False, bool)
 
@@ -215,7 +221,9 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                 raise SchemaError(f'{updater.document_type}{updater.field_name}.default is not '
                                   f'set for required field')
 
-            updater.update_by_path(by_path)
+            updater.with_missed_fields().update_combined(
+                by_path, by_doc, embedded_noarray_by_document_cb=by_doc
+            )
 
     def change_default(self, updater: DocumentUpdater, diff: Diff):
         """Stub method. No need to do smth on default change"""
@@ -236,8 +244,15 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
+        def by_path(ctx: ByPathContext):
+            fltr = {ctx.filter_dotpath: {'$exists': False}, **ctx.extra_filter}
+            check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
+
         self._check_diff(updater, diff, False, bool)
-        self.change_required(updater, diff),  # FIXME: should not consider default value, but check if field is required
+
+        if updater.is_embedded:
+            raise SchemaError(f'Embedded document {updater.document_type} cannot have primary key')
+        updater.update_by_path(by_path)
         # self.change_unique([], []) or []  # TODO
 
     # TODO: consider Document, EmbeddedDocument as choices
@@ -250,13 +265,16 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         """
         def by_path(ctx: ByPathContext):
             choices = diff.new
-            check_empty_result(ctx.collection,
-                               ctx.filter_dotpath,
-                               {ctx.filter_dotpath: {'$nin': choices}, **ctx.extra_filter})
+            fltr = {
+                ctx.filter_dotpath: {'$nin': choices, '$exists': True},
+                **ctx.extra_filter
+            }
+            check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
         self._check_diff(updater, diff, True, Collection)
 
-        updater.update_by_path(by_path)
+        if diff.new is not None:
+            updater.update_by_path(by_path)
 
     def change_null(self, updater: DocumentUpdater, diff: Diff):
         pass

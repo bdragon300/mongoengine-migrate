@@ -318,35 +318,17 @@ def get_schema():
 def setup_db():
     Schema1EmbDoc1, Schema1EmbDoc2, Schema1Doc1 = get_classes()
 
-    # field
+    # doc1
     n = 1
     doc1_1 = Schema1Doc1(id=ObjectId(f'{n:024}'),
                          doc1_int=n,
                          doc1_str=f'str{n}',
-                         doc1_str_ten=str(n % 10)).save()
-
-    # field(array)
-    n = 2
-    doc1_1 = Schema1Doc1(id=ObjectId(f'{n:024}'),
-                         doc1_int=n,
-                         doc1_str=f'str{n}',
-                         doc1_str_ten = str(n % 10),
+                         doc1_str_ten=str(n % 10),
                          doc1_list=[n * 10000 + 1, f'str{n * 10000 + 1}', None]).save()
 
-    # field.field
-    n = 3
-    embdoc1_1 = Schema1EmbDoc1(embdoc1_int=n * 10 + 1,
-                               embdoc1_str=f'str{n * 10 + 1}',
-                               embdoc1_str_ten=str(n % 10))
-    doc1_1 = Schema1Doc1(id=ObjectId(f'{n:024}'),
-                         doc1_int=n,
-                         doc1_str=f'str{n}',
-                         doc1_str_ten=str(n % 10),
-                         doc1_emb_embdoc1=embdoc1_1).save()
-
-    # field.field(array)
-    n = 4
-    embdoc1_1 = Schema1EmbDoc1(embdoc1_int=n * 10 + 1,
+    # doc1.embdoc1
+    n = 2
+    embdoc2_1 = Schema1EmbDoc1(embdoc1_int=n * 10 + 1,
                                embdoc1_str=f'str{n * 10 + 1}',
                                embdoc1_str_ten=str(n % 10),
                                embdoc1_list=[
@@ -356,46 +338,10 @@ def setup_db():
                          doc1_int=n,
                          doc1_str=f'str{n}',
                          doc1_str_ten=str(n % 10),
-                         doc1_emb_embdoc1=embdoc1_1).save()
+                         doc1_emb_embdoc1=embdoc2_1).save()
 
-    # field.field(embdoc1).$[embdoc2].field
-    n = 5
-    embdoc2_x = [
-        Schema1EmbDoc2(embdoc2_int=n * 100 + 11,
-                       embdoc2_str=f'str{n * 100 + 11}',
-                       embdoc2_str_ten=str(n % 10)),
-        Schema1EmbDoc2(embdoc2_int=n * 100 + 12,
-                       embdoc2_str=f'str{n * 100 + 12}',
-                       embdoc2_str_ten=str(n % 10)),
-    ]
-    embdoc1_1 = Schema1EmbDoc1(embdoc1_int=n * 10 + 1,
-                               embdoc1_str=f'str{n * 10 + 1}',
-                               embdoc1_str_ten=str(n % 10),
-                               embdoc1_emblist_embdoc2=embdoc2_x)
-    doc1_1 = Schema1Doc1(id=ObjectId(f'{n:024}'),
-                         doc1_int=n,
-                         doc1_str=f'str{n}',
-                         doc1_str_ten=str(n % 10),
-                         doc1_emb_embdoc1=embdoc1_1).save()
-
-    # field.$[embdoc1].field
-    n = 6
-    embdoc1_x = [
-        Schema1EmbDoc1(embdoc1_int=n * 10 + 1,
-                       embdoc1_str=f'str{n * 10 + 1}',
-                       embdoc1_str_ten=str(n % 10)),
-        Schema1EmbDoc1(embdoc1_int=n * 10 + 2,
-                       embdoc1_str=f'str{n * 10 + 2}',
-                       embdoc1_str_ten=str(n % 10)),
-    ]
-    doc1_1 = Schema1Doc1(id=ObjectId(f'{n:024}'),
-                         doc1_int=n,
-                         doc1_str=f'str{n}',
-                         doc1_str_ten=str(n % 10),
-                         doc1_emblist_embdoc1=embdoc1_x).save()
-
-    # field.$[embdoc1].field(array)
-    n = 7
+    # doc1.[embdoc1]
+    n = 3
     embdoc1_x = [
         Schema1EmbDoc1(embdoc1_int=n * 10 + 1,
                        embdoc1_str=f'str{n * 10 + 1}',
@@ -412,52 +358,35 @@ def setup_db():
                          doc1_str_ten=str(n % 10),
                          doc1_emblist_embdoc1=embdoc1_x).save()
 
+    # doc1.embdoc1.[embdoc2]
+    n = 4
+    embdoc2_x = [
+        Schema1EmbDoc2(embdoc2_int=n * 100 + 11,
+                       embdoc2_str=f'str{n * 100 + 11}',
+                       embdoc2_str_ten=str(n % 10),
+                       embdoc2_list=[n * 100 + 11, f'str{n * 100 + 11}', None]),
+        Schema1EmbDoc2(embdoc2_int=n * 100 + 12,
+                       embdoc2_str=f'str{n * 100 + 12}',
+                       embdoc2_str_ten=str(n % 10),
+                       embdoc2_list=[n * 100 + 11, f'str{n * 100 + 11}', None]),
+    ]
+    embdoc2_1 = Schema1EmbDoc1(embdoc1_int=n * 10 + 1,
+                               embdoc1_str=f'str{n * 10 + 1}',
+                               embdoc1_str_ten=str(n % 10),
+                               embdoc1_emblist_embdoc2=embdoc2_x)
+    doc1_1 = Schema1Doc1(id=ObjectId(f'{n:024}'),
+                         doc1_int=n,
+                         doc1_str=f'str{n}',
+                         doc1_str_ten=str(n % 10),
+                         doc1_emb_embdoc1=embdoc2_1).save()
+
     items = (
         ('embdoc1', Schema1EmbDoc1, 'embdoc2', Schema1EmbDoc2),
-        # ('embdoc2', Schema1EmbDoc2, 'embdoc1', Schema1EmbDoc1),
         ('embdoc1', Schema1EmbDoc1, 'embdoc1', Schema1EmbDoc1),
     )
     for field1, cls1, field2, cls2 in items:
-        # field.$[embdoc1].$[embdoc2].field
-        n += 1  # 8, 12
-        embdoc2_1 = [
-            cls2(**{f'{field2}_int': n * 100 + 11,
-                    f'{field2}_str': f'str{n * 100 + 11}',
-                    f'{field2}_str_ten': str(n % 10)}),
-            cls2(**{f'{field2}_int': n * 100 + 12,
-                    f'{field2}_str': f'str{n * 100 + 12}',
-                    f'{field2}_str_ten': str(n % 10)})
-        ]
-        embdoc2_2 = [
-            cls2(**{f'{field2}_int': n * 100 + 21,
-                    f'{field2}_str': f'str{n * 100 + 21}',
-                    f'{field2}_str_ten': str(n % 10)}),
-            cls2(**{f'{field2}_int': n * 100 + 22,
-                    f'{field2}_str': f'str{n * 100 + 22}',
-                    f'{field2}_str_ten': str(n % 10)})
-        ]
-        embdoc1_x = [
-            cls1(**{
-                f'{field1}_int': n * 10 + 1,
-                f'{field1}_str': f'str{n * 10 + 1}',
-                f'{field1}_str_ten': str(n % 10),
-                f'{field1}_emblist_{field2}': embdoc2_1
-            }),
-            cls1(**{
-                f'{field1}_int': n * 10 + 2,
-                f'{field1}_str': f'str{n * 10 + 2}',
-                f'{field1}_str_ten': str(n % 10),
-                f'{field1}_emblist_{field2}': embdoc2_2
-            })
-        ]
-        doc1_1 = Schema1Doc1(**{f'id': ObjectId(f'{n:024}'),
-                                f'doc1_int': n,
-                                f'doc1_str': f'str{n}',
-                                f'doc1_str_ten': str(n % 10),
-                                f'doc1_emblist_{field1}': embdoc1_x}).save()
-
-        # field.$[embdoc1].$[embdoc2].field(array)
-        n += 1  # 9, 13
+        # doc1.[embdoc1].[embdoc1/embdoc2]
+        n += 1  # 5, 7
         embdoc2_1 = [
             cls2(**{
                 f'{field2}_int': n * 100 + 11,
@@ -506,114 +435,60 @@ def setup_db():
                                 f'doc1_str_ten': str(n % 10),
                                 f'doc1_emblist_{field1}': embdoc1_x}).save()
 
-        # field.$[embdoc1].field(embdoc1).$[embdoc1].field
-        n += 1  # 10, 14
-        embdoc1_1 = [
-            cls1(**{f'{field1}_int': n * 1000 + 111,
-                    f'{field1}_str': f'str{n * 1000 + 111}',
-                    f'{field1}_str_ten': str(n % 10)}),
-            cls1(**{f'{field1}_int': n * 1000 + 112,
-                    f'{field1}_str': f'str{n * 1000 + 112}',
-                    f'{field1}_str_ten': str(n % 10)})
-        ]
-        embdoc1_2 = [
-            cls1(**{f'{field1}_int': n * 1000 + 211,
-                    f'{field1}_str': f'str{n * 1000 + 211}',
-                    f'{field1}_str_ten': str(n % 10)}),
-            cls1(**{f'{field1}_int': n * 1000 + 212,
-                    f'{field1}_str': f'str{n * 1000 + 212}',
-                    f'{field1}_str_ten': str(n % 10)})
-        ]
-        embdoc1_3 = [
-            cls1(**{
-                f'{field1}_int': n * 100 + 11,
-                f'{field1}_str': f'str{n * 100 + 11}',
-                f'{field1}_str_ten': str(n % 10),
-                f'{field1}_emblist_{field1}': embdoc1_1
+        # doc1.[embdoc1].embdoc1.[embdoc1/embdoc2]
+        n += 1  # 6, 8
+        embdoc2_1 = [
+            cls2(**{
+                f'{field2}_int': n * 1000 + 111,
+                f'{field2}_str': f'str{n * 1000 + 111}',
+                f'{field2}_str_ten': str(n % 10),
+                f'{field2}_list': [n * 10000 + 1111, f'str{n * 10000 + 1111}', None]
             }),
-            cls1(**{
-                f'{field1}_int': n * 100 + 21,
-                f'{field1}_str': f'str{n * 100 + 21}',
-                f'{field1}_str_ten': str(n % 10),
-                f'{field1}_emblist_{field1}': embdoc1_2
+            cls2(**{
+                f'{field2}_int': n * 1000 + 112,
+                f'{field2}_str': f'str{n * 1000 + 112}',
+                f'{field2}_str_ten': str(n % 10),
+                f'{field2}_list': [n * 10000 + 1121, f'str{n * 10000 + 1121}', None]
             })
         ]
+        embdoc2_2 = [
+            cls2(**{
+                f'{field2}_int': n * 1000 + 211,
+                f'{field2}_str': f'str{n * 1000 + 211}',
+                f'{field2}_str_ten': str(n % 10),
+                f'{field2}_list': [n * 10000 + 2111, f'str{n * 10000 + 2111}', None]
+            }),
+            cls2(**{
+                f'{field2}_int': n * 1000 + 212,
+                f'{field2}_str': f'str{n * 1000 + 212}',
+                f'{field2}_str_ten': str(n % 10),
+                f'{field2}_list': [n * 10000 + 2121, f'str{n * 10000 + 2121}', None]
+            })
+        ]
+        embdoc1_1 = cls1(**{
+            f'{field1}_int': n * 100 + 11,
+            f'{field1}_str': f'str{n * 100 + 11}',
+            f'{field1}_str_ten': str(n % 10),
+            f'{field1}_emblist_{field2}': embdoc2_1
+        })
+        embdoc1_2 = cls1(**{
+            f'{field1}_int': n * 100 + 21,
+            f'{field1}_str': f'str{n * 100 + 21}',
+            f'{field1}_str_ten': str(n % 10),
+            f'{field1}_emblist_{field2}': embdoc2_2
+        })
         embdoc1_x = [
             cls1(**{
                 f'{field1}_int': n * 10 + 1,
                 f'{field1}_str': f'str{n * 10 + 1}',
                 f'{field1}_str_ten': str(n % 10),
-                f'{field1}_emb_{field1}': embdoc1_3[0]
+                f'{field1}_emb_{field1}': embdoc1_1
             }),
             cls1(**{
                 f'{field1}_int': n * 10 + 2,
                 f'{field1}_str': f'str{n * 10 + 2}',
                 f'{field1}_str_ten': str(n % 10),
-                f'{field1}_emb_{field1}': embdoc1_3[1]
-            })
-        ]
-        doc1_1 = Schema1Doc1(**{f'id': ObjectId(f'{n:024}'),
-                                f'doc1_int': n,
-                                f'doc1_str': f'str{n}',
-                                f'doc1_str_ten': str(n % 10),
-                                f'doc1_emblist_{field1}': embdoc1_x}).save()
-
-        # field.$[embdoc1].field(embdoc1).$[embdoc1].field(array)
-        n += 1  # 11, 15
-        embdoc1_1 = [
-            cls1(**{
-                f'{field1}_int': n * 1000 + 111,
-                f'{field1}_str': f'str{n * 1000 + 111}',
-                f'{field1}_str_ten': str(n % 10),
-                f'{field1}_list': [n * 10000 + 1111, f'str{n * 10000 + 1111}', None]
-            }),
-            cls1(**{
-                f'{field1}_int': n * 1000 + 112,
-                f'{field1}_str': f'str{n * 1000 + 112}',
-                f'{field1}_str_ten': str(n % 10),
-                f'{field1}_list': [n * 10000 + 1121, f'str{n * 10000 + 1121}', None]
-            })
-        ]
-        embdoc1_2 = [
-            cls1(**{
-                f'{field1}_int': n * 1000 + 211,
-                f'{field1}_str': f'str{n * 1000 + 211}',
-                f'{field1}_str_ten': str(n % 10),
-                f'{field1}_list': [n * 10000 + 2111, f'str{n * 10000 + 2111}', None]
-            }),
-            cls1(**{
-                f'{field1}_int': n * 1000 + 212,
-                f'{field1}_str': f'str{n * 1000 + 212}',
-                f'{field1}_str_ten': str(n % 10),
-                f'{field1}_list': [n * 10000 + 2121, f'str{n * 10000 + 2121}', None]
-            })
-        ]
-        embdoc1_3 = [
-            cls1(**{
-                f'{field1}_int': n * 100 + 11,
-                f'{field1}_str': f'str{n * 100 + 11}',
-                f'{field1}_str_ten': str(n % 10),
-                f'{field1}_emblist_{field1}': embdoc1_1
-            }),
-            cls1(**{
-                f'{field1}_int': n * 100 + 21,
-                f'{field1}_str': f'str{n * 100 + 21}',
-                f'{field1}_str_ten': str(n % 10),
-                f'{field1}_emblist_{field1}': embdoc1_2
-            })
-        ]
-        embdoc1_x = [
-            cls1(**{
-                f'{field1}_int': n * 10 + 1,
-                f'{field1}_str': f'str{n * 10 + 1}',
-                f'{field1}_str_ten': str(n % 10),
-                f'{field1}_emb_{field1}': embdoc1_3[0]
-            }),
-            cls1(**{
-                f'{field1}_int': n * 10 + 2,
-                f'{field1}_str': f'str{n * 10 + 2}',
-                f'{field1}_str_ten': str(n % 10),
-                f'{field1}_emb_{field1}': embdoc1_3[1]
+                f'{field1}_emb_{field1}': embdoc1_2
             })
         ]
         doc1_1 = Schema1Doc1(**{f'id': ObjectId(f'{n:024}'),
@@ -623,14 +498,23 @@ def setup_db():
                                 f'doc1_emblist_{field1}': embdoc1_x}).save()
 
 
-def get_embdoc1_jsonpath_parsers():
-    return (
+def get_embedded_jsonpath_parsers(document_type):
+    if document_type == '~Schema1EmbDoc1':
+        return (
+            # doc1.embdoc1
+            # doc1.embdoc1.[embdoc2]
             jsonpath_rw.parse(
                 'schema1_doc1[*].doc1_emb_embdoc1'
             ),
+            # doc1.[embdoc1]
             jsonpath_rw.parse(
                 'schema1_doc1[*].doc1_emblist_embdoc1[*]'
             ),
+            # doc1.[embdoc1].[embdoc1/embdoc2]
+            jsonpath_rw.parse(
+                'schema1_doc1[*].doc1_emblist_embdoc1[*].embdoc1_emblist_embdoc1[*]'
+            ),
+            # doc1.[embdoc1].embdoc1.[embdoc1/embdoc2]
             jsonpath_rw.parse(
                 'schema1_doc1[*].doc1_emblist_embdoc1[*].embdoc1_emb_embdoc1[*]'
             ),
@@ -638,7 +522,18 @@ def get_embdoc1_jsonpath_parsers():
                 'schema1_doc1[*].doc1_emblist_embdoc1[*].embdoc1_emb_embdoc1[*].'
                 'embdoc1_emblist_embdoc1[*]'
             ),
+        )
+    elif document_type == '~Schema1EmbDoc2':
+        return (
+            # doc1.[embdoc1].[embdoc1/embdoc2]
             jsonpath_rw.parse(
-                'schema1_doc1[*].doc1_emblist_embdoc1[*].embdoc1_emblist_embdoc1[*]'
+                'schema1_doc1[*].doc1_emblist_embdoc1[*].embdoc1_emblist_embdoc2[*]'
+            ),
+            # doc1.[embdoc1].embdoc1.[embdoc1/embdoc2]
+            jsonpath_rw.parse(
+                'schema1_doc1[*].doc1_emblist_embdoc1[*].embdoc1_emb_embdoc1[*].'
+                'embdoc1_emblist_embdoc2[*]'
             ),
         )
+    else:
+        raise ValueError

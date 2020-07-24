@@ -35,12 +35,15 @@ def test_db():
 @pytest.fixture
 def dump_db(test_db):
     def w():
+        res = {}
         for collection_name in test_db.list_collection_names():
             docs = []
             for doc in test_db[collection_name].find():
                 docs.append(doc)
 
-            yield collection_name, docs
+            res[collection_name] = docs
+
+        return res
 
     return w
 

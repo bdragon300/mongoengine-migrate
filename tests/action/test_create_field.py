@@ -14,7 +14,7 @@ class TestCreateFieldInDocument:
                                                                test_db,
                                                                dump_db):
         schema = load_fixture('schema1').get_schema()
-        dump = dict(dump_db())
+        dump = dump_db()
 
         action = CreateField('Schema1Doc1', 'test_field',
                              choices=None, db_field='test_field', default=None, max_length=None,
@@ -25,13 +25,13 @@ class TestCreateFieldInDocument:
 
         action.run_forward()
 
-        assert dump == dict(dump_db())
+        assert dump == dump_db()
 
     def test_forward__if_required_and_default_is_set__should_create_field_and_set_a_value(
             self, load_fixture, test_db, dump_db
     ):
         schema = load_fixture('schema1').get_schema()
-        dump = dict(dump_db())
+        dump = dump_db()
         default = 'test!'
         expect = deepcopy(dump)
         parser = jsonpath_rw.parse('schema1_doc1[*]')
@@ -47,7 +47,7 @@ class TestCreateFieldInDocument:
 
         action.run_forward()
 
-        assert expect == dict(dump_db())
+        assert expect == dump_db()
 
     def test_forward__if_required_and_default_is_set_and_field_in_db__should_not_touch_field(
             self, load_fixture, test_db, dump_db
@@ -76,7 +76,7 @@ class TestCreateFieldInDocument:
     def test_backward__should_drop_field(self, load_fixture, test_db, dump_db):
         schema = load_fixture('schema1').get_schema()
         del schema['Schema1Doc1']['doc1_str']
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for rec in parser.find(expect):
             if 'doc1_str' in rec.value:
@@ -91,7 +91,7 @@ class TestCreateFieldInDocument:
 
         action.run_backward()
 
-        assert expect == dict(dump_db())
+        assert expect == dump_db()
 
     def test_prepare__if_such_document_is_not_in_schema__should_raise_error(self,
                                                                             load_fixture,
@@ -128,7 +128,7 @@ class TestCreateFieldEmbedded:
             self, load_fixture, test_db, dump_db
     ):
         schema = load_fixture('schema1').get_schema()
-        dump = dict(dump_db())
+        dump = dump_db()
 
         action = CreateField('~Schema1EmbDoc1', 'test_field',
                              choices=None, db_field='test_field', default=None, max_length=None,
@@ -139,16 +139,16 @@ class TestCreateFieldEmbedded:
 
         action.run_forward()
 
-        assert dump == dict(dump_db())
+        assert dump == dump_db()
 
     def test_forward__if_required_and_default_is_set__should_create_field_and_set_a_value(
             self, load_fixture, test_db, dump_db
     ):
         schema = load_fixture('schema1').get_schema()
-        dump = dict(dump_db())
+        dump = dump_db()
         default = 'test!'
         expect = deepcopy(dump)
-        parsers = load_fixture('schema1').get_embdoc1_jsonpath_parsers()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('~Schema1EmbDoc1')
         for rec in itertools.chain.from_iterable(p.find(expect) for p in parsers):
             rec.value['test_field'] = default
 
@@ -161,14 +161,14 @@ class TestCreateFieldEmbedded:
 
         action.run_forward()
 
-        assert expect == dict(dump_db())
+        assert expect == dump_db()
 
     def test_backward__should_drop_field(self, load_fixture, test_db, dump_db):
         schema = load_fixture('schema1').get_schema()
         del schema['~Schema1EmbDoc1']['embdoc1_str']
-        dump = dict(dump_db())
+        dump = dump_db()
         expect = deepcopy(dump)
-        parsers = load_fixture('schema1').get_embdoc1_jsonpath_parsers()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('~Schema1EmbDoc1')
         for rec in itertools.chain.from_iterable(p.find(expect) for p in parsers):
             if 'embdoc1_str' in rec.value:
                 del rec.value['embdoc1_str']
@@ -182,4 +182,4 @@ class TestCreateFieldEmbedded:
 
         action.run_backward()
 
-        assert expect == dict(dump_db())
+        assert expect == dump_db()

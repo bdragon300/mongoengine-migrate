@@ -12,7 +12,7 @@ class TestAlterDocument:
                                                                             test_db,
                                                                             dump_db):
         schema = load_fixture('schema1').get_schema()
-        dump = dict(dump_db())
+        dump = dump_db()
 
         action = AlterDocument('Schema1Doc1', collection='new_name1')
         action.prepare(test_db, schema)
@@ -21,7 +21,7 @@ class TestAlterDocument:
 
         action.run_forward()
 
-        assert expect == dict(dump_db())
+        assert expect == dump_db()
 
     def test_forward__on_unexistance_collection_specified__should_do_nothing(self,
                                                                              load_fixture,
@@ -29,21 +29,21 @@ class TestAlterDocument:
                                                                              dump_db):
         schema = load_fixture('schema1').get_schema()
         schema['Schema1Doc1'].parameters['collection'] = 'unknown_collection'
-        dump = dict(dump_db())
+        dump = dump_db()
 
         action = AlterDocument('Schema1Doc1', collection='new_name1')
         action.prepare(test_db, schema)
 
         action.run_forward()
 
-        assert dump == dict(dump_db())
+        assert dump == dump_db()
 
     def test_backward__on_new_collection_specified__should_rename_collection_back(self,
                                                                                   load_fixture,
                                                                                   test_db,
                                                                                   dump_db):
         schema = load_fixture('schema1').get_schema()
-        dump = dict(dump_db())
+        dump = dump_db()
 
         action = AlterDocument('Schema1Doc1', collection='new_name1')
         action.prepare(test_db, schema)
@@ -51,7 +51,7 @@ class TestAlterDocument:
 
         action.run_backward()
 
-        assert dump == dict(dump_db())
+        assert dump == dump_db()
 
     def test_backward__on_unexistance_collection_specified__should_do_nothing(self,
                                                                               load_fixture,
@@ -59,14 +59,14 @@ class TestAlterDocument:
                                                                               dump_db):
         schema = load_fixture('schema1').get_schema()
         test_db['schema1_doc1'].rename('unknown_collection')
-        dump = dict(dump_db())
+        dump = dump_db()
 
         action = AlterDocument('Schema1Doc1', collection='new_name1')
         action.prepare(test_db, schema)
 
         action.run_backward()
 
-        assert dump == dict(dump_db())
+        assert dump == dump_db()
 
     def test_prepare__if_such_document_is_not_in_schema__should_raise_error(self,
                                                                             load_fixture,

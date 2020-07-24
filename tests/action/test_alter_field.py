@@ -16,7 +16,7 @@ class TestAlterFieldCommonDbField:
     def test_forward__for_document__should_rename_field(self, load_fixture, test_db, dump_db):
         schema = load_fixture('schema1').get_schema()
 
-        dump = dict(dump_db())
+        dump = dump_db()
         expect = deepcopy(dump)
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for rec in parser.find(expect):
@@ -27,15 +27,15 @@ class TestAlterFieldCommonDbField:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     def test_forward__for_embedded_document__should_rename_field(
             self, load_fixture, test_db, dump_db
     ):
         schema = load_fixture('schema1').get_schema()
-        dump = dict(dump_db())
+        dump = dump_db()
         expect = deepcopy(dump)
-        parsers = load_fixture('schema1').get_embdoc1_jsonpath_parsers()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('~Schema1EmbDoc1')
         for rec in itertools.chain.from_iterable(p.find(expect) for p in parsers):
             rec.value['new_embfield'] = rec.value.pop('embdoc1_str')
 
@@ -44,7 +44,7 @@ class TestAlterFieldCommonDbField:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('document_type,field_name', (
         ('Schema1Doc1', 'doc1_str'),
@@ -56,7 +56,7 @@ class TestAlterFieldCommonDbField:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        dump = dict(dump_db())
+        dump = dump_db()
 
         action = AlterField(document_type, field_name, db_field='new_field')
         action.prepare(test_db, schema)
@@ -66,7 +66,7 @@ class TestAlterFieldCommonDbField:
 
         action.run_backward()
 
-        assert dict(dump_db()) == dump
+        assert dump_db() == dump
 
 
 class TestAlterFieldCommonRequired:
@@ -76,7 +76,7 @@ class TestAlterFieldCommonRequired:
         default = 'test!'
         schema = load_fixture('schema1').get_schema()
 
-        dump = dict(dump_db())
+        dump = dump_db()
         expect = deepcopy(dump)
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for rec in parser.find(expect):
@@ -87,7 +87,7 @@ class TestAlterFieldCommonRequired:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     def test_forward__for_embedded_document__should_make_required(
             self, load_fixture, test_db, dump_db
@@ -95,9 +95,9 @@ class TestAlterFieldCommonRequired:
         default = 'test!'
         schema = load_fixture('schema1').get_schema()
 
-        dump = dict(dump_db())
+        dump = dump_db()
         expect = deepcopy(dump)
-        parsers = load_fixture('schema1').get_embdoc1_jsonpath_parsers()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('~Schema1EmbDoc1')
         for rec in itertools.chain.from_iterable(p.find(expect) for p in parsers):
             rec.value['embdoc1_str_empty'] = default
 
@@ -106,7 +106,7 @@ class TestAlterFieldCommonRequired:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     def test_forward_backward__for_document_when_default_is_set__should_leave_set_values(
             self, load_fixture, test_db, dump_db
@@ -114,7 +114,7 @@ class TestAlterFieldCommonRequired:
         default = 'test!'
         schema = load_fixture('schema1').get_schema()
 
-        dump = dict(dump_db())
+        dump = dump_db()
         expect = deepcopy(dump)
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for rec in parser.find(expect):
@@ -128,7 +128,7 @@ class TestAlterFieldCommonRequired:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     def test_forward_backward__for_embedded_when_default_is_set__should_leave_set_values(
             self, load_fixture, test_db, dump_db
@@ -136,9 +136,9 @@ class TestAlterFieldCommonRequired:
         default = 'test!'
         schema = load_fixture('schema1').get_schema()
 
-        dump = dict(dump_db())
+        dump = dump_db()
         expect = deepcopy(dump)
-        parsers = load_fixture('schema1').get_embdoc1_jsonpath_parsers()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('~Schema1EmbDoc1')
         for rec in itertools.chain.from_iterable(p.find(expect) for p in parsers):
             rec.value['embdoc1_str_empty'] = default
 
@@ -150,7 +150,7 @@ class TestAlterFieldCommonRequired:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('document_type,field_name', (
         ('Schema1Doc1', 'doc1_str'),
@@ -176,14 +176,14 @@ class TestAlterFieldCommonDefault:
         default = 'test!'
         schema = load_fixture('schema1').get_schema()
 
-        dump = dict(dump_db())
+        dump = dump_db()
 
         action = AlterField('Schema1Doc1', 'doc1_str_empty', default=default)
         action.prepare(test_db, schema)
 
         action.run_forward()
 
-        assert dict(dump_db()) == dump
+        assert dump_db() == dump
 
     @pytest.mark.parametrize('document_type,field_name', (
         ('Schema1Doc1', 'doc1_str'),
@@ -196,7 +196,7 @@ class TestAlterFieldCommonDefault:
         default = 'test!'
         schema = load_fixture('schema1').get_schema()
 
-        dump = dict(dump_db())
+        dump = dump_db()
 
         action = AlterField(document_type, field_name, default=default)
         action.prepare(test_db, schema)
@@ -206,7 +206,7 @@ class TestAlterFieldCommonDefault:
 
         action.run_backward()
 
-        assert dict(dump_db()) == dump
+        assert dump_db() == dump
 
 
 class TestAlterFieldCommonUnique:
@@ -221,14 +221,14 @@ class TestAlterFieldCommonPrimaryKey:
     def test_forward__if_field_is_filled__do_nothing(self, load_fixture, test_db, dump_db):
         schema = load_fixture('schema1').get_schema()
 
-        dump = dict(dump_db())
+        dump = dump_db()
 
         action = AlterField('Schema1Doc1', 'doc1_str', primary_key=True)
         action.prepare(test_db, schema)
 
         action.run_forward()
 
-        assert dict(dump_db()) == dump
+        assert dump_db() == dump
 
     def test_forward__if_field_is_partially_filled__raise_error(self, load_fixture, test_db):
         schema = load_fixture('schema1').get_schema()
@@ -245,7 +245,7 @@ class TestAlterFieldCommonPrimaryKey:
     def test_forward_backward__should_do_nothing(self, load_fixture, test_db, dump_db):
         schema = load_fixture('schema1').get_schema()
 
-        dump = dict(dump_db())
+        dump = dump_db()
 
         action = AlterField('Schema1Doc1', 'doc1_str', primary_key=True)
         action.prepare(test_db, schema)
@@ -255,7 +255,7 @@ class TestAlterFieldCommonPrimaryKey:
 
         action.run_backward()
 
-        assert dict(dump_db()) == dump
+        assert dump_db() == dump
 
     def test_forward__for_embedded_document__raise_error(self, load_fixture, test_db):
         schema = load_fixture('schema1').get_schema()
@@ -293,14 +293,14 @@ class TestAlterFieldCommonChoices:
         schema = load_fixture('schema1').get_schema()
         schema[document_type][field_name]['choices'] = old_choices
 
-        dump = dict(dump_db())
+        dump = dump_db()
 
         action = AlterField(document_type, field_name, choices=new_choices)
         action.prepare(test_db, schema)
 
         action.run_forward()
 
-        assert dict(dump_db()) == dump
+        assert dump_db() == dump
 
     @pytest.mark.parametrize('document_type,field_name', (
         ('Schema1Doc1', 'doc1_str_ten'),
@@ -338,7 +338,7 @@ class TestAlterFieldCommonChoices:
         schema = load_fixture('schema1').get_schema()
         schema[document_type][field_name]['choices'] = old_choices
 
-        dump = dict(dump_db())
+        dump = dump_db()
 
         action = AlterField(document_type, field_name, choices=new_choices)
         action.prepare(test_db, schema)
@@ -348,7 +348,7 @@ class TestAlterFieldCommonChoices:
 
         action.run_backward()
 
-        assert dict(dump_db()) == dump
+        assert dump_db() == dump
 
     def test_forward_backward__for_document_if_values_became_wrong_after_forward_step__raise_error(
             self, load_fixture, test_db
@@ -378,12 +378,12 @@ class TestAlterFieldCommonChoices:
         action.cleanup()
 
         # Corrupt data in db
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1']['embdoc1_str_ten'] = 'test!'
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000007'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0]['embdoc1_str_ten'] = 'test!'
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000007')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
         action.prepare(test_db, schema)
 
@@ -418,7 +418,7 @@ class TestAlterFieldNumberMinValue:
         doc[field_name] = db_value
         test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
             if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
@@ -429,7 +429,7 @@ class TestAlterFieldNumberMinValue:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('db_value,min_value,expect_value', (
         (123.45, 0, 123.45),
@@ -441,19 +441,19 @@ class TestAlterFieldNumberMinValue:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1'][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000007'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000007')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1'][field_name] = expect_value
-            if doc.value['_id'] == ObjectId(f'000000000000000000000007'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0][field_name] = expect_value
 
         action = AlterField('~Schema1EmbDoc1', field_name, min_value=min_value)
@@ -461,7 +461,7 @@ class TestAlterFieldNumberMinValue:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('db_value,min_value,expect_value', (
         (123.45, 0, 123.45),
@@ -477,7 +477,7 @@ class TestAlterFieldNumberMinValue:
         doc[field_name] = db_value
         test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
             if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
@@ -491,7 +491,7 @@ class TestAlterFieldNumberMinValue:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('db_value,min_value,expect_value', (
         (123.45, 0, 123.45),
@@ -503,19 +503,19 @@ class TestAlterFieldNumberMinValue:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1'][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000007'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000007')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1'][field_name] = expect_value
-            if doc.value['_id'] == ObjectId(f'000000000000000000000007'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0][field_name] = expect_value
 
         action = AlterField('~Schema1EmbDoc1', field_name, min_value=min_value)
@@ -526,7 +526,7 @@ class TestAlterFieldNumberMinValue:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
 
 class TestAlterFieldNumberMaxValue:
@@ -544,7 +544,7 @@ class TestAlterFieldNumberMaxValue:
         doc[field_name] = db_value
         test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
             if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
@@ -555,7 +555,7 @@ class TestAlterFieldNumberMaxValue:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('db_value,max_value,expect_value', (
         (123.45, 200, 123.45),
@@ -567,19 +567,19 @@ class TestAlterFieldNumberMaxValue:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1'][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000007'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000007')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1'][field_name] = expect_value
-            if doc.value['_id'] == ObjectId(f'000000000000000000000007'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0][field_name] = expect_value
 
         action = AlterField('~Schema1EmbDoc1', field_name, max_value=max_value)
@@ -587,7 +587,7 @@ class TestAlterFieldNumberMaxValue:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('db_value,max_value,expect_value', (
         (123.45, 200, 123.45),
@@ -603,7 +603,7 @@ class TestAlterFieldNumberMaxValue:
         doc[field_name] = db_value
         test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
             if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
@@ -617,7 +617,7 @@ class TestAlterFieldNumberMaxValue:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('db_value,max_value,expect_value', (
         (123.45, 200, 123.45),
@@ -629,19 +629,19 @@ class TestAlterFieldNumberMaxValue:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1'][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000007'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000007')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1'][field_name] = expect_value
-            if doc.value['_id'] == ObjectId(f'000000000000000000000007'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0][field_name] = expect_value
 
         action = AlterField('~Schema1EmbDoc1', field_name, max_value=max_value)
@@ -652,7 +652,7 @@ class TestAlterFieldNumberMaxValue:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
 
 class TestAlterFieldStringMaxLength:
@@ -666,21 +666,21 @@ class TestAlterFieldStringMaxLength:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        expect = dict(dump_db())
+        expect = dump_db()
 
         action = AlterField(document_type, field_name, max_length=200)
         action.prepare(test_db, schema)
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     def test_forward__for_document_if_string_length_more_max_length__should_cut_off_string(
             self, load_fixture, test_db, dump_db
     ):
         schema = load_fixture('schema1').get_schema()
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
             doc.value['doc1_str'] = 'st'
@@ -690,15 +690,15 @@ class TestAlterFieldStringMaxLength:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     def test_forward__for_embedded_document_if_string_length_more_max_length__should_cut_off_string(
             self, load_fixture, test_db, dump_db
     ):
         schema = load_fixture('schema1').get_schema()
 
-        expect = dict(dump_db())
-        parsers = load_fixture('schema1').get_embdoc1_jsonpath_parsers()
+        expect = dump_db()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('~Schema1EmbDoc1')
         for doc in itertools.chain.from_iterable(p.find(expect) for p in parsers):
             doc.value['embdoc1_str'] = 'st'
 
@@ -707,7 +707,7 @@ class TestAlterFieldStringMaxLength:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('document_type,field_name', (
         ('Schema1Doc1', 'doc1_str'),
@@ -719,7 +719,7 @@ class TestAlterFieldStringMaxLength:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        expect = dict(dump_db())
+        expect = dump_db()
 
         action = AlterField(document_type, field_name, max_length=200)
         action.prepare(test_db, schema)
@@ -729,14 +729,14 @@ class TestAlterFieldStringMaxLength:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     def test_forward_backward__for_document_if_string_length_more_max_length__should_cut_off_string(
             self, load_fixture, test_db, dump_db
     ):
         schema = load_fixture('schema1').get_schema()
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
             doc.value['doc1_str'] = 'st'
@@ -749,15 +749,15 @@ class TestAlterFieldStringMaxLength:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     def test_forward_backward__for_embedded_if_string_length_more_max_length__should_cut_off_string(
             self, load_fixture, test_db, dump_db
     ):
         schema = load_fixture('schema1').get_schema()
 
-        expect = dict(dump_db())
-        parsers = load_fixture('schema1').get_embdoc1_jsonpath_parsers()
+        expect = dump_db()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('~Schema1EmbDoc1')
         for doc in itertools.chain.from_iterable(p.find(expect) for p in parsers):
             doc.value['embdoc1_str'] = 'st'
 
@@ -769,7 +769,7 @@ class TestAlterFieldStringMaxLength:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
 
 class TestAlterFieldStringMinLength:
@@ -783,14 +783,14 @@ class TestAlterFieldStringMinLength:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        expect = dict(dump_db())
+        expect = dump_db()
 
         action = AlterField(document_type, field_name, min_length=2)
         action.prepare(test_db, schema)
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('document_type,field_name', (
         ('Schema1Doc1', 'doc1_str'),
@@ -818,7 +818,7 @@ class TestAlterFieldStringMinLength:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        expect = dict(dump_db())
+        expect = dump_db()
 
         action = AlterField(document_type, field_name, min_length=2)
         action.prepare(test_db, schema)
@@ -828,7 +828,7 @@ class TestAlterFieldStringMinLength:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
 
 class TestAlterFieldStringRegex:
@@ -843,14 +843,14 @@ class TestAlterFieldStringRegex:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        expect = dict(dump_db())
+        expect = dump_db()
 
         action = AlterField(document_type, field_name, regex=regex)
         action.prepare(test_db, schema)
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('regex', (re.compile('^unknown'), '^unknown'))
     @pytest.mark.parametrize('document_type,field_name', (
@@ -880,7 +880,7 @@ class TestAlterFieldStringRegex:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        expect = dict(dump_db())
+        expect = dump_db()
 
         action = AlterField(document_type, field_name, regex=regex)
         action.prepare(test_db, schema)
@@ -890,7 +890,7 @@ class TestAlterFieldStringRegex:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
 
 class TestAlterFieldUrlSchemes:
@@ -920,7 +920,7 @@ class TestAlterFieldDecimalForceString:
         doc['doc1_decimal'] = init_value
         test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
             if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
@@ -931,7 +931,7 @@ class TestAlterFieldDecimalForceString:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('init_value1,init_value2', ((3.14, 2.17),  ('3.14', '2.17')))
     def test_forward__for_embedded__should_cast_to_string(
@@ -939,19 +939,19 @@ class TestAlterFieldDecimalForceString:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1']['embdoc1_decimal'] = init_value1
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000007'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0]['embdoc1_decimal'] = init_value2
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000007')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1']['embdoc1_decimal'] = '3.14'
-            if doc.value['_id'] == ObjectId(f'000000000000000000000007'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0]['embdoc1_decimal'] = '2.17'
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_decimal', force_string=True)
@@ -959,7 +959,7 @@ class TestAlterFieldDecimalForceString:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('init_value', (3.14, '3.14'))
     def test_forward_backward__for_document__should_cast_to_string(
@@ -971,7 +971,7 @@ class TestAlterFieldDecimalForceString:
         doc['doc1_decimal'] = init_value
         test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
             if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
@@ -985,7 +985,7 @@ class TestAlterFieldDecimalForceString:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('init_value1,init_value2', ((3.14, 2.17),  ('3.14', '2.17')))
     def test_forward_backward__for_embedded__should_cast_to_string(
@@ -993,19 +993,19 @@ class TestAlterFieldDecimalForceString:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1']['embdoc1_decimal'] = init_value1
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000007'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0]['embdoc1_decimal'] = init_value2
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000007')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1']['embdoc1_decimal'] = 3.14
-            if doc.value['_id'] == ObjectId(f'000000000000000000000007'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0]['embdoc1_decimal'] = 2.17
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_decimal', force_string=True)
@@ -1016,7 +1016,7 @@ class TestAlterFieldDecimalForceString:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
 
 class TestAlterFieldComplexDateTimeSeparator:
@@ -1032,7 +1032,7 @@ class TestAlterFieldComplexDateTimeSeparator:
         doc['doc1_complex_datetime'] = init_value
         test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
             if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
@@ -1043,7 +1043,7 @@ class TestAlterFieldComplexDateTimeSeparator:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('init_value1,init_value2', (
         ('2020.00.01.02.03.04.000000', '2020.04.03.02.01.00.000000'),
@@ -1054,20 +1054,20 @@ class TestAlterFieldComplexDateTimeSeparator:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1']['embdoc1_complex_datetime'] = init_value1
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000007'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0]['embdoc1_complex_datetime'] = init_value2
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000007')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1']['embdoc1_complex_datetime'] = \
                     '2020|00|01|02|03|04|000000'
-            if doc.value['_id'] == ObjectId(f'000000000000000000000007'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0]['embdoc1_complex_datetime'] = \
                     '2020|04|03|02|01|00|000000'
 
@@ -1076,7 +1076,7 @@ class TestAlterFieldComplexDateTimeSeparator:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('init_value', (
         '2020.04.03.02.01.00.000000', '2020|04|03|02|01|00|000000'
@@ -1090,7 +1090,7 @@ class TestAlterFieldComplexDateTimeSeparator:
         doc['doc1_complex_datetime'] = init_value
         test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
             if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
@@ -1104,7 +1104,7 @@ class TestAlterFieldComplexDateTimeSeparator:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('init_value1,init_value2', (
         ('2020.00.01.02.03.04.000000', '2020.04.03.02.01.00.000000'),
@@ -1115,20 +1115,20 @@ class TestAlterFieldComplexDateTimeSeparator:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1']['embdoc1_complex_datetime'] = init_value1
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000007'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0]['embdoc1_complex_datetime'] = init_value2
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000007')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1']['embdoc1_complex_datetime'] = \
                     '2020.00.01.02.03.04.000000'
-            if doc.value['_id'] == ObjectId(f'000000000000000000000007'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0]['embdoc1_complex_datetime'] = \
                     '2020.04.03.02.01.00.000000'
 
@@ -1140,7 +1140,7 @@ class TestAlterFieldComplexDateTimeSeparator:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
 
 @pytest.mark.skipif(mongoengine.VERSION < (0, 19, 0), reason='Mongoengine>=0.19.0 is required')
@@ -1148,7 +1148,7 @@ class TestAlterFieldListMaxLength:
     def test_forward__for_document__should_cut_off_a_list(self, load_fixture, test_db, dump_db):
         schema = load_fixture('schema1').get_schema()
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
             if 'doc1_list' in doc.value:
@@ -1159,13 +1159,13 @@ class TestAlterFieldListMaxLength:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     def test_forward__for_embedded__should_cut_off_a_list(self, load_fixture, test_db, dump_db):
         schema = load_fixture('schema1').get_schema()
 
-        expect = dict(dump_db())
-        parsers = load_fixture('schema1').get_embdoc1_jsonpath_parsers()
+        expect = dump_db()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('~Schema1EmbDoc1')
         for doc in itertools.chain.from_iterable(p.find(expect) for p in parsers):
             if 'embdoc1_list' in doc.value:
                 doc.value['embdoc1_list'] = doc.value['embdoc1_list'][:2]
@@ -1175,14 +1175,14 @@ class TestAlterFieldListMaxLength:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     def test_forward_backward__for_document__should_cut_off_a_list(
             self, load_fixture, test_db, dump_db
     ):
         schema = load_fixture('schema1').get_schema()
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
             if 'doc1_list' in doc.value:
@@ -1196,15 +1196,15 @@ class TestAlterFieldListMaxLength:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     def test_forward_backward__for_embedded__should_cut_off_a_list(
             self, load_fixture, test_db, dump_db
     ):
         schema = load_fixture('schema1').get_schema()
 
-        expect = dict(dump_db())
-        parsers = load_fixture('schema1').get_embdoc1_jsonpath_parsers()
+        expect = dump_db()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('~Schema1EmbDoc1')
         for doc in itertools.chain.from_iterable(p.find(expect) for p in parsers):
             if 'embdoc1_list' in doc.value:
                 doc.value['embdoc1_list'] = doc.value['embdoc1_list'][:2]
@@ -1217,7 +1217,7 @@ class TestAlterFieldListMaxLength:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
 
 class TestAlterFieldReferenceDbref:
@@ -1228,7 +1228,7 @@ class TestAlterFieldReferenceDbref:
         doc['doc1_ref_self'] = ObjectId('000000000000000000000002')
         test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
             if 'doc1_ref_self' in doc.value:
@@ -1240,28 +1240,28 @@ class TestAlterFieldReferenceDbref:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     def test_forward__for_embedded__should_convert_to_dbref(self, load_fixture, test_db, dump_db):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1']['embdoc1_ref_doc1'] = ObjectId('000000000000000000000002')
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
+        doc['doc1_emblist_embdoc1'][0]['embdoc1_ref_doc1'] = ObjectId('000000000000000000000002')
         test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000007'))
-        doc['doc1_emblist_embdoc1'][0]['embdoc1_ref_doc1'] = ObjectId('000000000000000000000003')
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000007')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1']['embdoc1_ref_doc1'] = bson.DBRef(
                     'schema1_doc1', ObjectId(f'000000000000000000000002')
                 )
-            if doc.value['_id'] == ObjectId(f'000000000000000000000007'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0]['embdoc1_ref_doc1'] = bson.DBRef(
-                    'schema1_doc1', ObjectId(f'000000000000000000000003')
+                    'schema1_doc1', ObjectId(f'000000000000000000000002')
                 )
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_ref_doc1', dbref=True)
@@ -1269,7 +1269,7 @@ class TestAlterFieldReferenceDbref:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     @pytest.mark.parametrize('document_type,field_name', (
             ('Schema1Doc1', 'doc1_ref_self'),
@@ -1280,7 +1280,7 @@ class TestAlterFieldReferenceDbref:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        expect = dict(dump_db())
+        expect = dump_db()
 
         action = AlterField(document_type, field_name, dbref=True)
         action.prepare(test_db, schema)
@@ -1290,7 +1290,7 @@ class TestAlterFieldReferenceDbref:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
 
 class TestAlterFieldCachedReferenceFields:
@@ -1307,7 +1307,7 @@ class TestAlterFieldCachedReferenceFields:
         }
         test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
 
         action = AlterField('Schema1Doc1',
                             'doc1_cachedref_self',
@@ -1316,7 +1316,7 @@ class TestAlterFieldCachedReferenceFields:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     def test_forward__for_document_when_fields_list_become_smaller__should_remove_extra_fields(
             self, load_fixture, test_db, dump_db
@@ -1329,7 +1329,7 @@ class TestAlterFieldCachedReferenceFields:
             {'_id': ObjectId('000000000000000000000002'), 'doc1_int': 2, 'doc1_str': '2'}
         test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
             if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
@@ -1341,7 +1341,7 @@ class TestAlterFieldCachedReferenceFields:
 
         action.run_forward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     def test_forward__for_embedded_document__forbidden_and_should_raise_error(
             self, load_fixture, test_db
@@ -1366,7 +1366,7 @@ class TestAlterFieldCachedReferenceFields:
         }
         test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
-        expect = dict(dump_db())
+        expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
             if 'doc1_cachedref_self' in doc.value:
@@ -1381,7 +1381,7 @@ class TestAlterFieldCachedReferenceFields:
 
         action.run_backward()
 
-        assert dict(dump_db()) == expect
+        assert dump_db() == expect
 
     def test_backward__for_embedded__forbidden_and_should_raise_error(
             self, load_fixture, test_db, dump_db

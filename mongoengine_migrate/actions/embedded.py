@@ -106,6 +106,7 @@ class AlterEmbedded(BaseAlterDocument):
 
     @mongo_version(min_version='2.6')
     def change_dynamic(self, diff: Diff):
+        return  # FIXME: fix all below
         def by_path(ctx: ByPathContext):
             dotpaths = {f'{ctx.filter_dotpath}.{k}': 1 for k in self_schema.keys()}
             ctx.collection.aggregate([

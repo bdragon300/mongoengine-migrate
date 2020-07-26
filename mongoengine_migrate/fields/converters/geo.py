@@ -57,29 +57,8 @@ def convert_geojson(updater: DocumentUpdater, from_type: str, to_type: str):
         __decrease_geojson_nesting(updater, from_type, to_type, depth)
 
 
-@mongo_version(min_version='3.6')
 def legacy_pairs_to_geojson(updater: DocumentUpdater, to_type: str):
     """Convert legacy coordinate pairs to GeoJSON objects of given type"""
-    def by_path(ctx: ByPathContext):
-        # Convert to GeoJSON Point object
-        ctx.collection.aggregate([
-            {'$match': {
-                "$and": [
-                    {ctx.filter_dotpath: {"$ne": None}},
-                    *[{k: v} for k, v in ctx.extra_filter.items()],
-                    # $expr >= 3.6
-                    {"$expr": {"$eq": [{"$isArray": f"${ctx.filter_dotpath}"}, True]}}
-                ]}
-            },
-            {'$addFields': {  # >= 3.4
-                ctx.filter_dotpath: {
-                    'type': 'Point',
-                    'coordinates': f'${ctx.filter_dotpath}'
-                }
-            }},
-            {'$out': ctx.collection.name}  # >= 2.6
-        ])
-
     def by_doc(ctx: ByDocContext):
         doc = ctx.document
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), (list, tuple)):
@@ -89,26 +68,12 @@ def legacy_pairs_to_geojson(updater: DocumentUpdater, to_type: str):
     __check_legacy_point_coordinates(updater)
     __check_value_types(updater, ['object', 'array'])
 
-    updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
+    updater.update_by_document(by_doc)
     convert_geojson(updater, 'Point', to_type)
 
 
-@mongo_version(min_version='3.6')
 def geojson_to_legacy_pairs(updater: DocumentUpdater, from_type: str):
     """Convert GeoJSON objects of given type to legacy coordinate pairs"""
-    def by_path(ctx: ByPathContext):
-        ctx.collection.aggregate([
-            {'$match': {
-                ctx.filter_dotpath: {"$ne": None},
-                **ctx.extra_filter,
-                f'{ctx.filter_dotpath}.type': "Point",
-            }},
-            {'$addFields': {  # >= 3.4
-                ctx.filter_dotpath: f'${ctx.filter_dotpath}.coordinates'
-            }},
-            {'$out': ctx.collection.name}  # >= 2.6
-        ])
-
     def by_doc(ctx: ByDocContext):
         doc = ctx.document
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
@@ -121,10 +86,9 @@ def geojson_to_legacy_pairs(updater: DocumentUpdater, from_type: str):
 
     convert_geojson(updater, from_type, 'Point')
 
-    updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
+    updater.update_by_document(by_doc)
 
 
-@mongo_version(min_version='3.4', throw_error=True)
 def __increase_geojson_nesting(updater: DocumentUpdater,
                                from_type: str,
                                to_type: str,
@@ -140,26 +104,6 @@ def __increase_geojson_nesting(updater: DocumentUpdater,
     """
     assert depth > 0
 
-    def by_path(ctx: ByPathContext):
-        add_fields = [
-            {'$addFields': {  # >= 3.4
-                f'{ctx.filter_dotpath}.coordinates': [f'${ctx.filter_dotpath}.coordinates']
-            }}
-        ] * depth
-
-        ctx.collection.aggregate([
-            {'$match': {
-                ctx.filter_dotpath: {"$ne": None},
-                **ctx.extra_filter,
-                f'{ctx.filter_dotpath}.type': from_type
-            }},
-            *add_fields,
-            {'$addFields': {  # >= 3.4
-                f'{ctx.filter_dotpath}.type': to_type
-            }},
-            {'$out': ctx.collection.name}  # >= 2.6
-        ])
-
     def by_doc(ctx: ByDocContext):
         doc = ctx.document
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
@@ -172,10 +116,9 @@ def __increase_geojson_nesting(updater: DocumentUpdater,
                     doc[updater.field_name].get('coordinates', [.0, .0])
                 )
 
-    updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
+    updater.update_by_document(by_doc)
 
 
-@mongo_version(min_version='3.4', throw_error=True)
 def __decrease_geojson_nesting(updater: DocumentUpdater,
                                from_type: str,
                                to_type: str,
@@ -191,29 +134,6 @@ def __decrease_geojson_nesting(updater: DocumentUpdater,
     """
     assert depth > 0
 
-    def by_path(ctx: ByPathContext):
-        add_fields = [
-            {'$addFields': {  # >= 3.4
-                # $arrayElemAt >= 3.2
-                f'{ctx.filter_dotpath}.coordinates': {
-                    "$arrayElemAt": [f'${ctx.filter_dotpath}.coordinates', 0]
-                }
-            }},
-        ] * depth
-
-        ctx.collection.aggregate([
-            {'$match': {
-                ctx.filter_dotpath: {"$ne": None},
-                **ctx.extra_filter,
-                f'{ctx.filter_dotpath}.type': from_type
-            }},
-            *add_fields,
-            {'$addFields': {  # >= 3.4
-                f'{ctx.filter_dotpath}.type': to_type
-            }},
-            {'$out': ctx.collection.name}  # >= 2.6
-        ])
-
     def by_doc(ctx: ByDocContext):
         doc = ctx.document
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
@@ -226,7 +146,7 @@ def __decrease_geojson_nesting(updater: DocumentUpdater,
                     doc[updater.field_name].get('coordinates', [.0, .0])
                 )
 
-    updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
+    updater.update_by_document(by_doc)
 
 
 @mongo_version(min_version='3.6', throw_error=True)

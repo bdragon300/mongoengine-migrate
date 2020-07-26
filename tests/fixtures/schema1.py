@@ -525,6 +525,10 @@ def get_embedded_jsonpath_parsers(document_type):
         )
     elif document_type == '~Schema1EmbDoc2':
         return (
+            # doc1.embdoc1.[embdoc2]
+            jsonpath_rw.parse(
+                'schema1_doc1[*].doc1_emb_embdoc1.embdoc1_emblist_embdoc2[*]'
+            ),
             # doc1.[embdoc1].[embdoc1/embdoc2]
             jsonpath_rw.parse(
                 'schema1_doc1[*].doc1_emblist_embdoc1[*].embdoc1_emblist_embdoc2[*]'
@@ -535,5 +539,7 @@ def get_embedded_jsonpath_parsers(document_type):
                 'embdoc1_emblist_embdoc2[*]'
             ),
         )
+    elif document_type == 'Schema1Doc1':
+        return jsonpath_rw.parse('schema1_doc1[*]'),
     else:
-        raise ValueError
+        raise ValueError('Unknown document_type')

@@ -24,7 +24,7 @@ import re
 import bson
 from dateutil.parser import parse as dateutil_parse
 
-from mongoengine_migrate.exceptions import MigrationError
+from mongoengine_migrate.exceptions import MigrationError, InconsistencyError
 from mongoengine_migrate.mongo import (
     check_empty_result,
     mongo_version
@@ -201,7 +201,7 @@ def cached_reference_to_ref(updater: DocumentUpdater):
     """Convert Manual Reference SON object to ObjectId value.
     Leave DBRef objects as is.
     """
-    def post_check(ctx: ByPathContext):
+    def post_check_by_path(ctx: ByPathContext):
         # Check if all values in collection are DBRef or ObjectId because
         # we could miss other value types on a previous step
         fltr = {
@@ -214,13 +214,21 @@ def cached_reference_to_ref(updater: DocumentUpdater):
         }
         check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
+    def post_check_by_doc(ctx: ByDocContext):
+        doc = ctx.document
+        if isinstance(doc, dict) and updater.field_name in doc:
+            f = doc[updater.field_name]
+            if f is not None and not isinstance(f, (bson.DBRef, bson.ObjectId)):
+                raise InconsistencyError(f"Field {updater.field_name} has wrong value {f!r} "
+                                         f"(should be DBRef or ObjectId) in record {doc}")
+
     def by_doc(ctx: ByDocContext):
         doc = ctx.document
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
             doc[updater.field_name] = doc[updater.field_name].get('_id')
 
     updater.update_by_document(by_doc)
-    updater.update_by_path(post_check)
+    updater.update_combined(post_check_by_path, post_check_by_doc, False, False)
 
 
 def __mongo_convert(updater: DocumentUpdater, target_type: str):

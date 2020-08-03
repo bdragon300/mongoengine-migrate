@@ -8,10 +8,9 @@ import logging
 
 from pymongo.collection import Collection
 
-from mongoengine_migrate.exceptions import MigrationError, InconsistencyError
+from mongoengine_migrate.exceptions import InconsistencyError
 from . import flags
-
-log = logging.getLogger('mongoengine-migrate')
+from mongoengine_migrate.updater import DocumentUpdater, FallbackDocumentUpdater
 
 
 def check_empty_result(collection: Collection, db_field: str, find_filter: dict) -> None:
@@ -34,18 +33,16 @@ def check_empty_result(collection: Collection, db_field: str, find_filter: dict)
                                  f"{','.join(examples)}")
 
 
-def mongo_version(min_version: str = None, max_version: str = None, throw_error: bool = False):
+def mongo_version(min_version: str = None, max_version: str = None):
     """
-    Decorator restrict decorated function execution by MongoDB version.
+    Decorator restrict decorated change method execution by
+    MongoDB version.
 
-    If current db version is out of specified range then the function
-    either won't get executed or error will be raised, depending on
-    `throw_error` parameter
+    If current db version is out of specified range then instead of
+    original DocumentUpdater instance, its fallback variant will be
+    passed to a method
     :param min_version: Minimum MongoDB version (including)
     :param max_version: Maximum MongoDB version (excluding)
-    :param throw_error: If False then function call will just silently
-     skipped on version mismatch. If True then `MigrationError`
-     exception will be raised then.
     :return:
     """
     assert min_version or max_version
@@ -55,18 +52,19 @@ def mongo_version(min_version: str = None, max_version: str = None, throw_error:
         @functools.wraps(f)
         def w(*args, **kwargs):
             invalid = min_version and flags.mongo_version < min_version \
-                      or max_version and flags.mongo_version >= max_version
+                or max_version and flags.mongo_version >= max_version
 
-            if invalid and throw_error:
-                version_msg = ', '.join([
-                    (">=" + min_version if min_version else ""),
-                    ("<" + max_version if max_version else "")
-                ])
-                raise MigrationError(
-                    f'Commands are valid only for MongoDB version {version_msg}'
-                )
-            elif not invalid:
-                return f(*args, **kwargs)
+            if invalid:
+                # Inject fallback updater instead of original updater
+                # on 0th place (general function) or 1st (class method)
+                for ind in range(2):
+                    if len(args) > ind and isinstance(args[ind], DocumentUpdater):
+                        args = args[:ind] + (FallbackDocumentUpdater(args[ind]),) + args[ind + 1:]
+                        break
+                else:
+                    raise TypeError(f"Could not find DocumentUpdater in arguments of {f.__name__}")
+
+            return f(*args, **kwargs)
 
         return w
     return dec

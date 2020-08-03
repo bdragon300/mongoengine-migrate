@@ -1,21 +1,23 @@
 __all__ = [
     'ByPathContext',
     'ByDocContext',
-    'DocumentUpdater'
+    'DocumentUpdater',
+    'FallbackDocumentUpdater'
 ]
 
+import logging
 from copy import copy
 from typing import NamedTuple, Optional, List, Union, Callable, Any, Generator, Tuple
 
 import jsonpath_rw
 from pymongo import ReplaceOne
-
 from pymongo.collection import Collection
 from pymongo.database import Database
 
 from mongoengine_migrate import flags
-from mongoengine_migrate.mongo import log
 from mongoengine_migrate.schema import Schema
+
+log = logging.getLogger('mongoengine-migrate')
 
 
 class ByPathContext(NamedTuple):
@@ -164,18 +166,98 @@ class DocumentUpdater:
         :return:
         """
         class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
-        if not self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
+
+        if not self.is_embedded:
             collection_name = self.db_schema[self.document_type].parameters['collection']
-            ctx = ByPathContext(collection=self.db[collection_name],
-                                filter_dotpath=self.field_name,
-                                update_dotpath=self.field_name,
-                                array_filters=None,
-                                extra_filter=class_fltr)
-            callback(ctx)
+            collection = self.db[collection_name]
+            self._update_by_path(callback, collection, [], [], class_fltr)
             return
 
         for collection, update_path, filter_path in self._get_update_paths():
             self._update_by_path(callback, collection, filter_path, update_path, class_fltr)
+
+    def update_by_document(self, callback: Callable) -> None:
+        """
+        Call the given callback for every document of needed
+        type found in db. If field contains array of documents then
+        callback will be called for each of them.
+
+        Callback function could modify a next field value in-place.
+        Returned value is ignored
+
+        Callback parameters are:
+        * collection -- pymongo Collection object
+        * embedded_document -- field contents, which should contain
+          embedded document
+        * filter_path -- dotpath of field
+        :param callback:
+        :return:
+        """
+        class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
+
+        if not self.is_embedded:
+            collection_name = self.db_schema[self.document_type].parameters['collection']
+            collection = self.db[collection_name]
+            self._update_by_document(callback, collection, [], [], class_fltr)
+            return
+
+        for collection, update_path, filter_path in self._get_update_paths():
+            self._update_by_document(callback, collection, filter_path, update_path, class_fltr)
+
+    def update_combined(self,
+                        by_path_cb: Callable,
+                        by_doc_cb: Callable,
+                        embedded_nonarray_by_doc: bool = True,
+                        embedded_array_by_doc: bool = True) -> None:
+        """
+        Perform an update depending on document type. Usual documents
+        will get updated using by_path.
+        If `embedded_nonarray_by_doc` is True then embedded documents
+        which paths do not contain arrays (with "$[]") will be
+        updated using by_doc, otherwise using by_path.
+        If `embedded_array_by_doc` is True then embedded documents
+        which paths contain arrays (with "$[]") will be updated using
+        by_doc, otherwise using by_path.
+
+        Some MongoDB queries/pipelines are unable to be executed over
+        embedded field dotpath. For example, `$rename` is unsuitable
+        for array updates of embedded documents (path contains
+        "$[]"), but works for non-array updates. Some queries
+        (`$set` for example) accept both variants. In the same time
+        MongoDB queries work with document field without restrictions.
+
+        In order to manage with this restrictions we could update
+        documents by hand in python if the query is limited to do this.
+
+        :param by_path_cb: "by_path" callback which is always
+         called for non-embedded document
+        :param by_doc_cb: "by_document" callback
+         which is called always for non-array dotpaths.
+        :param embedded_array_by_doc: if True then embedded docs with
+         array dotpaths (with "$[]") will get updated using
+         by_doc callback, or by_path otherwise.
+        :param embedded_nonarray_by_doc: if True then embedded docs with
+         non-array dotpaths (without "$[]") will get updated using
+         by_doc callback, or by_path otherwise.
+        """
+        class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
+
+        if self.is_embedded:
+            for collection, update_path, filter_path in self._get_update_paths():
+                is_array_update = bool('$[]' in update_path)
+                call_by_doc = is_array_update and embedded_array_by_doc \
+                    or not is_array_update and embedded_nonarray_by_doc
+
+                if call_by_doc:
+                    self._update_by_document(by_doc_cb, collection, filter_path, update_path,
+                                             class_fltr)
+                else:
+                    self._update_by_path(by_path_cb, collection, filter_path, update_path,
+                                         class_fltr)
+        else:
+            collection_name = self.db_schema[self.document_type].parameters['collection']
+            collection = self.db[collection_name]
+            self._update_by_path(by_path_cb, collection, [], [], class_fltr)
 
     def _update_by_path(self,
                         callback: Callable,
@@ -198,38 +280,11 @@ class DocumentUpdater:
                             extra_filter=extra_filter or {})
         callback(ctx)
 
-    def update_by_document(self, callback: Callable) -> None:
-        """
-        Call the given callback for every document of needed
-        type found in db. If field contains array of documents then
-        callback will be called for each of them.
-
-        Callback function could modify a next field value in-place.
-        Returned value is ignored
-
-        Callback parameters are:
-        * collection -- pymongo Collection object
-        * embedded_document -- field contents, which should contain
-          embedded document
-        * filter_path -- dotpath of field
-        :param callback:
-        :return:
-        """
-        class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
-
-        if self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-            for collection, update_path, filter_path in self._get_update_paths():
-                self._update_by_document(callback, collection, filter_path, update_path, class_fltr)
-        else:
-            collection_name = self.db_schema[self.document_type].parameters['collection']
-            collection = self.db[collection_name]
-            self._update_by_document(callback, collection, None, None, class_fltr)
-
     def _update_by_document(self,
                             callback: Callable,
                             collection: Collection,
-                            filter_path: Optional[List[str]],
-                            update_path: Optional[List[str]],
+                            filter_path: List[str],
+                            update_path: List[str],
                             extra_filter: Optional[dict] = None) -> None:
         """
         Call a callback for every document found by given filterpath
@@ -244,7 +299,7 @@ class DocumentUpdater:
          to find()
         :return:
         """
-        field_filter_path = copy(filter_path) or []
+        field_filter_path = copy(filter_path)
         if self.field_name:
             field_filter_path += [self.field_name]
         filter_dotpath = '.'.join(field_filter_path)
@@ -291,72 +346,6 @@ class DocumentUpdater:
             collection.bulk_write(buf, ordered=False)
             buf.clear()
 
-    def update_combined(self,
-                        document_by_path_cb: Callable,
-                        embedded_array_by_document_cb: Callable,
-                        embedded_noarray_by_path_cb: Optional[Callable] = None,
-                        embedded_noarray_by_document_cb: Optional[Callable] = None) -> None:
-        """
-        Perform an update if an concrete query/pipeline is unable to
-        be executed over embedded field dotpath. For example,
-        `$rename` does not accept dotpath if it contains "$[]",
-        but accepts dotpath without "$[]". Some queries
-        (`$set` for example) accept both variants.
-
-        In order to manage with this restrictions we could update
-        documents by hand in python if the query is limited to do this.
-
-        In the same time mongo queries work with document field without
-        restrictions.
-
-        By default we accept 2 callbacks for document update (by_path)
-        and for embedded document update (by_document). They will be
-        used both for array and not-array dotpaths.
-
-        Two optional callbacks are used for array dotpaths only in
-        embedded documents (if set)
-
-        :param document_by_path_cb: "by_path" callback which is always
-         called for non-embedded document
-        :param embedded_array_by_document_cb: "by_document" callback
-         which is called always for non-array dotpaths.
-        :param embedded_noarray_by_path_cb: "by_path" callback which is
-         called for non-array dotpath to embedded document field
-        :param embedded_noarray_by_document_cb: "by_document" callback
-         which is called for non-array dotpath to embedded doc field
-        """
-        assert embedded_noarray_by_path_cb or embedded_noarray_by_document_cb, \
-            'You must give one of non-array dotpath callbacks'
-        assert not(embedded_noarray_by_document_cb and embedded_noarray_by_path_cb), \
-            'You must give only one non-array dotpath callback, not both'
-
-        class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
-
-        if self.is_embedded:
-            for collection, update_path, filter_path in self._get_update_paths():
-                is_array_update = bool('$[]' in update_path)
-
-                if not is_array_update and embedded_noarray_by_path_cb:
-                    self._update_by_path(embedded_noarray_by_path_cb,
-                                         collection,
-                                         filter_path,
-                                         update_path,
-                                         class_fltr)
-                elif not is_array_update and embedded_noarray_by_document_cb:
-                    self._update_by_document(embedded_noarray_by_document_cb,
-                                             collection,
-                                             filter_path,
-                                             update_path,
-                                             class_fltr)
-                else:
-                    self._update_by_document(embedded_array_by_document_cb,
-                                             collection,
-                                             filter_path,
-                                             update_path,
-                                             class_fltr)
-        else:
-            return self.update_by_path(document_by_path_cb)
-
     def _get_update_paths(self) -> Generator[Tuple[Collection, list, list], None, None]:
         """
         Return dotpaths to fields of embedded documents found in db and
@@ -375,7 +364,7 @@ class DocumentUpdater:
                                                    document_type,
                                                    self.document_type,  # FIXME: could not be an embedded!
                                                    self.db_schema):
-                update_path = path
+                update_path = path  # type: list
                 filter_path = [p for p in path if p != '$[]']
 
                 yield collection, update_path, filter_path
@@ -504,3 +493,38 @@ class DocumentUpdater:
                 array_filters[f'elem{num}.{update_path[num + 1]}'] = None
 
         return update_path, (list(array_filters.keys()) or None)
+
+
+class FallbackDocumentUpdater(DocumentUpdater):
+    """Fallback variant of DocumentUpdater. All update operations here
+    will be performed using by by_doc callback
+    """
+    def __init__(self, updater: DocumentUpdater):
+        """Copying constructor"""
+        super().__init__(updater.db, updater.document_type, updater.db_schema,
+                         updater.field_name, updater.document_cls)
+        self._include_missed_fields = updater._include_missed_fields
+
+    def update_combined(self,
+                        by_path_cb: Callable,
+                        by_doc_cb: Callable,
+                        embedded_nonarray_by_doc: bool = True,
+                        embedded_array_by_doc: bool = True) -> None:
+        """
+        Update document using by_doc callback only. Fallback variant
+        of the same function in DocumentUpdater
+        :param by_path_cb: not used
+        :param by_doc_cb: by_doc callback
+        :param embedded_nonarray_by_doc: not used
+        :param embedded_array_by_doc: not used
+        :return:
+        """
+        self.update_by_document(by_doc_cb)
+
+    def _update_by_path(self,
+                        callback: Callable,
+                        collection: Collection,
+                        filter_path: List[str],
+                        update_path: List[str],
+                        extra_filter: Optional[dict] = None) -> None:
+        raise AttributeError('This version of MongoDB does not support such query')

@@ -134,7 +134,7 @@ class StringFieldHandler(CommonFieldHandler):
 
         # We can't to increase string length, so raise error if
         # there was found strings which are shorter than should be
-        updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
+        updater.update_combined(by_path, by_doc, False)
 
     def change_regex(self, updater: DocumentUpdater, diff: Diff):
         """Raise error if string does not match regex (if any)"""
@@ -319,7 +319,6 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
 
     schema_skel_keys = {'separator'}
 
-    @mongo_version(min_version='3.4')
     def change_separator(self, updater: DocumentUpdater, diff: Diff):
         """Change separator in datetime strings"""
         def by_doc(ctx: ByDocContext):
@@ -362,7 +361,6 @@ class ListFieldHandler(CommonFieldHandler):
 
         return skel
 
-    @mongo_version(min_version='3.6')
     def change_max_length(self, updater: DocumentUpdater, diff: Diff):
         """Cut off a list if it longer than limitation (if any)"""
         def by_doc(ctx: ByDocContext):
@@ -466,7 +464,6 @@ class ReferenceFieldHandler(CommonFieldHandler):
         else:
             self._dbref_to_objectid(updater)
 
-    @mongo_version(min_version='3.6')
     def _objectid_to_dbref(self, updater: DocumentUpdater):
         def by_doc(ctx: ByDocContext):
             doc = ctx.document
@@ -475,7 +472,6 @@ class ReferenceFieldHandler(CommonFieldHandler):
 
         updater.update_by_document(by_doc)
 
-    @mongo_version(min_version='3.6')
     def _dbref_to_objectid(self, updater: DocumentUpdater):
         def by_doc(ctx: ByDocContext):
             doc = ctx.document

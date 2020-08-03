@@ -187,7 +187,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             raise SchemaError(f"{updater.document_type}{updater.field_name}.db_field "
                               f"must be a non-empty string")
 
-        updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
+        updater.update_combined(by_path, by_doc, False)
 
     def change_required(self, updater: DocumentUpdater, diff: Diff):
         """
@@ -219,9 +219,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                 raise SchemaError(f'{updater.document_type}{updater.field_name}.default is not '
                                   f'set for required field')
 
-            updater.with_missed_fields().update_combined(
-                by_path, by_doc, embedded_noarray_by_document_cb=by_doc
-            )
+            updater.with_missed_fields().update_combined(by_path, by_doc)
 
     def change_default(self, updater: DocumentUpdater, diff: Diff):
         """Stub method. No need to do smth on default change"""

@@ -5,14 +5,17 @@ __all__ = [
 ]
 
 import functools
+from datetime import datetime, date, time
 from typing import List
 
+import bson
+
+from mongoengine_migrate.exceptions import MigrationError, InconsistencyError
 from mongoengine_migrate.mongo import (
     check_empty_result,
     mongo_version
 )
 from mongoengine_migrate.updater import ByPathContext, ByDocContext, DocumentUpdater
-from mongoengine_migrate.exceptions import MigrationError
 
 #: GeoJSON field convertions in order of increasing the nested array
 #  depth in `coordinates` subfield.
@@ -27,7 +30,6 @@ __CONVERTIONS = (
 )
 
 
-@mongo_version(min_version='3.6')
 def convert_geojson(updater: DocumentUpdater, from_type: str, to_type: str):
     """Convert GeoJSON object from one type to another"""
     from_ind, to_ind = None, None
@@ -147,7 +149,7 @@ def __decrease_geojson_nesting(updater: DocumentUpdater,
     updater.update_by_document(by_doc)
 
 
-@mongo_version(min_version='3.6', throw_error=True)
+@mongo_version(min_version='3.6')
 def __check_geojson_objects(updater: DocumentUpdater, geojson_types: List[str]):
     """
     Check if all object values in field are GeoJSON objects of given
@@ -166,10 +168,19 @@ def __check_geojson_objects(updater: DocumentUpdater, geojson_types: List[str]):
         ]}
         check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
-    updater.update_by_path(by_path)
+    def by_doc(ctx: ByDocContext):
+        doc = ctx.document
+        if isinstance(doc, dict) and updater.field_name in doc:
+            f = doc[updater.field_name]
+            valid = f is None or (isinstance(f, dict) and f.get('type') in geojson_types)
+            if not valid:
+                raise InconsistencyError(f"Field {updater.field_name} has wrong value {f!r} "
+                                         f"(should be GeoJSON) in record {doc}")
+
+    updater.update_combined(by_path, by_doc, False, False)
 
 
-@mongo_version(min_version='3.6', throw_error=True)
+@mongo_version(min_version='3.6')
 def __check_legacy_point_coordinates(updater: DocumentUpdater):
     """
     Check if all array values in field has legacy geo point
@@ -188,10 +199,19 @@ def __check_legacy_point_coordinates(updater: DocumentUpdater):
         ]}
         check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
-    updater.update_by_path(by_path)
+    def by_doc(ctx: ByDocContext):
+        doc = ctx.document
+        if isinstance(doc, dict) and updater.field_name in doc:
+            f = doc[updater.field_name]
+            valid = f is None or (isinstance(f, (list, tuple)) and len(f) == 2)
+            if not valid:
+                raise InconsistencyError(f"Field {updater.field_name} has wrong value {f!r} "
+                                         f"(should be legacy geo point) in record {doc}")
+
+    updater.update_combined(by_path, by_doc, False, False)
 
 
-@mongo_version(min_version='3.6', throw_error=True)
+@mongo_version(min_version='3.6')
 def __check_value_types(updater: DocumentUpdater, allowed_types: List[str]):
     """
     Check if given field contains only given types of value.
@@ -210,4 +230,27 @@ def __check_value_types(updater: DocumentUpdater, allowed_types: List[str]):
         ]}
         check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
-    updater.update_by_path(by_path)
+    def by_doc(ctx: ByDocContext):
+        # https://docs.mongodb.com/manual/reference/operator/aggregation/convert/
+        type_map = {
+            'double': float,
+            'string': str,
+            'objectId': bson.ObjectId,
+            'bool': bool,
+            'date': datetime,
+            'int': int,
+            'long': int,
+            'decimal': float
+        }
+        assert set(allowed_types) < type_map.keys()
+
+        doc = ctx.document
+        if isinstance(doc, dict) and updater.field_name in doc:
+            f = doc[updater.field_name]
+            valid_types = tuple(type_map[t] for t in allowed_types)
+            valid = f is None or isinstance(f, valid_types)
+            if not valid:
+                raise InconsistencyError(f"Field {updater.field_name} has wrong type of value "
+                                         f"{f!r} (should be any of {valid_types}) in record {doc}")
+
+    updater.update_combined(by_path, by_doc, False, False)

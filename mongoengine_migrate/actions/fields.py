@@ -11,7 +11,7 @@ from typing import Mapping, Any
 from pymongo.database import Database
 
 from mongoengine_migrate.exceptions import SchemaError
-from mongoengine_migrate.mongo import DocumentUpdater, ByPathContext, ByDocContext
+from ..updater import ByPathContext, ByDocContext, DocumentUpdater
 from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.utils import document_type_to_class_name
 from .base import BaseFieldAction

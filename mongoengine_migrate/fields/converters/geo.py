@@ -9,11 +9,9 @@ from typing import List
 
 from mongoengine_migrate.mongo import (
     check_empty_result,
-    mongo_version,
-    DocumentUpdater,
-    ByPathContext,
-    ByDocContext
+    mongo_version
 )
+from mongoengine_migrate.updater import ByPathContext, ByDocContext, DocumentUpdater
 from mongoengine_migrate.exceptions import MigrationError
 
 #: GeoJSON field convertions in order of increasing the nested array

@@ -27,11 +27,9 @@ import mongoengine.fields
 from mongoengine_migrate.exceptions import SchemaError, InconsistencyError
 from mongoengine_migrate.mongo import (
     check_empty_result,
-    mongo_version,
-    DocumentUpdater,
-    ByPathContext,
-    ByDocContext
+    mongo_version
 )
+from ..updater import ByPathContext, ByDocContext, DocumentUpdater
 from mongoengine_migrate.utils import get_document_type, Diff, UNSET
 from .base import CommonFieldHandler
 from .converters import to_string, to_decimal

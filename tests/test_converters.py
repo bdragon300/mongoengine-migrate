@@ -5,7 +5,7 @@ from bson import ObjectId
 
 from mongoengine_migrate.exceptions import MigrationError
 from mongoengine_migrate.fields import converters
-from mongoengine_migrate.mongo import DocumentUpdater
+from mongoengine_migrate.updater import DocumentUpdater
 
 
 def test_deny__should_raise_error(test_db, load_fixture):

@@ -27,11 +27,9 @@ from dateutil.parser import parse as dateutil_parse
 from mongoengine_migrate.exceptions import MigrationError
 from mongoengine_migrate.mongo import (
     check_empty_result,
-    mongo_version,
-    DocumentUpdater,
-    ByDocContext,
-    ByPathContext
+    mongo_version
 )
+from mongoengine_migrate.updater import ByPathContext, ByDocContext, DocumentUpdater
 
 
 def nothing(*args, **kwargs):

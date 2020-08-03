@@ -14,11 +14,9 @@ import mongoengine_migrate.flags as flags
 from mongoengine_migrate.exceptions import SchemaError, MigrationError, ActionError
 from mongoengine_migrate.fields.registry import type_key_registry, add_field_handler
 from mongoengine_migrate.mongo import (
-    check_empty_result,
-    DocumentUpdater,
-    ByPathContext,
-    ByDocContext
+    check_empty_result
 )
+from ..updater import ByPathContext, ByDocContext, DocumentUpdater
 from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.utils import get_closest_parent, document_type_to_class_name, Diff, UNSET
 from .registry import CONVERTION_MATRIX

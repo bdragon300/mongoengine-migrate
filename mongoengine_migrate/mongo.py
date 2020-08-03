@@ -238,9 +238,14 @@ class DocumentUpdater:
             return
 
         for collection, update_path, filter_path in self._get_update_paths():
-            self._update_by_path(callback, collection, filter_path, update_path)
+            self._update_by_path(callback, collection, filter_path, update_path, class_fltr)
 
-    def _update_by_path(self, callback, collection, filter_path, update_path) -> None:
+    def _update_by_path(self,
+                        callback: Callable,
+                        collection: Collection,
+                        filter_path: List[str],
+                        update_path: List[str],
+                        extra_filter: Optional[dict] = None) -> None:
         if self.field_name:
             filter_path = filter_path + [self.field_name]  # Don't modify filter_path
             update_path = update_path + [self.field_name]  #
@@ -249,12 +254,11 @@ class DocumentUpdater:
 
         filter_dotpath = '.'.join(filter_path)
         update_dotpath = '.'.join(update_path)
-        class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
         ctx = ByPathContext(collection=collection,
                             filter_dotpath=filter_dotpath,
                             update_dotpath=update_dotpath,
                             array_filters=array_filters,
-                            extra_filter=class_fltr)
+                            extra_filter=extra_filter or {})
         callback(ctx)
 
     def update_by_document(self, callback: Callable) -> None:
@@ -274,12 +278,12 @@ class DocumentUpdater:
         :param callback:
         :return:
         """
+        class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
 
         if self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
             for collection, update_path, filter_path in self._get_update_paths():
-                self._update_by_document(callback, collection, filter_path, update_path)
+                self._update_by_document(callback, collection, filter_path, update_path, class_fltr)
         else:
-            class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
             collection_name = self.db_schema[self.document_type].parameters['collection']
             collection = self.db[collection_name]
             self._update_by_document(callback, collection, None, None, class_fltr)
@@ -287,8 +291,8 @@ class DocumentUpdater:
     def _update_by_document(self,
                             callback: Callable,
                             collection: Collection,
-                            filter_path: Optional[Iterable[str]],
-                            update_path: Optional[Iterable[str]],
+                            filter_path: Optional[List[str]],
+                            update_path: Optional[List[str]],
                             extra_filter: Optional[dict] = None) -> None:
         """
         Call a callback for every document found by given filterpath
@@ -389,6 +393,8 @@ class DocumentUpdater:
         assert not(embedded_noarray_by_document_cb and embedded_noarray_by_path_cb), \
             'You must give only one non-array dotpath callback, not both'
 
+        class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
+
         if self.is_embedded:
             for collection, update_path, filter_path in self._get_update_paths():
                 is_array_update = bool('$[]' in update_path)
@@ -397,17 +403,20 @@ class DocumentUpdater:
                     self._update_by_path(embedded_noarray_by_path_cb,
                                          collection,
                                          filter_path,
-                                         update_path)
+                                         update_path,
+                                         class_fltr)
                 elif not is_array_update and embedded_noarray_by_document_cb:
                     self._update_by_document(embedded_noarray_by_document_cb,
                                              collection,
                                              filter_path,
-                                             update_path)
+                                             update_path,
+                                             class_fltr)
                 else:
                     self._update_by_document(embedded_array_by_document_cb,
                                              collection,
                                              filter_path,
-                                             update_path)
+                                             update_path,
+                                             class_fltr)
         else:
             return self.update_by_path(document_by_path_cb)
 

@@ -92,7 +92,7 @@ class ByDocContext(NamedTuple):
       in collection
     """
     collection: Optional[Collection]
-    document: Any
+    document: dict
     filter_dotpath: str
 
 

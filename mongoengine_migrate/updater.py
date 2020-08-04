@@ -323,8 +323,17 @@ class DocumentUpdater:
             for embedded_doc in parser.find(doc):
                 embedded_doc = embedded_doc.value
                 if self.document_cls:
-                    if not isinstance(embedded_doc, dict):
+                    if embedded_doc is None:
                         continue
+                    if not isinstance(embedded_doc, dict):
+                        # Field contains smth another than embedded doc
+                        if self.migration_policy.name == 'strict':
+                            raise InconsistencyError(
+                                f"Field {filter_dotpath} has wrong value {embedded_doc!r} "
+                                f"(should be embedded document) in record {doc}"
+                            )
+                        else:
+                            continue
                     if embedded_doc.get('_cls', self.document_cls) != self.document_cls:
                         # Entry doesn't contain value of document class
                         # See `DocumentMetaclass` implementation

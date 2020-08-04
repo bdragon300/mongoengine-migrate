@@ -91,10 +91,9 @@ class StringFieldHandler(CommonFieldHandler):
         """Cut off a string if it longer than limitation (if any)"""
         def by_doc(ctx: ByDocContext):
             doc = ctx.document
-            if isinstance(doc, dict):
-                match = updater.field_name in doc and len(doc[updater.field_name]) > diff.new
-                if match:
-                    doc[updater.field_name] = doc[updater.field_name][:diff.new]
+            match = updater.field_name in doc and len(doc[updater.field_name]) > diff.new
+            if match:
+                doc[updater.field_name] = doc[updater.field_name][:diff.new]
 
         self._check_diff(updater, diff, True, int)
         if diff.new in (UNSET, None):
@@ -118,13 +117,12 @@ class StringFieldHandler(CommonFieldHandler):
 
         def by_doc(ctx: ByDocContext):
             doc = ctx.document
-            if isinstance(doc, dict):
-                val = doc.get(updater.field_name)
-                if isinstance(val, str) and len(val) < diff.new:
-                    raise InconsistencyError(
-                        f"String field {ctx.collection.name}.{ctx.filter_dotpath} on one of "
-                        f"records has length less than minimum: {doc}"
-                    )
+            val = doc.get(updater.field_name)
+            if isinstance(val, str) and len(val) < diff.new:
+                raise InconsistencyError(
+                    f"String field {ctx.collection.name}.{ctx.filter_dotpath} on one of "
+                    f"records has length less than minimum: {doc}"
+                )
 
         self._check_diff(updater, diff, True, int)
         if diff.new in (UNSET, None):
@@ -329,7 +327,7 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
         """Change separator in datetime strings"""
         def by_doc(ctx: ByDocContext):
             doc = ctx.document
-            if isinstance(doc, dict) and updater.field_name in doc:
+            if updater.field_name in doc:
                 doc[updater.field_name] = doc[updater.field_name].replace(diff.old, diff.new)
 
         self._check_diff(updater, diff, False, str)
@@ -371,10 +369,9 @@ class ListFieldHandler(CommonFieldHandler):
         """Cut off a list if it longer than limitation (if any)"""
         def by_doc(ctx: ByDocContext):
             doc = ctx.document
-            if isinstance(doc, dict):
-                match = updater.field_name in doc and len(doc[updater.field_name]) > diff.new
-                if match:
-                    doc[updater.field_name] = doc[updater.field_name][:diff.new]
+            match = updater.field_name in doc and len(doc[updater.field_name]) > diff.new
+            if match:
+                doc[updater.field_name] = doc[updater.field_name][:diff.new]
 
         self._check_diff(updater, diff, True, int)
         if diff.new in (UNSET, None):
@@ -473,7 +470,7 @@ class ReferenceFieldHandler(CommonFieldHandler):
     def _objectid_to_dbref(self, updater: DocumentUpdater):
         def by_doc(ctx: ByDocContext):
             doc = ctx.document
-            if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), bson.ObjectId):
+            if isinstance(doc.get(updater.field_name), bson.ObjectId):
                 doc[updater.field_name] = bson.DBRef(ctx.collection.name, doc[updater.field_name])
 
         updater.update_by_document(by_doc)
@@ -481,7 +478,7 @@ class ReferenceFieldHandler(CommonFieldHandler):
     def _dbref_to_objectid(self, updater: DocumentUpdater):
         def by_doc(ctx: ByDocContext):
             doc = ctx.document
-            if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), bson.DBRef):
+            if isinstance(doc.get(updater.field_name), bson.DBRef):
                 doc[updater.field_name] = doc[updater.field_name].id
 
         updater.update_by_document(by_doc)
@@ -516,7 +513,7 @@ class CachedReferenceFieldHandler(CommonFieldHandler):
 
     def change_fields(self, updater: DocumentUpdater, diff: Diff):
         def by_doc(ctx: ByDocContext):
-            if isinstance(ctx.document, dict) and updater.field_name in ctx.document:
+            if updater.field_name in ctx.document:
                 if isinstance(ctx.document[updater.field_name], dict):
                     ctx.document[updater.field_name] = {
                         k: v for k, v in ctx.document[updater.field_name].items()

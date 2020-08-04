@@ -58,7 +58,7 @@ def drop_field(updater: DocumentUpdater):
 def item_to_list(updater: DocumentUpdater):
     """Make a list with single element from every non-array value"""
     def by_doc(ctx: ByDocContext):
-        if isinstance(ctx.document, dict) and updater.field_name in ctx.document:
+        if updater.field_name in ctx.document:
             if ctx.document[updater.field_name] is not None:
                 ctx.document[updater.field_name] = [ctx.document[updater.field_name]]
             else:
@@ -71,7 +71,7 @@ def extract_from_list(updater: DocumentUpdater):
     """Replace every list which was met with its first element"""
     def by_doc(ctx: ByDocContext):
         doc = ctx.document
-        if isinstance(doc, dict) and updater.field_name in doc:
+        if updater.field_name in doc:
             if isinstance(doc[updater.field_name], (list, tuple)):
                 doc[updater.field_name] = \
                     doc[updater.field_name][0] if len(doc[updater.field_name]) else None
@@ -132,8 +132,6 @@ def to_uuid(updater: DocumentUpdater):
         check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
     def by_doc(ctx: ByDocContext):
-        if not isinstance(ctx.document, dict):
-            return
         item = ctx.document.get(updater.field_name)
 
         if item is not None and not isinstance(item, (bson.Binary, str)):
@@ -192,7 +190,7 @@ def ref_to_cached_reference(updater: DocumentUpdater):
 
     def by_doc(ctx: ByDocContext):
         doc = ctx.document
-        if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), bson.ObjectId):
+        if isinstance(doc.get(updater.field_name), bson.ObjectId):
             doc[updater.field_name] = {'_id': doc[updater.field_name]}
 
     updater.update_by_document(by_doc)
@@ -220,7 +218,7 @@ def cached_reference_to_ref(updater: DocumentUpdater):
 
     def post_check_by_doc(ctx: ByDocContext):
         doc = ctx.document
-        if isinstance(doc, dict) and updater.field_name in doc:
+        if updater.field_name in doc:
             f = doc[updater.field_name]
             if f is not None and not isinstance(f, (bson.DBRef, bson.ObjectId)):
                 raise InconsistencyError(f"Field {updater.field_name} has wrong value {f!r} "
@@ -228,7 +226,7 @@ def cached_reference_to_ref(updater: DocumentUpdater):
 
     def by_doc(ctx: ByDocContext):
         doc = ctx.document
-        if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
+        if isinstance(doc.get(updater.field_name), dict):
             doc[updater.field_name] = doc[updater.field_name].get('_id')
 
     updater.update_by_document(by_doc)
@@ -262,7 +260,7 @@ def __mongo_convert(updater: DocumentUpdater, target_type: str):
 
         doc = ctx.document
         field_name = updater.field_name
-        if isinstance(doc, dict) and field_name in doc:
+        if field_name in doc:
             t = type_map[target_type]
             if not isinstance(doc[field_name], t) and doc[field_name] is not None:
                 try:

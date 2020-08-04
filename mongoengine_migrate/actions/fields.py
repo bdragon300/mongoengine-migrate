@@ -79,7 +79,7 @@ class CreateField(BaseFieldAction):
 
         def by_doc(ctx: ByDocContext):
             # Update embedded documents
-            if isinstance(ctx.document, dict) and db_field not in ctx.document:
+            if db_field not in ctx.document:
                 ctx.document[db_field] = default
 
         db_field = self.parameters['db_field']
@@ -175,7 +175,7 @@ class DropField(BaseFieldAction):
 
         def by_doc(ctx: ByDocContext):
             # Update embedded documents
-            if isinstance(ctx.document, dict) and db_field not in ctx.document:
+            if db_field not in ctx.document:
                 ctx.document[db_field] = default
 
         db_field = self._run_ctx['left_field_schema']['db_field']

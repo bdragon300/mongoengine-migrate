@@ -181,7 +181,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         def by_doc(ctx: ByDocContext):
             doc = ctx.document
-            if isinstance(doc, dict) and diff.old in doc:
+            if diff.old in doc:
                 doc[diff.new] = doc.pop(diff.old)
 
         self._check_diff(updater, diff, False, str)
@@ -209,7 +209,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         def by_doc(ctx: ByDocContext):
             # Update embedded documents
-            if isinstance(ctx.document, dict) and updater.field_name not in ctx.document:
+            if updater.field_name not in ctx.document:
                 ctx.document.setdefault(updater.field_name, default)
 
         self._check_diff(updater, diff, False, bool)

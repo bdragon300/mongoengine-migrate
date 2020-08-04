@@ -17,6 +17,7 @@ from pymongo.database import Database
 from mongoengine_migrate import flags
 from mongoengine_migrate.graph import MigrationPolicy
 from mongoengine_migrate.schema import Schema
+from mongoengine_migrate.exceptions import InconsistencyError
 
 log = logging.getLogger('mongoengine-migrate')
 
@@ -322,8 +323,9 @@ class DocumentUpdater:
             for embedded_doc in parser.find(doc):
                 embedded_doc = embedded_doc.value
                 if self.document_cls:
-                    if (isinstance(embedded_doc, dict)
-                            and embedded_doc.get('_cls', self.document_cls) != self.document_cls):
+                    if not isinstance(embedded_doc, dict):
+                        continue
+                    if embedded_doc.get('_cls', self.document_cls) != self.document_cls:
                         # Entry doesn't contain value of document class
                         # See `DocumentMetaclass` implementation
                         continue

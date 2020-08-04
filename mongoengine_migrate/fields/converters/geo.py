@@ -62,7 +62,7 @@ def legacy_pairs_to_geojson(updater: DocumentUpdater, to_type: str):
     """Convert legacy coordinate pairs to GeoJSON objects of given type"""
     def by_doc(ctx: ByDocContext):
         doc = ctx.document
-        if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), (list, tuple)):
+        if isinstance(doc.get(updater.field_name), (list, tuple)):
             doc[updater.field_name] = {'type': 'Point', 'coordinates': doc[updater.field_name]}
 
     if updater.migration_policy.name == 'strict':
@@ -78,7 +78,7 @@ def geojson_to_legacy_pairs(updater: DocumentUpdater, from_type: str):
     """Convert GeoJSON objects of given type to legacy coordinate pairs"""
     def by_doc(ctx: ByDocContext):
         doc = ctx.document
-        if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
+        if isinstance(doc.get(updater.field_name), dict):
             if 'Point' in doc[updater.field_name]:
                 doc[updater.field_name] = doc[updater.field_name].get('coordinates')
 
@@ -109,7 +109,7 @@ def __increase_geojson_nesting(updater: DocumentUpdater,
 
     def by_doc(ctx: ByDocContext):
         doc = ctx.document
-        if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
+        if isinstance(doc.get(updater.field_name), dict):
             match = doc[updater.field_name].get('type') == from_type \
                     and doc[updater.field_name].get('coordinates')
             if match:
@@ -139,7 +139,7 @@ def __decrease_geojson_nesting(updater: DocumentUpdater,
 
     def by_doc(ctx: ByDocContext):
         doc = ctx.document
-        if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), dict):
+        if isinstance(doc.get(updater.field_name), dict):
             match = doc[updater.field_name].get('type') == from_type \
                     and doc[updater.field_name].get('coordinates')
             if match:
@@ -173,7 +173,7 @@ def __check_geojson_objects(updater: DocumentUpdater, geojson_types: List[str]):
 
     def by_doc(ctx: ByDocContext):
         doc = ctx.document
-        if isinstance(doc, dict) and updater.field_name in doc:
+        if updater.field_name in doc:
             f = doc[updater.field_name]
             valid = f is None or (isinstance(f, dict) and f.get('type') in geojson_types)
             if not valid:
@@ -204,7 +204,7 @@ def __check_legacy_point_coordinates(updater: DocumentUpdater):
 
     def by_doc(ctx: ByDocContext):
         doc = ctx.document
-        if isinstance(doc, dict) and updater.field_name in doc:
+        if updater.field_name in doc:
             f = doc[updater.field_name]
             valid = f is None or (isinstance(f, (list, tuple)) and len(f) == 2)
             if not valid:
@@ -248,7 +248,7 @@ def __check_value_types(updater: DocumentUpdater, allowed_types: List[str]):
         assert set(allowed_types) < type_map.keys()
 
         doc = ctx.document
-        if isinstance(doc, dict) and updater.field_name in doc:
+        if updater.field_name in doc:
             f = doc[updater.field_name]
             valid_types = tuple(type_map[t] for t in allowed_types)
             valid = f is None or isinstance(f, valid_types)

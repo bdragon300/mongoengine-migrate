@@ -329,13 +329,14 @@ class MongoengineMigrate:
                                        current_schema)
 
             graph.migrations[migration.name].applied = True
+
+            if not runtime_flags.dry_run:
+                log.debug('Writing db schema and migrations graph...')
+                self.write_db_schema(current_schema)
+                self.write_db_migrations_graph(graph)
+
             if migration.name == migration_name:
                 break   # We've reached the target migration
-
-        if not runtime_flags.dry_run:
-            log.debug('Writing db schema, applied migrations list...')
-            self.write_db_schema(current_schema)
-            self.write_db_migrations_graph(graph)
 
     def downgrade(self, migration_name: str, graph: Optional[MigrationsGraph] = None):
         """
@@ -390,10 +391,10 @@ class MongoengineMigrate:
 
             graph.migrations[migration.name].applied = False
 
-        if not runtime_flags.dry_run:
-            log.debug('Writing db schema, applied migrations list...')
-            self.write_db_schema(left_schema)
-            self.write_db_migrations_graph(graph)
+            if not runtime_flags.dry_run:
+                log.debug('Writing db schema and migrations graph...')
+                self.write_db_schema(left_schema)
+                self.write_db_migrations_graph(graph)
 
     def migrate(self, migration_name: str = None):
         """

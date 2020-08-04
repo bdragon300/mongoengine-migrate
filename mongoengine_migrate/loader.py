@@ -24,7 +24,7 @@ import mongoengine_migrate.flags as runtime_flags
 from mongoengine_migrate.actions.factory import build_actions_chain
 from mongoengine_migrate.exceptions import MongoengineMigrateError, ActionError, MigrationGraphError
 from mongoengine_migrate.fields.registry import type_key_registry
-from mongoengine_migrate.graph import Migration, MigrationsGraph
+from mongoengine_migrate.graph import Migration, MigrationsGraph, MigrationPolicy
 from mongoengine_migrate.query_tracer import DatabaseQueryTracer
 from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.utils import get_closest_parent, get_document_type
@@ -320,7 +320,7 @@ class MongoengineMigrate:
             for idx, action_object in enumerate(migration.get_actions(), start=1):
                 log.debug('> [%d] %s', idx, str(action_object))
                 if not action_object.dummy_action and not runtime_flags.schema_only:
-                    action_object.prepare(db, current_schema)
+                    action_object.prepare(db, current_schema, migration.policy)
                     action_object.run_forward()
                     action_object.cleanup()
                 # TODO: move the following to the place before cleanup
@@ -384,7 +384,7 @@ class MongoengineMigrate:
                 left_schema = patch(list(swap(action_diff)), left_schema)
 
                 if not action_object.dummy_action and not runtime_flags.schema_only:
-                    action_object.prepare(db, left_schema)
+                    action_object.prepare(db, left_schema, migration.policy)
                     action_object.run_backward()
                     action_object.cleanup()
                 # TODO: handle patch errors (if schema is corrupted)
@@ -452,7 +452,8 @@ class MongoengineMigrate:
         env.filters['symbol_wrap'] = symbol_wrap
         tpl_ctx = {
             'graph': graph,
-            'actions_chain': actions_chain
+            'actions_chain': actions_chain,
+            'policy_enum': MigrationPolicy
         }
         tpl_path = Path(__file__).parent / 'migration_template.tpl'
         tpl = env.from_string(tpl_path.read_text())

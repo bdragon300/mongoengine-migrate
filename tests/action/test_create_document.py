@@ -4,6 +4,7 @@ import pytest
 
 from mongoengine_migrate.actions import CreateDocument
 from mongoengine_migrate.exceptions import SchemaError
+from mongoengine_migrate.graph import MigrationPolicy
 
 
 class TestCreateDocument:
@@ -13,7 +14,7 @@ class TestCreateDocument:
         dump = dump_db()
 
         action = CreateDocument('Schema1Doc1', collection='schema1_doc1')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -28,7 +29,7 @@ class TestCreateDocument:
         dump = dump_db()
 
         action = CreateDocument('Schema1Doc1', collection='unknown_collection')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -42,7 +43,7 @@ class TestCreateDocument:
         del expect['schema1_doc1']
 
         action = CreateDocument('Schema1Doc1', collection='schema1_doc1')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -57,7 +58,7 @@ class TestCreateDocument:
         dump = dump_db()
 
         action = CreateDocument('Schema1Doc1', collection='unknown_collection')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -71,4 +72,4 @@ class TestCreateDocument:
         action = CreateDocument('Schema1Doc1', collection='schema1_doc1')
 
         with pytest.raises(SchemaError):
-            action.prepare(test_db, schema)
+            action.prepare(test_db, schema, MigrationPolicy.strict)

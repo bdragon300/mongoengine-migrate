@@ -15,6 +15,7 @@ from pymongo.collection import Collection
 from pymongo.database import Database
 
 from mongoengine_migrate import flags
+from mongoengine_migrate.graph import MigrationPolicy
 from mongoengine_migrate.schema import Schema
 
 log = logging.getLogger('mongoengine-migrate')
@@ -103,6 +104,7 @@ class DocumentUpdater:
                  document_type: str,
                  db_schema: Schema,
                  field_name: str,
+                 migration_policy: MigrationPolicy,
                  document_cls: Optional[str] = None):
         """
         :param db: pymongo database object
@@ -112,6 +114,7 @@ class DocumentUpdater:
         :param field_name: If given then update only those records
          which have this field by every dotpath, otherwise update all
          by dotpath
+        :param migration_policy:
         :param document_cls: if given then we ignore those documents
          and embedded documents whose '_cls' field is not equal to this
          parameter value. Documents with no '_cls' field and fields
@@ -120,8 +123,9 @@ class DocumentUpdater:
         """
         self.db = db
         self.document_type = document_type
-        self.field_name = field_name
         self.db_schema = db_schema
+        self.field_name = field_name
+        self.migration_policy = migration_policy
         self.document_cls = document_cls
         self._include_missed_fields = False
 
@@ -493,7 +497,7 @@ class FallbackDocumentUpdater(DocumentUpdater):
     def __init__(self, updater: DocumentUpdater):
         """Copying constructor"""
         super().__init__(updater.db, updater.document_type, updater.db_schema,
-                         updater.field_name, updater.document_cls)
+                         updater.field_name, updater.migration_policy, updater.document_cls)
         self._include_missed_fields = updater._include_missed_fields
 
     def update_combined(self,

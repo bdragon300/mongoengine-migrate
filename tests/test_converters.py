@@ -1,16 +1,16 @@
 import itertools
 
 import pytest
-from bson import ObjectId
 
 from mongoengine_migrate.exceptions import MigrationError
 from mongoengine_migrate.fields import converters
 from mongoengine_migrate.updater import DocumentUpdater
+from mongoengine_migrate.graph import MigrationPolicy
 
 
 def test_deny__should_raise_error(test_db, load_fixture):
     schema = load_fixture('schema1').get_schema()
-    updater = DocumentUpdater(test_db, 'Schema1Doc1', schema, 'doc1_str')
+    updater = DocumentUpdater(test_db, 'Schema1Doc1', schema, 'doc1_str', MigrationPolicy.strict)
 
     with pytest.raises(MigrationError):
         converters.deny(updater)
@@ -23,7 +23,7 @@ def test_deny__should_raise_error(test_db, load_fixture):
 ))
 def test_drop_field__should_drop_field(test_db, load_fixture, document_type, field_name, dump_db):
     schema = load_fixture('schema1').get_schema()
-    updater = DocumentUpdater(test_db, document_type, schema, field_name)
+    updater = DocumentUpdater(test_db, document_type, schema, field_name, MigrationPolicy.strict)
 
     expect = dump_db()
     parsers = load_fixture('schema1').get_embedded_jsonpath_parsers(document_type)
@@ -47,7 +47,7 @@ def test_item_to_list__should_wrap_value_in_a_list_with_single_element(
         test_db, load_fixture, document_type, field_name, dump_db
 ):
     schema = load_fixture('schema1').get_schema()
-    updater = DocumentUpdater(test_db, document_type, schema, field_name)
+    updater = DocumentUpdater(test_db, document_type, schema, field_name, MigrationPolicy.strict)
 
     expect = dump_db()
     parsers = load_fixture('schema1').get_embedded_jsonpath_parsers(document_type)
@@ -68,7 +68,7 @@ def test_extract_from_list__should_extract_the_first_value_from_list(
         test_db, load_fixture, document_type, field_name, dump_db
 ):
     schema = load_fixture('schema1').get_schema()
-    updater = DocumentUpdater(test_db, document_type, schema, field_name)
+    updater = DocumentUpdater(test_db, document_type, schema, field_name, MigrationPolicy.strict)
 
     expect = dump_db()
     parsers = load_fixture('schema1').get_embedded_jsonpath_parsers(document_type)
@@ -92,7 +92,7 @@ def test_extract_from_list__if_value_is_not_list__should_raise_error(
         test_db, load_fixture, document_type, field_name, dump_db
 ):
     schema = load_fixture('schema1').get_schema()
-    updater = DocumentUpdater(test_db, document_type, schema, field_name)
+    updater = DocumentUpdater(test_db, document_type, schema, field_name, MigrationPolicy.strict)
 
     with pytest.raises(MigrationError):
         converters.extract_from_list(updater)
@@ -110,7 +110,7 @@ def test_to_string__should_convert_to_string(
         test_db, load_fixture, document_type, field_name, dump_db
 ):
     schema = load_fixture('schema1').get_schema()
-    updater = DocumentUpdater(test_db, document_type, schema, field_name)
+    updater = DocumentUpdater(test_db, document_type, schema, field_name, MigrationPolicy.strict)
 
     expect = dump_db()
     parsers = load_fixture('schema1').get_embedded_jsonpath_parsers(document_type)
@@ -131,7 +131,7 @@ def test_to_int__should_convert_to_int(
         test_db, load_fixture, document_type, field_name, dump_db
 ):
     schema = load_fixture('schema1').get_schema()
-    updater = DocumentUpdater(test_db, document_type, schema, field_name)
+    updater = DocumentUpdater(test_db, document_type, schema, field_name, MigrationPolicy.strict)
 
     expect = dump_db()
     parsers = load_fixture('schema1').get_embedded_jsonpath_parsers(document_type)
@@ -155,7 +155,7 @@ def test_to_int__if_value_does_not_contain_number__should_raise_error(
         test_db, load_fixture, document_type, field_name
 ):
     schema = load_fixture('schema1').get_schema()
-    updater = DocumentUpdater(test_db, document_type, schema, field_name)
+    updater = DocumentUpdater(test_db, document_type, schema, field_name, MigrationPolicy.strict)
 
     with pytest.raises(MigrationError):
         converters.to_int(updater)
@@ -170,7 +170,7 @@ def test_to_long__should_convert_to_int(
         test_db, load_fixture, document_type, field_name, dump_db
 ):
     schema = load_fixture('schema1').get_schema()
-    updater = DocumentUpdater(test_db, document_type, schema, field_name)
+    updater = DocumentUpdater(test_db, document_type, schema, field_name, MigrationPolicy.strict)
 
     expect = dump_db()
     parsers = load_fixture('schema1').get_embedded_jsonpath_parsers(document_type)
@@ -194,7 +194,7 @@ def test_to_long__if_value_does_not_contain_number__should_raise_error(
         test_db, load_fixture, document_type, field_name
 ):
     schema = load_fixture('schema1').get_schema()
-    updater = DocumentUpdater(test_db, document_type, schema, field_name)
+    updater = DocumentUpdater(test_db, document_type, schema, field_name, MigrationPolicy.strict)
 
     with pytest.raises(MigrationError):
         converters.to_long(updater)
@@ -212,7 +212,7 @@ def test_to_double__should_convert_to_float(
         test_db, load_fixture, document_type, field_name, dump_db
 ):
     schema = load_fixture('schema1').get_schema()
-    updater = DocumentUpdater(test_db, document_type, schema, field_name)
+    updater = DocumentUpdater(test_db, document_type, schema, field_name, MigrationPolicy.strict)
 
     expect = dump_db()
     parsers = load_fixture('schema1').get_embedded_jsonpath_parsers(document_type)
@@ -237,7 +237,7 @@ def test_to_double__if_value_does_not_contain_number__should_raise_error(
         test_db, load_fixture, document_type, field_name
 ):
     schema = load_fixture('schema1').get_schema()
-    updater = DocumentUpdater(test_db, document_type, schema, field_name)
+    updater = DocumentUpdater(test_db, document_type, schema, field_name, MigrationPolicy.strict)
 
     with pytest.raises(MigrationError):
         converters.to_double(updater)
@@ -252,7 +252,7 @@ def test_to_decimal__should_convert_to_float(
         test_db, load_fixture, document_type, field_name, dump_db
 ):
     schema = load_fixture('schema1').get_schema()
-    updater = DocumentUpdater(test_db, document_type, schema, field_name)
+    updater = DocumentUpdater(test_db, document_type, schema, field_name, MigrationPolicy.strict)
 
     expect = dump_db()
     parsers = load_fixture('schema1').get_embedded_jsonpath_parsers(document_type)
@@ -277,7 +277,7 @@ def test_to_decimal__if_value_does_not_contain_number__should_raise_error(
         test_db, load_fixture, document_type, field_name
 ):
     schema = load_fixture('schema1').get_schema()
-    updater = DocumentUpdater(test_db, document_type, schema, field_name)
+    updater = DocumentUpdater(test_db, document_type, schema, field_name, MigrationPolicy.strict)
 
     with pytest.raises(MigrationError):
         converters.to_decimal(updater)

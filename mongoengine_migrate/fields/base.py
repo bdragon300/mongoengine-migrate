@@ -13,13 +13,12 @@ from pymongo.database import Database
 import mongoengine_migrate.flags as flags
 from mongoengine_migrate.exceptions import SchemaError, MigrationError, ActionError
 from mongoengine_migrate.fields.registry import type_key_registry, add_field_handler
-from mongoengine_migrate.mongo import (
-    check_empty_result
-)
-from ..updater import ByPathContext, ByDocContext, DocumentUpdater
+from mongoengine_migrate.graph import MigrationPolicy
+from mongoengine_migrate.mongo import check_empty_result
 from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.utils import get_closest_parent, document_type_to_class_name, Diff, UNSET
 from .registry import CONVERTION_MATRIX
+from ..updater import ByPathContext, ByDocContext, DocumentUpdater
 
 
 class FieldHandlerMeta(type):
@@ -68,7 +67,8 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                  document_type: str,
                  left_schema: Schema,
                  left_field_schema: dict,  # FIXME: get rid of
-                 right_field_schema: dict):
+                 right_field_schema: dict,
+                 migration_policy: MigrationPolicy):
         """
         :param db: pymongo Database object
         :param document_type: collection name. Could contain
@@ -76,12 +76,14 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param left_schema:
         :param left_field_schema:
         :param right_field_schema:
+        :param migration_policy:
         """
         self.db = db
         self.document_type = document_type
+        self.left_schema = left_schema
         self.left_field_schema = left_field_schema
         self.right_field_schema = right_field_schema
-        self.left_schema = left_schema
+        self.migration_policy = migration_policy
 
         self.is_embedded = self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
         self.collection = None
@@ -160,7 +162,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         inherit = self.left_schema[self.document_type].parameters.get('inherit')
         document_cls = document_type_to_class_name(self.document_type) if inherit else None
         updater = DocumentUpdater(self.db, self.document_type, self.left_schema, db_field,
-                                  document_cls)
+                                  self.migration_policy, document_cls)
         return method(updater, diff)
 
     def change_db_field(self, updater: DocumentUpdater, diff: Diff):
@@ -302,7 +304,8 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                                       self.document_type,
                                       self.left_schema,
                                       self.left_field_schema,
-                                      self.right_field_schema)
+                                      self.right_field_schema,
+                                      self.migration_policy)
         new_handler.convert_type(updater, *field_classes)
 
     def convert_type(self,

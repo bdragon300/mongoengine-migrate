@@ -6,6 +6,7 @@ import itertools
 
 from mongoengine_migrate.actions import CreateField
 from mongoengine_migrate.exceptions import SchemaError
+from mongoengine_migrate.graph import MigrationPolicy
 
 
 class TestCreateFieldInDocument:
@@ -21,7 +22,7 @@ class TestCreateFieldInDocument:
                              min_length=None, null=False, primary_key=False, regex=None,
                              required=False, sparse=False, type_key='StringField', unique=False,
                              unique_with=None)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -43,7 +44,7 @@ class TestCreateFieldInDocument:
                              min_length=None, null=False, primary_key=False, regex=None,
                              required=True, sparse=False, type_key='StringField', unique=False,
                              unique_with=None)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -65,7 +66,7 @@ class TestCreateFieldInDocument:
                              min_length=None, null=False, primary_key=False, regex=None,
                              required=True, sparse=False, type_key='StringField', unique=False,
                              unique_with=None)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -87,7 +88,7 @@ class TestCreateFieldInDocument:
                              min_length=None, null=False, primary_key=False, regex=None,
                              required=True, sparse=False, type_key='StringField', unique=False,
                              unique_with=None)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -106,7 +107,7 @@ class TestCreateFieldInDocument:
                              unique_with=None)
 
         with pytest.raises(SchemaError):
-            action.prepare(test_db, schema)
+            action.prepare(test_db, schema, MigrationPolicy.strict)
 
     def test_prepare__if_such_field_in_document_is_in_schema__should_raise_error(self,
                                                                                  load_fixture,
@@ -120,7 +121,7 @@ class TestCreateFieldInDocument:
                              unique_with=None)
 
         with pytest.raises(SchemaError):
-            action.prepare(test_db, schema)
+            action.prepare(test_db, schema, MigrationPolicy.strict)
 
 
 class TestCreateFieldEmbedded:
@@ -135,7 +136,7 @@ class TestCreateFieldEmbedded:
                              min_length=None, null=False, primary_key=False, regex=None,
                              required=False, sparse=False, type_key='StringField', unique=False,
                              unique_with=None)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -157,7 +158,7 @@ class TestCreateFieldEmbedded:
                              min_length=None, null=False, primary_key=False, regex=None,
                              required=True, sparse=False, type_key='StringField', unique=False,
                              unique_with=None)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -178,7 +179,7 @@ class TestCreateFieldEmbedded:
                              min_length=None, null=False, primary_key=False, regex=None,
                              required=False, sparse=False, type_key='StringField', unique=False,
                              unique_with=None)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 

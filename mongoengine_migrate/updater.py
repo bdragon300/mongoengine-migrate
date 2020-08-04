@@ -165,16 +165,14 @@ class DocumentUpdater:
         :param callback:
         :return:
         """
-        class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
-
         if not self.is_embedded:
             collection_name = self.db_schema[self.document_type].parameters['collection']
             collection = self.db[collection_name]
-            self._update_by_path(callback, collection, [], [], class_fltr)
+            self._update_by_path(callback, collection, [], [])
             return
 
         for collection, update_path, filter_path in self._get_update_paths():
-            self._update_by_path(callback, collection, filter_path, update_path, class_fltr)
+            self._update_by_path(callback, collection, filter_path, update_path)
 
     def update_by_document(self, callback: Callable) -> None:
         """
@@ -193,16 +191,14 @@ class DocumentUpdater:
         :param callback:
         :return:
         """
-        class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
-
         if not self.is_embedded:
             collection_name = self.db_schema[self.document_type].parameters['collection']
             collection = self.db[collection_name]
-            self._update_by_document(callback, collection, [], [], class_fltr)
+            self._update_by_document(callback, collection, [], [])
             return
 
         for collection, update_path, filter_path in self._get_update_paths():
-            self._update_by_document(callback, collection, filter_path, update_path, class_fltr)
+            self._update_by_document(callback, collection, filter_path, update_path)
 
     def update_combined(self,
                         by_path_cb: Callable,
@@ -240,8 +236,6 @@ class DocumentUpdater:
          non-array dotpaths (without "$[]") will get updated using
          by_doc callback, or by_path otherwise.
         """
-        class_fltr = {'_cls': self.document_cls} if self.document_cls else {}
-
         if self.is_embedded:
             for collection, update_path, filter_path in self._get_update_paths():
                 is_array_update = bool('$[]' in update_path)
@@ -249,27 +243,25 @@ class DocumentUpdater:
                     or not is_array_update and embedded_nonarray_by_doc
 
                 if call_by_doc:
-                    self._update_by_document(by_doc_cb, collection, filter_path, update_path,
-                                             class_fltr)
+                    self._update_by_document(by_doc_cb, collection, filter_path, update_path)
                 else:
-                    self._update_by_path(by_path_cb, collection, filter_path, update_path,
-                                         class_fltr)
+                    self._update_by_path(by_path_cb, collection, filter_path, update_path)
         else:
             collection_name = self.db_schema[self.document_type].parameters['collection']
             collection = self.db[collection_name]
-            self._update_by_path(by_path_cb, collection, [], [], class_fltr)
+            self._update_by_path(by_path_cb, collection, [], [])
 
     def _update_by_path(self,
                         callback: Callable,
                         collection: Collection,
                         filter_path: List[str],
-                        update_path: List[str],
-                        extra_filter: Optional[dict] = None) -> None:
+                        update_path: List[str]) -> None:
         if self.field_name:
             filter_path = filter_path + [self.field_name]  # Don't modify filter_path
             update_path = update_path + [self.field_name]  #
 
         update_path, array_filters = self._inject_array_filters(update_path)
+        extra_filter = {'_cls': self.document_cls} if self.document_cls else {}
 
         filter_dotpath = '.'.join(filter_path)
         update_dotpath = '.'.join(update_path)
@@ -277,15 +269,14 @@ class DocumentUpdater:
                             filter_dotpath=filter_dotpath,
                             update_dotpath=update_dotpath,
                             array_filters=array_filters,
-                            extra_filter=extra_filter or {})
+                            extra_filter=extra_filter)
         callback(ctx)
 
     def _update_by_document(self,
                             callback: Callable,
                             collection: Collection,
                             filter_path: List[str],
-                            update_path: List[str],
-                            extra_filter: Optional[dict] = None) -> None:
+                            update_path: List[str]) -> None:
         """
         Call a callback for every document found by given filterpath
         :param callback: by_doc callback
@@ -295,8 +286,6 @@ class DocumentUpdater:
          pointed which document to pick and call the callback
          for each of them (nested array of embedded documents for
          instance). If None is passed then we pick a document itself
-        :param extra_filter: Optional. Extra filter dict to be added
-         to find()
         :return:
         """
         field_filter_path = copy(filter_path)
@@ -315,8 +304,8 @@ class DocumentUpdater:
         find_fltr = {}
         if not self._include_missed_fields and filter_dotpath:
             find_fltr = {filter_dotpath: {'$exists': True}}
-        if extra_filter:
-            find_fltr.update(extra_filter)
+        if self.document_cls:
+            find_fltr['_cls'] = self.document_cls
 
         if flags.dry_run:
             msg = '* db.%s.find(%s) -> [Loop](%s) -> db.%s.bulk_write(...)'
@@ -331,6 +320,8 @@ class DocumentUpdater:
                 if self.document_cls:
                     if (isinstance(embedded_doc, dict)
                             and embedded_doc.get('_cls', self.document_cls) != self.document_cls):
+                        # Entry doesn't contain value of document class
+                        # See `DocumentMetaclass` implementation
                         continue
                 ctx = ByDocContext(collection=collection,
                                    document=embedded_doc,

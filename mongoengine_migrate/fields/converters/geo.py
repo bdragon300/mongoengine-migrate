@@ -33,10 +33,11 @@ __CONVERTIONS = (
 def convert_geojson(updater: DocumentUpdater, from_type: str, to_type: str):
     """Convert GeoJSON object from one type to another"""
     from_ind, to_ind = None, None
-    __check_geojson_objects(updater, [from_type, to_type])
-    # There could be legacy coordinate pair arrays or GeoJSON objects
-    __check_legacy_point_coordinates(updater)
-    __check_value_types(updater, ['object', 'array'])
+    if updater.migration_policy.name == 'strict':
+        __check_geojson_objects(updater, [from_type, to_type])
+        # There could be legacy coordinate pair arrays or GeoJSON objects
+        __check_legacy_point_coordinates(updater)
+        __check_value_types(updater, ['object', 'array'])
 
     if from_type == to_type:
         return
@@ -64,9 +65,10 @@ def legacy_pairs_to_geojson(updater: DocumentUpdater, to_type: str):
         if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), (list, tuple)):
             doc[updater.field_name] = {'type': 'Point', 'coordinates': doc[updater.field_name]}
 
-    __check_geojson_objects(updater, ['Point', to_type])
-    __check_legacy_point_coordinates(updater)
-    __check_value_types(updater, ['object', 'array'])
+    if updater.migration_policy.name == 'strict':
+        __check_geojson_objects(updater, ['Point', to_type])
+        __check_legacy_point_coordinates(updater)
+        __check_value_types(updater, ['object', 'array'])
 
     updater.update_by_document(by_doc)
     convert_geojson(updater, 'Point', to_type)
@@ -80,9 +82,10 @@ def geojson_to_legacy_pairs(updater: DocumentUpdater, from_type: str):
             if 'Point' in doc[updater.field_name]:
                 doc[updater.field_name] = doc[updater.field_name].get('coordinates')
 
-    __check_geojson_objects(updater, ["Point", from_type])
-    __check_legacy_point_coordinates(updater)
-    __check_value_types(updater, ['object', 'array'])
+    if updater.migration_policy.name == 'strict':
+        __check_geojson_objects(updater, ["Point", from_type])
+        __check_legacy_point_coordinates(updater)
+        __check_value_types(updater, ['object', 'array'])
 
     convert_geojson(updater, from_type, 'Point')
 

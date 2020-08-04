@@ -250,7 +250,8 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         if updater.is_embedded:
             raise SchemaError(f'Embedded document {updater.document_type} cannot have primary key')
-        updater.update_by_path(by_path)
+        if self.migration_policy.name == 'strict':
+            updater.update_by_path(by_path)
         # self.change_unique([], []) or []  # TODO
 
     # TODO: consider Document, EmbeddedDocument as choices
@@ -271,7 +272,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         self._check_diff(updater, diff, True, Collection)
 
-        if diff.new is not None:
+        if diff.new is not None and self.migration_policy.name == 'strict':
             updater.update_by_path(by_path)
 
     def change_null(self, updater: DocumentUpdater, diff: Diff):

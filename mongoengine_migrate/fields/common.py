@@ -134,7 +134,8 @@ class StringFieldHandler(CommonFieldHandler):
 
         # We can't to increase string length, so raise error if
         # there was found strings which are shorter than should be
-        updater.update_combined(by_path, by_doc, False)
+        if self.migration_policy.name == 'strict':
+            updater.update_combined(by_path, by_doc, False)
 
     def change_regex(self, updater: DocumentUpdater, diff: Diff):
         """Raise error if string does not match regex (if any)"""
@@ -149,7 +150,8 @@ class StringFieldHandler(CommonFieldHandler):
         if diff.new in (UNSET, None):
             return
 
-        updater.update_by_path(by_path)
+        if self.migration_policy.name == 'strict':
+            updater.update_by_path(by_path)
 
 
 class URLFieldHandler(StringFieldHandler):
@@ -171,7 +173,8 @@ class URLFieldHandler(StringFieldHandler):
 
         # Check if some records contains non-url values in db_field
         scheme_regex = re.compile(rf'\A(?:({"|".join(re.escape(x) for x in diff.new)}))://')
-        updater.update_by_path(by_path)
+        if self.migration_policy.name == 'strict':
+            updater.update_by_path(by_path)
 
 
 class EmailFieldHandler(StringFieldHandler):
@@ -229,7 +232,8 @@ class EmailFieldHandler(StringFieldHandler):
             return
 
         regex = self.UTF8_USER_REGEX if diff.new is True else self.USER_REGEX
-        updater.update_by_path(by_path)
+        if self.migration_policy.name == 'strict':
+            updater.update_by_path(by_path)
 
     def change_allow_ip_domain(self, updater: DocumentUpdater, diff: Diff):
         """
@@ -253,7 +257,8 @@ class EmailFieldHandler(StringFieldHandler):
         whitelist_regex = '|'.join(
             re.escape(x) for x in self.left_field_schema.get('domain_whitelist', [])
         ) or '.*'
-        updater.update_by_path(by_path)
+        if self.migration_policy.name == 'strict':
+            updater.update_by_path(by_path)
 
     def convert_type(self,
                      updater: DocumentUpdater,
@@ -275,7 +280,8 @@ class EmailFieldHandler(StringFieldHandler):
         whitelist_regex = '|'.join(
             re.escape(x) for x in self.left_field_schema.get('domain_whitelist', [])
         ) or '.*'
-        updater.update_by_path(by_path)
+        if self.migration_policy.name == 'strict':
+            updater.update_by_path(by_path)
 
 
 class DecimalFieldHandler(NumberFieldHandler):

@@ -75,7 +75,7 @@ def extract_from_list(updater: DocumentUpdater):
             if isinstance(doc[updater.field_name], (list, tuple)):
                 doc[updater.field_name] = \
                     doc[updater.field_name][0] if len(doc[updater.field_name]) else None
-            elif doc[updater.field_name] is not None:
+            elif doc[updater.field_name] is not None and updater.migration_policy.name == 'strict':
                 raise MigrationError(f'Could not extract item from non-list value '
                                      f'{updater.field_name}: {doc[updater.field_name]}')
 
@@ -141,7 +141,8 @@ def to_uuid(updater: DocumentUpdater):
         # FIXME: call post_check for every filter_dotpath, not for doc
 
     updater.update_by_document(by_doc)
-    updater.update_by_path(post_check)
+    if updater.migration_policy.name == 'strict':
+        updater.update_by_path(post_check)
 
 
 def to_url_string(updater: DocumentUpdater):
@@ -156,7 +157,8 @@ def to_url_string(updater: DocumentUpdater):
         r"\A[A-Z]{3,}://[A-Z0-9\-._~:/?#\[\]@!$&'()*+,;%=]\Z",
         re.IGNORECASE
     )
-    updater.update_by_path(by_path)
+    if updater.migration_policy.name == 'strict':
+        updater.update_by_path(by_path)
 
 
 def to_complex_datetime(updater: DocumentUpdater):
@@ -169,7 +171,8 @@ def to_complex_datetime(updater: DocumentUpdater):
     # We should not know which separator is used, so use '.+'
     # Separator change is handled by appropriate field method
     regex = r'\A' + str('.+'.join([r"\d{4}"] + [r"\d{2}"] * 5 + [r"\d{6}"])) + r'\Z'
-    updater.update_by_path(by_path)
+    if updater.migration_policy.name == 'strict':
+        updater.update_by_path(by_path)
 
 
 def ref_to_cached_reference(updater: DocumentUpdater):
@@ -193,7 +196,8 @@ def ref_to_cached_reference(updater: DocumentUpdater):
             doc[updater.field_name] = {'_id': doc[updater.field_name]}
 
     updater.update_by_document(by_doc)
-    updater.update_by_path(post_check)
+    if updater.migration_policy.name == 'strict':
+        updater.update_by_path(post_check)
 
 
 @mongo_version(min_version='3.6')
@@ -228,7 +232,8 @@ def cached_reference_to_ref(updater: DocumentUpdater):
             doc[updater.field_name] = doc[updater.field_name].get('_id')
 
     updater.update_by_document(by_doc)
-    updater.update_combined(post_check_by_path, post_check_by_doc, False, False)
+    if updater.migration_policy.name == 'strict':
+        updater.update_combined(post_check_by_path, post_check_by_doc, False, False)
 
 
 def __mongo_convert(updater: DocumentUpdater, target_type: str):
@@ -263,7 +268,8 @@ def __mongo_convert(updater: DocumentUpdater, target_type: str):
                 try:
                     doc[field_name] = type_map[target_type](doc[field_name])
                 except (TypeError, ValueError) as e:
-                    raise MigrationError(f'Cannot convert value {field_name}: {doc[field_name]} '
-                                         f'to type {t}') from e
+                    if updater.migration_policy.name == 'strict':
+                        raise MigrationError(f'Cannot convert value '
+                                             f'{field_name}: {doc[field_name]} to type {t}') from e
 
     updater.update_by_document(by_doc)

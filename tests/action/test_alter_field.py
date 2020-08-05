@@ -393,7 +393,105 @@ class TestAlterFieldCommonChoices:
 
 
 class TestAlterFieldCommonNull:
-    pass  # TODO
+    def test_forward__for_document_if_field_is_unset__should_set_unset_fields_to_null(
+            self, load_fixture, test_db, dump_db
+    ):
+        schema = load_fixture('schema1').get_schema()
+
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
+        doc['doc1_str_empty'] = 'test!'
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+
+        expect = dump_db()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('Schema1Doc1')
+        for doc in itertools.chain.from_iterable(p.find(expect) for p in parsers):
+            if 'doc1_str_empty' not in doc.value:
+                doc.value['doc1_str_empty'] = None
+
+        action = AlterField('Schema1Doc1', 'doc1_str_empty', null=True)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_forward()
+
+        assert dump_db() == expect
+
+    def test_forward__for_embedded_if_field_is_unset__should_set_unset_fields_to_null(
+            self, load_fixture, test_db, dump_db
+    ):
+        schema = load_fixture('schema1').get_schema()
+
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
+        doc['doc1_emb_embdoc1']['embdoc1_str_empty'] = 'test!'
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
+        doc['doc1_emblist_embdoc1'][0]['embdoc1_str_empty'] = 'test!'
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
+
+        expect = dump_db()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('~Schema1EmbDoc1')
+        for doc in itertools.chain.from_iterable(p.find(expect) for p in parsers):
+            if 'embdoc1_str_empty' not in doc.value:
+                doc.value['embdoc1_str_empty'] = None
+
+        action = AlterField('~Schema1EmbDoc1', 'embdoc1_str_empty', null=True)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_forward()
+
+        assert dump_db() == expect
+
+    def test_forward_backward__for_document_if_field_is_unset__should_set_unset_fields_to_null(
+            self, load_fixture, test_db, dump_db
+    ):
+        schema = load_fixture('schema1').get_schema()
+
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
+        doc['doc1_str_empty'] = 'test!'
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+
+        expect = dump_db()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('Schema1Doc1')
+        for doc in itertools.chain.from_iterable(p.find(expect) for p in parsers):
+            if 'doc1_str_empty' not in doc.value:
+                doc.value['doc1_str_empty'] = None
+
+        action = AlterField('Schema1Doc1', 'doc1_str_empty', null=True)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+        action.run_forward()
+        action.cleanup()
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_backward()
+
+        assert dump_db() == expect
+
+    def test_forward_backward__for_embedded_if_field_is_unset__should_set_unset_fields_to_null(
+            self, load_fixture, test_db, dump_db
+    ):
+        schema = load_fixture('schema1').get_schema()
+
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
+        doc['doc1_emb_embdoc1']['embdoc1_str_empty'] = 'test!'
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
+        doc['doc1_emblist_embdoc1'][0]['embdoc1_str_empty'] = 'test!'
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
+
+        expect = dump_db()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('~Schema1EmbDoc1')
+        for doc in itertools.chain.from_iterable(p.find(expect) for p in parsers):
+            if 'embdoc1_str_empty' not in doc.value:
+                doc.value['embdoc1_str_empty'] = None
+
+        action = AlterField('~Schema1EmbDoc1', 'embdoc1_str_empty', null=True)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+        action.run_forward()
+        action.cleanup()
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_backward()
+
+        assert dump_db() == expect
 
 
 class TestAlterFieldCommonSparse:

@@ -5,7 +5,7 @@ __all__ = [
 
 import inspect
 import weakref
-from typing import Type, Iterable, List, Tuple, Collection
+from typing import Type, Iterable, List, Tuple, Collection, Any
 
 import mongoengine.fields
 from pymongo.database import Database
@@ -199,21 +199,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
-        def by_path(ctx: ByPathContext):
-            # Update documents only
-            ctx.collection.update_many(
-                {ctx.filter_dotpath: {'$exists': False}, **ctx.extra_filter},
-                {'$set': {ctx.update_dotpath: default}},
-                array_filters=ctx.build_array_filters()
-            )
-
-        def by_doc(ctx: ByDocContext):
-            # Update embedded documents
-            if updater.field_name not in ctx.document:
-                ctx.document.setdefault(updater.field_name, default)
-
         self._check_diff(updater, diff, False, bool)
-
         if diff.old is not True and diff.new is True:
             default = self.right_field_schema.get('default')
             # None and UNSET default has the same meaning here
@@ -221,7 +207,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                 raise SchemaError(f'{updater.document_type}{updater.field_name}.default is not '
                                   f'set for required field')
 
-            updater.with_missed_fields().update_combined(by_path, by_doc)
+            self._set_default_value(updater, default)
 
     def change_default(self, updater: DocumentUpdater, diff: Diff):
         """Stub method. No need to do smth on default change"""
@@ -276,7 +262,12 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             updater.update_by_path(by_path)
 
     def change_null(self, updater: DocumentUpdater, diff: Diff):
-        pass
+        """Force set db fields to `null` if they are was not set and
+        they defined with `null=True` in mongoengine
+        """
+        self._check_diff(updater, diff, False, bool)
+        if diff.new is True:
+            self._set_default_value(updater, None)
 
     def change_sparse(self, updater: DocumentUpdater, diff: Diff):
         pass
@@ -394,3 +385,21 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             choices = tuple(choices)
 
         return choices
+
+    @staticmethod
+    def _set_default_value(updater: DocumentUpdater, value: Any):
+        """Set a given value only for unset fields"""
+        def by_path(ctx: ByPathContext):
+            # Update documents only
+            ctx.collection.update_many(
+                {ctx.filter_dotpath: {'$exists': False}, **ctx.extra_filter},
+                {'$set': {ctx.update_dotpath: value}},
+                array_filters=ctx.build_array_filters()
+            )
+
+        def by_doc(ctx: ByDocContext):
+            # Update embedded documents
+            if updater.field_name not in ctx.document:
+                ctx.document.setdefault(updater.field_name, value)
+
+        updater.with_missed_fields().update_combined(by_path, by_doc)

@@ -1,5 +1,4 @@
-from mongoengine_migrate.actions import *
-
+{{ import_expressions | sort | join("\n") }}
 
 # Existing data processing policy
 # Possible values are: {{ policy_enum | map(attribute="name") | join(", ") }}

@@ -4,9 +4,10 @@ __all__ = [
     'MongoengineMigrate',
 ]
 
+import functools
 import importlib.util
 import logging
-import functools
+import re
 from datetime import timezone, datetime
 from pathlib import Path
 from types import ModuleType
@@ -447,13 +448,21 @@ class MongoengineMigrate:
         log.debug('Building actions chain...')
         actions_chain = build_actions_chain(db_schema, models_schema)
 
+        import_expressions = {'from mongoengine_migrate.actions import *'}
+        for action in actions_chain:
+            # If `regex` is set in action, then we probably need 're'
+            if isinstance(action.parameters.get('regex'), re.Pattern):
+                import_expressions.add('import re')
+                break
+
         log.debug('Writing migrations file...')
         env = Environment()
         env.filters['symbol_wrap'] = symbol_wrap
         tpl_ctx = {
             'graph': graph,
             'actions_chain': actions_chain,
-            'policy_enum': MigrationPolicy
+            'policy_enum': MigrationPolicy,
+            'import_expressions': import_expressions
         }
         tpl_path = Path(__file__).parent / 'migration_template.tpl'
         tpl = env.from_string(tpl_path.read_text())

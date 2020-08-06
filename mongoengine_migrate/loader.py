@@ -114,7 +114,7 @@ def collect_models_schema() -> Schema:
             if collections[col] and top_lvl_doc not in collections[col]:
                 collections[col].add(top_lvl_doc)
                 log.warning(f'These mongoengine documents use the same collection '
-                            f'which could be a cause of data corruption: {collections[col]}')
+                            f'which can be a cause of data corruption: {collections[col]}')
             else:
                 collections[col].add(top_lvl_doc)
 
@@ -319,7 +319,7 @@ class MongoengineMigrate:
             log.debug('Loading migration files...')
             graph = self.build_graph()
         log.debug('Loading schema from database...')
-        current_schema = self.load_db_schema()
+        left_schema = self.load_db_schema()
 
         if migration_name not in graph.migrations:
             raise MigrationGraphError(f'Migration {migration_name} not found')
@@ -331,23 +331,24 @@ class MongoengineMigrate:
             for idx, action_object in enumerate(migration.get_actions(), start=1):
                 log.debug('> [%d] %s', idx, str(action_object))
                 if not action_object.dummy_action and not runtime_flags.schema_only:
-                    action_object.prepare(db, current_schema, migration.policy)
+                    action_object.prepare(db, left_schema, migration.policy)
                     action_object.run_forward()
                     action_object.cleanup()
                 # TODO: move the following to the place before cleanup
                 # TODO: handle patch errors (if schema is corrupted)
-                current_schema = patch(action_object.to_schema_patch(current_schema),
-                                       current_schema)
+                left_schema = patch(action_object.to_schema_patch(left_schema), left_schema)
 
             graph.migrations[migration.name].applied = True
 
             if not runtime_flags.dry_run:
                 log.debug('Writing db schema and migrations graph...')
-                self.write_db_schema(current_schema)
+                self.write_db_schema(left_schema)
                 self.write_db_migrations_graph(graph)
 
             if migration.name == migration_name:
                 break   # We've reached the target migration
+
+        self._verify_schema(left_schema)
 
     def downgrade(self, migration_name: str, graph: Optional[MigrationsGraph] = None):
         """
@@ -406,6 +407,8 @@ class MongoengineMigrate:
                 log.debug('Writing db schema and migrations graph...')
                 self.write_db_schema(left_schema)
                 self.write_db_migrations_graph(graph)
+
+        self._verify_schema(left_schema)
 
     def migrate(self, migration_name: str = None):
         """
@@ -484,3 +487,22 @@ class MongoengineMigrate:
         migration_file.write_text(migration_source)
 
         log.info('Migration file "%s" was created', migration_file)
+
+    def _verify_schema(self, schema: Schema):
+        # Check if all derived documents have the same collection as
+        # their parents.
+        # E.g. user could comment/remove AlterDocument(collection=...)
+        # for any derived document, but leave for base one)
+        collections = {}  # {top_level_document: collection}
+        for document_type, doc_schema in schema.items():
+            if 'collection' not in doc_schema.parameters:
+                continue
+
+            col = doc_schema.parameters['collection']
+            top_lvl_doc = document_type.split(runtime_flags.DOCUMENT_NAME_SEPARATOR)[0]
+            if top_lvl_doc in collections and collections[top_lvl_doc] != col:
+                log.warning(f'The collection in derived document {document_type} ({col}) '
+                            f'is differ than its base document {top_lvl_doc} '
+                            f'({collections[top_lvl_doc]}). Please fix collection name and rerun '
+                            f'an affected migration')
+            collections.setdefault(top_lvl_doc, col)

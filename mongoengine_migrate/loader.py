@@ -11,7 +11,7 @@ import re
 from datetime import timezone, datetime
 from pathlib import Path
 from types import ModuleType
-from typing import Tuple, Iterable, Optional
+from typing import Tuple, Iterable, Optional, Dict
 
 import pymongo.database
 import pymongo.errors
@@ -85,6 +85,7 @@ def collect_models_schema() -> Schema:
     :return:
     """
     schema = Schema()
+    collections: Dict[str, set] = {}  # {collection_name: set(top_level_documents)}
 
     # Retrieve models from mongoengine global document registry
     for model_cls in _document_registry.values():
@@ -104,7 +105,18 @@ def collect_models_schema() -> Schema:
 
         schema[document_type] = Schema.Document()
         if not document_type.startswith(runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-            schema[document_type].parameters['collection'] = model_cls._get_collection_name()
+            col = schema[document_type].parameters['collection'] = model_cls._get_collection_name()
+
+            # Determine if unrelated documents have the same collection
+            # E.g. DropDocument could drop all of these documents
+            top_lvl_doc = document_type.split(runtime_flags.DOCUMENT_NAME_SEPARATOR)[0]
+            collections.setdefault(col, set())
+            if collections[col] and top_lvl_doc not in collections[col]:
+                collections[col].add(top_lvl_doc)
+                log.warning(f'These mongoengine documents use the same collection '
+                            f'which could be a cause of data corruption: {collections[col]}')
+            else:
+                collections[col].add(top_lvl_doc)
 
         if model_cls._meta.get('allow_inheritance'):
             schema[document_type].parameters['inherit'] = True
@@ -141,9 +153,7 @@ def collect_models_schema() -> Schema:
             # TODO: warning about field type not implemented
             # TODO: validate default against all field restrictions such as min_length, regex, etc.
 
-        log.debug("> Schema '%s' => %s",
-                  document_type,
-                  str(schema[document_type]))
+        log.debug("> Schema '%s' => %s", document_type, str(schema[document_type]))
 
     return schema
 

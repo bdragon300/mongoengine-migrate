@@ -14,50 +14,117 @@ from mongoengine import fields
 
 from . import converters
 
-
-# StringField
-# URLField
-# EmailField  -- implement
-# IntField
-# LongField
-# FloatField
-# DecimalField
-# BooleanField
-# DateTimeField
-# DateField
-# ComplexDateTimeField -- implement
-# EmbeddedDocumentField
-# GenericEmbeddedDocumentField -- ???
-# DynamicField
-# ListField
-# EmbeddedDocumentListField
-# -SortedListField
+#
+# Description of data kept in MongoDB fields which operated by
+# appropriate mongoengine fields
+#
+# A field can be null which is valid value for any type
+#
+# Definitions (SON==dict):
+# * manual ref: dict({'_id': ObjectId(), **other_keys})
+#   https://docs.mongodb.com/manual/reference/database-references/#document-references
+# * dynamic ref: dict({'_cls': _class_name, '_ref': DBRef({"$ref" : collection_name, "$id" : id})})
+# * dynamic document: dict({'_cls': _class_name, **other_keys})
+#   used for document inheritance
+# * GeoJSON: dict('type': '<type>', 'coordinates': [list, with, coordinates])
+#   'type' can be: Point, MultiPoint, LineString, Polygon, MultiLineString, MultiPolygon
+#    https://docs.mongodb.com/manual/reference/geojson/
+#    https://docs.mongodb.com/manual/geospatial-queries/
+#
+# ObjectIdField:
+#   ObjectId
+# StringField:
+#   string
+# URLField(StringField):
+#   string, matched to url pattern which is set by field params
+# EmailField(StringField):
+#   string, matched to email pattern which is set by field params
+# IntField:
+#   32-bit integer
+#   Acceptable: 64-bit integer
+#   Acceptable: double (mongo shell treats integer as double by default)
+# LongField:
+#   64-bit integer
+#   Acceptable: 32-bit integer
+#   Acceptable: double (mongo shell treats integer as double by default)
+# FloatField:
+#   double
+#   Acceptable: 32-bit integer
+#   Acceptable: 64-bit integer
+# DecimalField:
+#   double (if force_string=False)
+#   string (string representation with dot, if force_string=True)
+#   Acceptable: 32-bit integer
+#   Acceptable: 64-bit integer
+# BooleanField:
+#   boolean
+# DateTimeField:
+#   date (ISODate)
+#   Acceptable: string with datetime
+# DateField(DateTimeField):
+#   date (ISODate)
+#   Acceptable: string with datetime
+# ComplexDateTimeField(StringField)
+#   string with datetime which is set by field params
+# EmbeddedDocumentField:
+#   dict (any keys without '_id')
+#   dynamic document (any keys without '_id')
+# GenericEmbeddedDocumentField:
+#   dynamic document
+# DynamicField:
+#   any type (including dynamic ref, dynamic document, manual ref)
+# ListField:
+#   list
+# EmbeddedDocumentListField(ListField)
+#   list
+# SortedListField(ListField)
+#   list
 # DictField
-# -MapField
-# ReferenceField
-# CachedReferenceField
-# GenericReferenceField -- ???
-# BinaryField
-# SequenceField -- implement
-# UUIDField -- implement. May be either binary or text
+#   dict
+# MapField(DictField):
+#   dict (with restriction to dict values type)
+# ReferenceField:
+#   ObjectId (if dbref=False)
+#   DBRef (if dbref=True)
+#   DBRef with `cls` (without underscore) (if dbref=True)
+# CachedReferenceField:
+#   manual ref
+# GenericReferenceField:
+#   ObjectId
+#   DBRef
+#   dynamic ref
+# BinaryField:
+#   Binary
+# FileField:
+#   ObjectId (id to `files` collection entry)
+# ImageField(FileField):
+#   ObjectId (id to `files` collection entry)
+# SequenceField (virtual field, it points to a collection with counters)
+#   nothing
+# UUIDField:
+#   Binary (binary=True)
+#   string with uuid (binary=False)
+# GeoPointField:
+#   2-element list with doubles or 32-bit integers
+# PointField:
+#   GeoJSON(Point)
+# LineStringField:
+#   GeoJSON(LineString)
+# PolygonField:
+#   GeoJSON(Polygon)
+# MultiPointField:
+#   GeoJSON(MultiPoint)
+# MultiLineStringField:
+#   GeoJSON(MultiLineString)
+# MultiPolygonField:
+#   GeoJSON(MultiPolygon)
 # LazyReferenceField
-# GenericLazyReferenceField -- ???
-#
-# ObjectIdField
-#
-#
-# GeoPointField
-# PointField
-# LineStringField
-# PolygonField
-# MultiPointField
-# MultiLineStringField
-# MultiPolygonField
-#
-#
-# FileField
-# ImageField
-#
+#   ObjectId (if dbref=False)
+#   DBRef (if dbref=True)
+# GenericLazyReferenceField(GenericReferenceField):
+#   ObjectId
+#   DBRef
+#   dynamic ref
 
 
 class TypeKeyRegistryItem(NamedTuple):

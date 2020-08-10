@@ -132,7 +132,9 @@ COMMON_CONVERTERS = {
     fields.DateTimeField: converters.to_date,
     fields.ListField: converters.item_to_list,
     fields.EmbeddedDocumentListField: converters.deny,
-    fields.ComplexDateTimeField: converters.to_complex_datetime
+    fields.ComplexDateTimeField: converters.to_complex_datetime,
+    fields.GenericEmbeddedDocumentField: converters.deny,
+    fields.GenericReferenceField: converters.deny
 }
 
 OBJECTID_CONVERTERS = {
@@ -146,7 +148,9 @@ OBJECTID_CONVERTERS = {
     fields.ObjectIdField: converters.nothing,
     fields.FileField: converters.nothing,
     fields.ImageField: converters.nothing,
-    fields.CachedReferenceField: converters.ref_to_cached_reference
+    fields.CachedReferenceField: converters.ref_to_cached_reference,
+    fields.GenericEmbeddedDocumentField: converters.deny,
+    fields.GenericReferenceField: converters.deny
 }
 
 
@@ -184,6 +188,8 @@ def get_geojson_converters(from_type):
             from_type=from_type,
             to_type='MultiPolygon'
         ),
+        fields.GenericEmbeddedDocumentField: converters.deny,
+        fields.GenericReferenceField: converters.deny
     }
 
 
@@ -219,7 +225,9 @@ CONVERTION_MATRIX = {
         fields.ReferenceField: converters.deny,  # TODO: implement convert reference-like fields from/to embedded-like
         fields.ListField: converters.item_to_list,
         fields.EmbeddedDocumentListField: converters.item_to_list,
-        fields.CachedReferenceField: converters.nothing
+        fields.CachedReferenceField: converters.nothing,
+        fields.GenericEmbeddedDocumentField: converters.deny,  # requires '_cls' dict field
+        fields.GenericReferenceField: converters.deny  # requires '_cls' dict field
         # TODO: to DynamicField: val["_cls"] = cls.__name__
         # fields.GeoJsonBaseField: converters.dict_to_geojson,
     },
@@ -228,26 +236,34 @@ CONVERTION_MATRIX = {
         fields.BaseField: converters.nothing,
         fields.UUIDField: converters.to_uuid,
         fields.URLField: converters.to_url_string,
-        fields.ComplexDateTimeField: converters.to_complex_datetime
+        fields.ComplexDateTimeField: converters.to_complex_datetime,
+        fields.GenericEmbeddedDocumentField: converters.deny,
+        fields.GenericReferenceField: converters.deny
     },
     fields.ListField: {
         fields.EmbeddedDocumentField: converters.deny,  # TODO: implement convert to item with embedded docs check with schema
         fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement embedded docs check with schema
         fields.DictField: converters.extract_from_list,  # FIXME: it's may be not a dict after extraction
+        fields.GenericEmbeddedDocumentField: converters.deny,
+        fields.GenericReferenceField: converters.deny
         # fields.GeoJsonBaseField: converters.list_to_geojson
     },
     fields.EmbeddedDocumentListField: {
         fields.EmbeddedDocumentField: converters.nothing,
         fields.ListField: converters.nothing,
         fields.DictField: converters.extract_from_list,
-        fields.CachedReferenceField: converters.extract_from_list
+        fields.CachedReferenceField: converters.extract_from_list,
+        fields.GenericEmbeddedDocumentField: converters.deny,
+        fields.GenericReferenceField: converters.deny
         # fields.GeoJsonBaseField: converters.list_to_geojson
     },
     fields.DictField: {
         fields.EmbeddedDocumentField: converters.deny,  # TODO: implement embedded docs check with schema
         fields.ListField: converters.item_to_list,
         fields.EmbeddedDocumentListField: converters.deny,  # TODO: implement convert to list with embedded docs check with schema
-        fields.CachedReferenceField: converters.deny
+        fields.CachedReferenceField: converters.deny,
+        fields.GenericEmbeddedDocumentField: converters.deny,
+        fields.GenericReferenceField: converters.deny
         # fields.GeoJsonBaseField: converters.dict_to_geojson,
     },
     fields.ReferenceField: OBJECTID_CONVERTERS.copy(),  # TODO: to DynamicField: val = {"_ref": value.to_dbref(), "_cls": cls.__name__}
@@ -260,15 +276,54 @@ CONVERTION_MATRIX = {
         fields.ListField: converters.item_to_list,
         fields.ReferenceField: converters.cached_reference_to_ref,
         fields.LazyReferenceField: converters.cached_reference_to_ref,
-        fields.DictField: converters.nothing
+        fields.DictField: converters.nothing,
+        fields.GenericEmbeddedDocumentField: converters.deny,  # requires '_cls' dict field
+        fields.GenericReferenceField: converters.deny  # requires '_cls' dict field
     },
     fields.BinaryField: {
-        fields.UUIDField: converters.to_uuid
+        fields.UUIDField: converters.to_uuid,
+        fields.GenericEmbeddedDocumentField: converters.deny,
+        fields.GenericReferenceField: converters.deny
         # TODO: image field, file field
     },
     # Sequence field just points to another counter field, so do nothing
     fields.SequenceField: {
         fields.BaseField: converters.nothing
+    },
+    # Generic* fields
+    fields.GenericEmbeddedDocumentField: {
+        fields.EmbeddedDocumentField: converters.nothing,
+        fields.GenericReferenceField: converters.deny,
+        fields.GenericLazyReferenceField: converters.deny,
+        fields.DictField: converters.nothing,
+        fields.BaseField: converters.deny  # FIXME: replace BaseField to many denies,
+    },
+    fields.GenericReferenceField: {
+        fields.StringField: converters.to_string,
+        fields.DynamicField: converters.nothing,
+        fields.ReferenceField: converters.to_object_id,
+        fields.DictField: converters.deny,
+        fields.EmbeddedDocumentField: converters.deny,
+        fields.GenericEmbeddedDocumentField: converters.nothing,
+        fields.CachedReferenceField: converters.to_manual_ref,
+        fields.LazyReferenceField: converters.to_object_id,
+        fields.GenericLazyReferenceField: converters.nothing,
+        fields.ObjectIdField: converters.to_object_id,
+        fields.BaseField: converters.deny
+    },
+    fields.GenericLazyReferenceField: {
+        fields.StringField: converters.to_string,
+        fields.DynamicField: converters.nothing,
+        fields.ReferenceField: converters.to_object_id,
+        fields.DictField: converters.deny,
+        fields.EmbeddedDocumentField: converters.deny,
+        fields.GenericEmbeddedDocumentField: converters.nothing,
+        fields.GenericReferenceField: converters.nothing,
+        fields.CachedReferenceField: converters.to_manual_ref,
+        fields.LazyReferenceField: converters.to_object_id,
+        fields.GenericLazyReferenceField: converters.nothing,
+        fields.ObjectIdField: converters.to_object_id,
+        fields.BaseField: converters.deny
     },
     # Geo fields
     fields.GeoPointField: {
@@ -280,6 +335,9 @@ CONVERTION_MATRIX = {
                                              to_type='MultiLineString'),
         fields.MultiPolygonField: partial(converters.legacy_pairs_to_geojson,
                                           to_type='MultiPolygon'),
+        fields.EmbeddedDocumentField: converters.deny,
+        fields.GenericReferenceField: converters.deny,
+        fields.GenericLazyReferenceField: converters.deny,
     },
     fields.PointField: get_geojson_converters('Point'),
     fields.LineStringField: get_geojson_converters('LineString'),

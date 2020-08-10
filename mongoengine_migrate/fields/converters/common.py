@@ -4,6 +4,7 @@ __all__ = [
     'drop_field',
     'item_to_list',
     'extract_from_list',
+    'to_manual_ref',
     'to_string',
     'to_int',
     'to_long',
@@ -78,6 +79,28 @@ def extract_from_list(updater: DocumentUpdater):
             elif doc[updater.field_name] is not None and updater.migration_policy.name == 'strict':
                 raise MigrationError(f'Could not extract item from non-list value '
                                      f'{updater.field_name}: {doc[updater.field_name]}')
+
+    updater.update_by_document(by_doc)
+
+
+def to_manual_ref(updater: DocumentUpdater):
+    def by_doc(ctx: ByDocContext):
+        doc = ctx.document
+        if updater.field_name not in doc:
+            return
+
+        f = doc[updater.field_name]
+        if isinstance(f, dict) and isinstance(f.get('_ref'), bson.DBRef):  # dynamic ref
+            doc[updater.field_name] = {'_id': f['_ref'].id}
+        elif isinstance(f, bson.DBRef):
+            doc[updater.field_name] = {'_id': f.id}
+        elif isinstance(f, bson.ObjectId):
+            doc[updater.field_name] = {'_id': f}
+        else:  # Other data type
+            if updater.migration_policy.name == 'strict':
+                raise InconsistencyError(f"Field {updater.field_name} has wrong value {f!r} "
+                                         f"(should be DBRef, ObjectId, manual ref, dynamic ref) "
+                                         f"in record {doc}")
 
     updater.update_by_document(by_doc)
 
@@ -249,7 +272,7 @@ def __mongo_convert(updater: DocumentUpdater, target_type: str):
         type_map = {
             'double': float,
             'string': str,
-            'objectId': bson.ObjectId,
+            'objectId': bson.ObjectId,  # FIXME: add dbref, manual ref, dynamic ref (_ref, _cls)
             'bool': bool,
             'date': lambda x: dateutil_parse(str(x)),
             'int': int,

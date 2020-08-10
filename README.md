@@ -91,8 +91,8 @@ mongoengine-migrate migrate my_migration
 - [x] Altering fields in embedded documents
 - [x] Document inheritance support
 - [x] Dynamic documents support
+- [x] Generic* fields support
 - [ ] Index support
-- [ ] Generic* fields support
 - [ ] Interactive mode
 - [ ] Schema repair tools
 - [ ] Alpha release

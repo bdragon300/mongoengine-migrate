@@ -1,12 +1,18 @@
 # Mongoengine-migrate
 
-*Work in progress*
+**Work in progress**
 
 Schema migrations for [Mongoengine](http://mongoengine.org/) ODM. Inspired by Django migrations system.
 
+## Installation
+
+```shell script
+pip3 install mongoengine-migrate
+```
+
 ## How it works
 
-Let's suppose that we already have the following Document declaration:
+Let's assume that we already have the following Document declaration:
 
 ```python
 from mongoengine import Document, fields
@@ -19,14 +25,16 @@ class Books(Document):
 
 Then we changed couple of things:
 
-```
+```python
+from mongoengine import Document, fields
+
 # Add Author Document
 class Author(Document):
     name = fields.StringField(required=True)
 
 class Books(Document):
     caption = fields.StringField(required=True)  # Make required and rename
-    year = fields.fields.IntField()  # Change type to IntField
+    year = fields.IntField()  # Change type to IntField
     # Removed field isbn
     author = fields.ReferenceField(Author)  # Add field
 ```
@@ -43,11 +51,16 @@ New migration file will be created:
 ```python
 from mongoengine_migrate.actions import *
 
+# Existing data processing policy
+# Possible values are: strict, relaxed
+policy = "strict"
 
+# Names of migrations which the current one is dependent by
 dependencies = [
     'my_migration'
 ]
 
+# Action chain
 forward = [
     CreateDocument('Author', collection='author'),
     CreateField('Author', 'name', choices=None, db_field='name', default=None, max_length=None,

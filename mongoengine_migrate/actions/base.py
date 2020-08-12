@@ -21,9 +21,9 @@ from pymongo.database import Database
 import mongoengine_migrate.flags as flags
 from mongoengine_migrate.exceptions import ActionError, SchemaError
 from mongoengine_migrate.fields.registry import type_key_registry
+from mongoengine_migrate.graph import MigrationPolicy
 from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.utils import Diff, UNSET
-from mongoengine_migrate.graph import MigrationPolicy
 
 #: Migration Actions registry. Mapping of class name and its class
 actions_registry: Dict[str, Type['BaseAction']] = {}
@@ -93,9 +93,9 @@ class BaseAction(metaclass=BaseActionMeta):
                  migration_policy: MigrationPolicy,
                  ensure_existence: bool):
         if ensure_existence and self.document_type not in left_schema:
-            raise SchemaError(f'Document {self.document_type} does not exist in schema')
+            raise SchemaError('Document {} does not exist in schema'.format(self.document_type))
         elif not ensure_existence and self.document_type in left_schema:
-            raise SchemaError(f'Document {self.document_type} already exists in schema')
+            raise SchemaError('Document {} already exists in schema'.format(self.document_type))
 
         collection_name = self.parameters.get('collection')
         if not collection_name:
@@ -157,17 +157,17 @@ class BaseAction(metaclass=BaseActionMeta):
         """
 
     def __repr__(self):
-        params_str = ', '.join(f'{k!r}={v!r}' for k, v in self.parameters.items())
+        params_str = ', '.join('{!r}={!r}'.format(k, v) for k, v in self.parameters.items())
         args_str = repr(self.document_type)
         if self.dummy_action:
-            params_str += f', dummy_action={self.dummy_action}'
-        return f'{self.__class__.__name__}({args_str}, {params_str})'
+            params_str += ', dummy_action={}'.format(self.dummy_action)
+        return '{}({}, {})'.format(self.__class__.__name__, args_str, params_str)
 
     def __str__(self):
         args_str = repr(self.document_type)
         if self.dummy_action:
-            args_str += f', dummy_action={self.dummy_action}'
-        return f'{self.__class__.__name__}({args_str}, ...)'
+            args_str += ', dummy_action={}'.format(self.dummy_action)
+        return '{}({}, ...)'.format(self.__class__.__name__, args_str)
 
 
 class BaseFieldAction(BaseAction):
@@ -185,14 +185,16 @@ class BaseFieldAction(BaseAction):
 
         db_field = kwargs.get('db_field')
         if db_field and '.' in db_field:
-            raise ActionError(f"db_field must not contain dots "
-                              f"{self.document_type}.{self.field_name}")
+            raise ActionError("db_field must not contain dots {}.{}".format(
+                self.document_type, self.field_name
+            ))
 
     def get_field_handler_cls(self, type_key: str):
         """Concrete FieldHandler class for a given type key"""
         if type_key not in type_key_registry:
-            raise SchemaError(f'Unknown type_key in {self.document_type}.{self.field_name}: '
-                              f'{type_key}')
+            raise SchemaError('Unknown type_key in {}.{}: {}'.format(
+                self.document_type, self.field_name, type_key
+            ))
 
         return type_key_registry[type_key].field_handler_cls
 
@@ -243,11 +245,13 @@ class BaseFieldAction(BaseAction):
         super()._prepare(db, left_schema, migration_policy, True)
 
         if ensure_existence and self.field_name not in left_schema[self.document_type]:
-            raise SchemaError(f'Field {self.document_type}.{self.field_name} '
-                              f'does not exist in schema')
+            raise SchemaError('Field {}.{} does not exist in schema'.format(
+                self.document_type, self.field_name
+            ))
         elif not ensure_existence and self.field_name in left_schema[self.document_type]:
-            raise SchemaError(f'Field {self.document_type}.{self.field_name} '
-                              f'already exists in schema')
+            raise SchemaError('Field {}.{} already exists in schema'.format(
+                self.document_type, self.field_name
+            ))
 
     def to_python_expr(self) -> str:
         parameters = {
@@ -257,9 +261,11 @@ class BaseFieldAction(BaseAction):
         if self.dummy_action:
             parameters['dummy_action'] = True
 
-        kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
-        return f'{self.__class__.__name__}({self.document_type!r}, {self.field_name!r}' \
-               f'{kwargs_str})'
+        kwargs_str = ''.join(", {}={}".format(name, val)
+                             for name, val in sorted(parameters.items()))
+        return '{}({!r}, {!r}{})'.format(
+            self.__class__.__name__, self.document_type, self.field_name, kwargs_str
+        )
 
     def _get_field_handler(self, type_key: str, left_field_schema: dict, right_field_schema: dict):
         """
@@ -281,17 +287,17 @@ class BaseFieldAction(BaseAction):
         return handler
 
     def __repr__(self):
-        params_str = ', '.join(f'{k!r}={v!r}' for k, v in self.parameters.items())
-        args_str = f'{self.document_type!r}, {self.field_name!r}'
+        params_str = ', '.join('{!r}={!r}'.format(k, v) for k, v in self.parameters.items())
+        args_str = '{!r}, {!r}'.format(self.document_type, self.field_name)
         if self.dummy_action:
-            params_str += f', dummy_action={self.dummy_action}'
-        return f'{self.__class__.__name__}({args_str}, {params_str})'
+            params_str += ', dummy_action={}'.format(self.dummy_action)
+        return '{}({}, {})'.format(self.__class__.__name__, args_str, params_str)
 
     def __str__(self):
-        args_str = f'{self.document_type!r}, {self.field_name!r}'
+        args_str = '{!r}, {!r}'.format(self.document_type, self.field_name)
         if self.dummy_action:
-            args_str += f', dummy_action={self.dummy_action}'
-        return f'{self.__class__.__name__}({args_str}, ...)'
+            args_str += ', dummy_action={}'.format(self.dummy_action)
+        return '{}({}, ...)'.format(self.__class__.__name__, args_str)
 
 
 class BaseDocumentAction(BaseAction):
@@ -338,8 +344,9 @@ class BaseDocumentAction(BaseAction):
         if self.dummy_action:
             parameters['dummy_action'] = True
 
-        kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
-        return f'{self.__class__.__name__}({self.document_type!r}{kwargs_str})'
+        kwargs_str = ''.join(", {}={}".format(name, val)
+                             for name, val in sorted(parameters.items()))
+        return '{}({!r}{})'.format(self.__class__.__name__, self.document_type, kwargs_str)
 
     def _is_my_collection_used_by_other_documents(self) -> bool:
         """Return True if some of documents uses the same collection"""
@@ -492,21 +499,21 @@ class BaseAlterDocument(BaseDocumentAction):
             if diff.old != diff.new:
                 log.debug(">> Change %s: %s => %s", repr(name), repr(diff.old), repr(diff.new))
                 try:
-                    method = getattr(self, f'change_{name}')
+                    method = getattr(self, 'change_{}'.format(name))
                 except AttributeError as e:
-                    raise SchemaError(f'Unknown document parameter: {name}') from e
+                    raise SchemaError('Unknown document parameter: {}'.format(name)) from e
 
                 method(diff)
 
     def _check_diff(self, diff: Diff, can_be_none=True, check_type=None):
         if diff.new == diff.old:
-            raise SchemaError(f'Parameter {diff.key} does not changed from previous Action')
+            raise SchemaError('Parameter {} does not changed from previous Action'.format(diff.key))
 
         if check_type is not None:
             if diff.old not in (UNSET, None) and not isinstance(diff.old, check_type) \
                     or diff.new not in (UNSET, None) and not isinstance(diff.new, check_type):
-                raise SchemaError(f'{diff.key} must have type {check_type!r}')
+                raise SchemaError('{} must have type {!r}'.format(diff.key, check_type))
 
         if not can_be_none:
             if diff.old is None or diff.new is None:
-                raise SchemaError(f'{diff.key} could not be None')
+                raise SchemaError('{} could not be None'.format(diff.key))

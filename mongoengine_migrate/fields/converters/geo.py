@@ -5,7 +5,7 @@ __all__ = [
 ]
 
 import functools
-from datetime import datetime, date, time
+from datetime import datetime
 from typing import List
 
 import bson
@@ -49,7 +49,9 @@ def convert_geojson(updater: DocumentUpdater, from_type: str, to_type: str):
             to_ind = ind
 
     if from_ind is None or to_ind is None:
-        raise MigrationError(f"Unknown geo field type. Was requested: {from_type}, {to_type}")
+        raise MigrationError(
+            "Unknown geo field type. Was requested: {}, {}".format(from_type, to_type)
+        )
 
     depth = abs(from_ind - to_ind)
     if from_ind <= to_ind:
@@ -165,9 +167,9 @@ def __check_geojson_objects(updater: DocumentUpdater, geojson_types: List[str]):
         fltr = {"$and": [
             {ctx.filter_dotpath: {"$ne": None}},
             *[{k: v} for k, v in ctx.extra_filter.items()],
-            {f'{ctx.filter_dotpath}.type': {'$nin': geojson_types}},
+            {'{}.type'.format(ctx.filter_dotpath): {'$nin': geojson_types}},
             # $expr >= 3.6
-            {"$expr": {"$eq": [{"$type": f'${ctx.filter_dotpath}'}, 'object']}}
+            {"$expr": {"$eq": [{"$type": '${}'.format(ctx.filter_dotpath)}, 'object']}}
         ]}
         check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
@@ -177,8 +179,11 @@ def __check_geojson_objects(updater: DocumentUpdater, geojson_types: List[str]):
             f = doc[updater.field_name]
             valid = f is None or (isinstance(f, dict) and f.get('type') in geojson_types)
             if not valid:
-                raise InconsistencyError(f"Field {updater.field_name} has wrong value {f!r} "
-                                         f"(should be GeoJSON) in record {doc}")
+                raise InconsistencyError(
+                    "Field {} has wrong value {!r} (should be GeoJSON) in record {}".format(
+                        updater.field_name, f, doc
+                    )
+                )
 
     updater.update_combined(by_path, by_doc, False, False)
 
@@ -196,8 +201,8 @@ def __check_legacy_point_coordinates(updater: DocumentUpdater):
             {ctx.filter_dotpath: {"$ne": None}},
             *[{k: v} for k, v in ctx.extra_filter.items()],
             # $expr >= 3.6, $isArray >= 3.2
-            {"$expr": {"$eq": [{"$isArray": f"${ctx.filter_dotpath}"}, True]}},
-            {"$expr": {"$ne": [{"$size": f"${ctx.filter_dotpath}"}, 2]}},  # $expr >= 3.6
+            {"$expr": {"$eq": [{"$isArray": "${}".format(ctx.filter_dotpath)}, True]}},
+            {"$expr": {"$ne": [{"$size": "${}".format(ctx.filter_dotpath)}, 2]}},  # $expr >= 3.6
             # TODO: add element type check
         ]}
         check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
@@ -208,8 +213,10 @@ def __check_legacy_point_coordinates(updater: DocumentUpdater):
             f = doc[updater.field_name]
             valid = f is None or (isinstance(f, (list, tuple)) and len(f) == 2)
             if not valid:
-                raise InconsistencyError(f"Field {updater.field_name} has wrong value {f!r} "
-                                         f"(should be legacy geo point) in record {doc}")
+                raise InconsistencyError(
+                    "Field {} has wrong value {!r} (should be legacy geo point) "
+                    "in record {}".format(updater.field_name, f, doc)
+                )
 
     updater.update_combined(by_path, by_doc, False, False)
 
@@ -229,7 +236,9 @@ def __check_value_types(updater: DocumentUpdater, allowed_types: List[str]):
             {ctx.filter_dotpath: {"$ne": None}},
             *[{k: v} for k, v in ctx.extra_filter.items()],
             # $expr >= 3.6, $type >= 3.4
-            {"$expr": {"$not": [{"$in": [{"$type": f'${ctx.filter_dotpath}'}, allowed_types]}]}}
+            {"$expr": {
+                "$not": [{"$in": [{"$type": '${}'.format(ctx.filter_dotpath)}, allowed_types]}]
+            }}
         ]}
         check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
@@ -253,7 +262,9 @@ def __check_value_types(updater: DocumentUpdater, allowed_types: List[str]):
             valid_types = tuple(type_map[t] for t in allowed_types)
             valid = f is None or isinstance(f, valid_types)
             if not valid:
-                raise InconsistencyError(f"Field {updater.field_name} has wrong type of value "
-                                         f"{f!r} (should be any of {valid_types}) in record {doc}")
+                raise InconsistencyError(
+                    "Field {} has wrong type of value {!r} (should be any of {}) "
+                    "in record {}".format(updater.field_name, f, valid_types, doc)
+                )
 
     updater.update_combined(by_path, by_doc, False, False)

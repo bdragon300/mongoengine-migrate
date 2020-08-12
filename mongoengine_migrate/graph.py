@@ -4,11 +4,11 @@ __all__ = [
     'MigrationsGraph'
 ]
 
+from enum import Enum
 from typing import Dict, List
 
 from mongoengine_migrate.exceptions import MigrationGraphError
 from mongoengine_migrate.utils import Slotinit
-from enum import Enum
 
 
 class MigrationPolicy(Enum):
@@ -139,21 +139,27 @@ class MigrationsGraph:
                 last_children.append(name)
             if len(obj.dependencies) > len(self._parents[name]):
                 diff = set(obj.dependencies) - {x.name for x in self._parents[name]}
-                raise MigrationGraphError(f'Unknown dependencies in migration {name!r}: {diff}')
+                raise MigrationGraphError(
+                    'Unknown dependencies in migration {!r}: {}'.format(name, diff)
+                )
             if name in (x.name for x in self._children[name]):
-                raise MigrationGraphError(f'Found migration which dependent on itself: {name!r}')
+                raise MigrationGraphError(
+                    'Found migration which dependent on itself: {!r}'.format(name)
+                )
 
         if len(initials) == len(last_children) and len(initials) > 1:
-            raise MigrationGraphError(f'Migrations graph is disconnected, history segments '
-                                 f'started on: {initials!r}, ended on: {last_children!r}')
+            raise MigrationGraphError(
+                'Migrations graph is disconnected, history segments '
+                'started on: {!r}, ended on: {!r}'.format(initials, last_children)
+            )
         if len(initials) > 1:
-            raise MigrationGraphError(f'Several initial migrations found: {initials!r}')
+            raise MigrationGraphError('Several initial migrations found: {!r}'.format(initials))
 
         if len(last_children) > 1:
-            raise MigrationGraphError(f'Several last migrations found: {last_children!r}')
+            raise MigrationGraphError('Several last migrations found: {!r}'.format(last_children))
 
         if not initials or not last_children:
-            raise MigrationGraphError(f'No initial or last children found')
+            raise MigrationGraphError('No initial or last children found')
 
     def walk_down(self, from_node: Migration, unapplied_only=True, _node_counters=None):
         """
@@ -204,8 +210,10 @@ class MigrationsGraph:
         if _node_counters[from_node.name] < 0:
             # A node was already returned and we're reached it again
             # This means there is a closed cycle
-            raise MigrationGraphError(f'Found closed cycle in migration graph, '
-                                      f'{from_node.name!r} is repeated twice')
+            raise MigrationGraphError(
+                'Found closed cycle in migration graph, {!r} '
+                'is repeated twice'.format(from_node.name)
+            )
 
         if not (from_node.applied and unapplied_only):
             yield from_node
@@ -248,8 +256,10 @@ class MigrationsGraph:
         if _node_counters[from_node.name] < 0:
             # A node was already returned and we're reached it again
             # This means there is a closed cycle
-            raise MigrationGraphError(f'Found closed cycle in migration graph, '
-                                      f'{from_node.name!r} is repeated twice')
+            raise MigrationGraphError(
+                'Found closed cycle in migration graph, {!r} '
+                'is repeated twice'.format(from_node.name)
+            )
 
         if from_node.applied or not applied_only:
             yield from_node

@@ -29,10 +29,10 @@ from mongoengine_migrate.mongo import (
     check_empty_result,
     mongo_version
 )
-from ..updater import ByPathContext, ByDocContext, DocumentUpdater
 from mongoengine_migrate.utils import get_document_type, Diff, UNSET
 from .base import CommonFieldHandler
 from .converters import to_string, to_decimal
+from ..updater import ByPathContext, ByDocContext, DocumentUpdater
 
 
 class NumberFieldHandler(CommonFieldHandler):
@@ -111,7 +111,8 @@ class StringFieldHandler(CommonFieldHandler):
             fltr = {
                 ctx.filter_dotpath: {'$ne': None},
                 **ctx.extra_filter,
-                "$expr": {"$lt": [{"$strLenCP": f"${ctx.filter_dotpath}"}, diff.new]},  # >= 3.6
+                # >= 3.6
+                "$expr": {"$lt": [{"$strLenCP": "${}".format(ctx.filter_dotpath)}, diff.new]},
             }
             check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
@@ -120,8 +121,9 @@ class StringFieldHandler(CommonFieldHandler):
             val = doc.get(updater.field_name)
             if isinstance(val, str) and len(val) < diff.new:
                 raise InconsistencyError(
-                    f"String field {ctx.collection.name}.{ctx.filter_dotpath} on one of "
-                    f"records has length less than minimum: {doc}"
+                    "String field {}.{} on one of records has length less than minimum: {}".format(
+                        ctx.collection.name, ctx.filter_dotpath, doc
+                    )
                 )
 
         self._check_diff(updater, diff, True, int)
@@ -170,7 +172,7 @@ class URLFieldHandler(StringFieldHandler):
             return
 
         # Check if some records contains non-url values in db_field
-        scheme_regex = re.compile(rf'\A(?:({"|".join(re.escape(x) for x in diff.new)}))://')
+        scheme_regex = re.compile(r'\A(?:({}))://'.format("|".join(re.escape(x) for x in diff.new)))
         if self.migration_policy.name == 'strict':
             updater.update_by_path(by_path)
 
@@ -243,7 +245,9 @@ class EmailFieldHandler(StringFieldHandler):
             fltr = {"$and": [
                 {ctx.filter_dotpath: {'$ne': None}},
                 {ctx.filter_dotpath: self.IP_DOMAIN_REGEX},
-                {ctx.filter_dotpath: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}},
+                {ctx.filter_dotpath: {
+                    '$not': re.compile(r'\A[^@]+@({})\Z'.format(whitelist_regex))
+                }},
                 *[{k: v} for k, v in ctx.extra_filter.items()]
             ]}
             check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
@@ -267,7 +271,9 @@ class EmailFieldHandler(StringFieldHandler):
                 {ctx.filter_dotpath: {'$ne': None}},
                 {ctx.filter_dotpath: {'$not': self.DOMAIN_REGEX}},
                 {ctx.filter_dotpath: {'$not': self.IP_DOMAIN_REGEX}},
-                {ctx.filter_dotpath: {'$not': re.compile(rf'\A[^@]+@({whitelist_regex})\Z')}},
+                {ctx.filter_dotpath: {
+                    '$not': re.compile(r'\A[^@]+@({})\Z'.format(whitelist_regex))
+                }},
                 *[{k: v} for k, v in ctx.extra_filter.items()],
             ]}
             check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
@@ -332,8 +338,9 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
 
         self._check_diff(updater, diff, False, str)
         if not diff.new or not diff.old:
-            raise SchemaError(f'{updater.document_type}{updater.field_name}.separator '
-                              f'must not be empty')
+            raise SchemaError('{}{}.separator must not be empty'.format(
+                updater.document_type, updater.field_name
+            ))
         if diff.new == UNSET:
             return
 

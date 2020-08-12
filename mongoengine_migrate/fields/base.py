@@ -30,7 +30,7 @@ class FieldHandlerMeta(type):
             "Handler schema_skel_keys shouldn't have keys matched with BaseAction parameters"
 
         assert isinstance(me_classes, (List, Tuple)) or me_classes is None, \
-            f'{me_classes_attr} must be mongoengine field classes list'
+            '{} must be mongoengine field classes list'.format(me_classes_attr)
 
         attrs['_meta'] = weakref.proxy(mcs)
 
@@ -132,8 +132,10 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                 (x.field_cls for x in type_key_registry.values())
             )
             if registry_field_cls is None:
-                raise ActionError(f'Could not find {field_class!r} or one of its base classes '
-                                  f'in type_key registry')
+                raise ActionError(
+                    'Could not find {!r} or one of its base classes '
+                    'in type_key registry'.format(field_class)
+                )
 
             schema['type_key'] = registry_field_cls.__name__
 
@@ -158,7 +160,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             key=name
         )
 
-        method = getattr(self, f'change_{name}')
+        method = getattr(self, 'change_{}'.format(name))
         inherit = self.left_schema[self.document_type].parameters.get('inherit')
         document_cls = document_type_to_class_name(self.document_type) if inherit else None
         updater = DocumentUpdater(self.db, self.document_type, self.left_schema, db_field,
@@ -186,8 +188,9 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         self._check_diff(updater, diff, False, str)
         if not diff.new or not diff.old:
-            raise SchemaError(f"{updater.document_type}{updater.field_name}.db_field "
-                              f"must be a non-empty string")
+            raise SchemaError("{}.{}.db_field must be a non-empty string".format(
+                updater.document_type, updater.field_name
+            ))
 
         updater.update_combined(by_path, by_doc, False)
 
@@ -204,8 +207,9 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             default = self.right_field_schema.get('default')
             # None and UNSET default has the same meaning here
             if default is None:
-                raise SchemaError(f'{updater.document_type}{updater.field_name}.default is not '
-                                  f'set for required field')
+                raise SchemaError('{}.{}.default is not set for required field'.format(
+                    updater.document_type, updater.field_name
+                ))
 
             self._set_default_value(updater, default)
 
@@ -235,7 +239,9 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         self._check_diff(updater, diff, False, bool)
 
         if updater.is_embedded:
-            raise SchemaError(f'Embedded document {updater.document_type} cannot have primary key')
+            raise SchemaError(
+                'Embedded document {} cannot have primary key'.format(updater.document_type)
+            )
         if self.migration_policy.name == 'strict':
             updater.update_by_path(by_path)
         # self.change_unique([], []) or []  # TODO
@@ -281,14 +287,16 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         """
         self._check_diff(updater, diff, False, str)
         if not diff.old or not diff.new:
-            raise SchemaError(f"Old or new {updater.document_type}{updater.field_name}.type_key "
-                              f"values are not set")
+            raise SchemaError("Old or new {}.{}.type_key values are not set".format(
+                updater.document_type, updater.field_name
+            ))
 
         field_classes = []
         for val in (diff.old, diff.new):
             if val not in type_key_registry:
-                raise SchemaError(f'Unknown type_key {updater.document_type}{updater.field_name}: '
-                                  f'{val!r}')
+                raise SchemaError('Unknown type_key {}.{}: {!r}'.format(
+                    updater.document_type, updater.field_name, val
+                ))
             field_classes.append(type_key_registry[val].field_cls)
 
         new_handler_cls = type_key_registry[diff.new].field_handler_cls
@@ -329,34 +337,39 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             CONVERTION_MATRIX.get(get_closest_parent(from_field_cls, CONVERTION_MATRIX.keys()))
 
         if type_converters is None:
-            raise MigrationError(f'Type converter not found for convertion '
-                                 f'{from_field_cls!r} -> {to_field_cls!r}')
+            raise MigrationError('Type converter not found for convertion {!r} -> {!r}'.format(
+                from_field_cls, to_field_cls
+            ))
 
         type_converter = type_converters.get(to_field_cls) or \
             type_converters.get(get_closest_parent(to_field_cls, type_converters))
 
         if type_converter is None:
-            raise MigrationError(f'Type converter not found for convertion '
-                                 f'{from_field_cls!r} -> {to_field_cls!r}')
+            raise MigrationError('Type converter not found for convertion {!r} -> {!r}'.format(
+                from_field_cls, to_field_cls
+            ))
 
         type_converter(updater)
 
     @staticmethod
     def _check_diff(updater: DocumentUpdater, diff: Diff, can_be_none=True, check_type=None):
         if diff.new == diff.old:
-            raise SchemaError(f'{updater.document_type}.{updater.field_name}.{diff.key} '
-                              f'does not changed from previous Action')
+            raise SchemaError('{}.{}.{} does not changed from previous Action'.format(
+                updater.document_type, updater.field_name, diff.key
+            ))
 
         if check_type is not None:
             if diff.old not in (UNSET, None) and not isinstance(diff.old, check_type) \
                     or diff.new not in (UNSET, None) and not isinstance(diff.new, check_type):
-                raise SchemaError(f'{updater.document_type}.{updater.field_name}.{diff.key} '
-                                  f'must have type {check_type!r}')
+                raise SchemaError('{}.{}.{} must have type {!r}'.format(
+                    updater.document_type, updater.field_name, diff.key, check_type
+                ))
 
         if not can_be_none:
             if diff.old is None or diff.new is None:
-                raise SchemaError(f'{updater.document_type}.{updater.field_name}.{diff.key} '
-                                  f'could not be None')
+                raise SchemaError('{}.{}.{} could not be None'.format(
+                    updater.document_type, updater.field_name, diff.key
+                ))
 
     @classmethod
     def _normalize_default(cls, default):

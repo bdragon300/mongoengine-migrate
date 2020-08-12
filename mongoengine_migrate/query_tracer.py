@@ -56,9 +56,11 @@ class BulkWriteResultMock(NamedTuple):
 
 def make_history_method(func_name, method_kind, return_value=_sentinel):
     def w(instance, *args, **kwargs):
-        args_str = ', '.join(f'\n  {arg}' for arg in args)
-        kwargs_str = ', '.join(f"\n  {name}={val}" for name, val in sorted(kwargs.items()))
-        arguments = f'{args_str}{"," if kwargs_str else ""}{kwargs_str}'
+        args_str = ', '.join('\n  {}'.format(arg) for arg in args)
+        kwargs_str = ', '.join(
+            "\n  {}={}".format(name, val) for name, val in sorted(kwargs.items())
+        )
+        arguments = args_str + ("," if kwargs_str else "") + kwargs_str
         if arguments:
             arguments += '\n'
         collection_name = instance.__wrapped__.full_name

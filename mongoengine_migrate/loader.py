@@ -98,10 +98,12 @@ def collect_models_schema() -> Schema:
 
         document_type = get_document_type(model_cls)
         if document_type is None:
-            raise ActionError(f'Could not get document type for {model_cls!r}')
+            raise ActionError('Could not get document type for {!r}'.format(model_cls))
 
         if document_type in schema:
-            raise ActionError(f'Models with the same document types {document_type!r} found')
+            raise ActionError(
+                'Models with the same document types {!r} found'.format(document_type)
+            )
 
         schema[document_type] = Schema.Document()
         if not document_type.startswith(runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
@@ -113,8 +115,10 @@ def collect_models_schema() -> Schema:
             collections.setdefault(col, set())
             if collections[col] and top_lvl_doc not in collections[col]:
                 collections[col].add(top_lvl_doc)
-                log.warning(f'These mongoengine documents use the same collection '
-                            f'which can be a cause of data corruption: {collections[col]}')
+                log.warning(
+                    'These mongoengine documents use the same collection which '
+                    'can be a cause of data corruption: {}'.format(collections[col])
+                )
             else:
                 collections[col].add(top_lvl_doc)
 
@@ -145,8 +149,10 @@ def collect_models_schema() -> Schema:
                 )
 
             if registry_field_cls is None:
-                raise ActionError(f'Could not find {field_cls!r} or one of its base classes '
-                                  f'in type_key registry')
+                raise ActionError(
+                    'Could not find {!r} or one of its base classes '
+                    'in type_key registry'.format(field_cls)
+                )
 
             handler_cls = field_mapping_registry[registry_field_cls].field_handler_cls
             schema[document_type][field_name] = handler_cls.build_schema(field_obj)
@@ -255,7 +261,7 @@ class MongoengineMigrate:
 
     def load_migrations(self,
                         directory: Path,
-                        namespace: str = f"{__name__}._migrations") -> Iterable[Migration]:
+                        namespace: str = "{}._migrations".format(__name__)) -> Iterable[Migration]:
         """
         Load migrations python modules located in a given directory.
         Every module is loaded on a given namespace. Function skips
@@ -267,7 +273,7 @@ class MongoengineMigrate:
         """
         # FIXME: do not load to current namespace
         if not directory.exists():
-            raise MongoengineMigrateError(f"Directory '{directory}' does not exist")
+            raise MongoengineMigrateError("Directory '{}' does not exist".format(directory))
 
         for module_file in directory.glob("*.py"):
             if module_file.name.startswith("__"):
@@ -276,7 +282,8 @@ class MongoengineMigrate:
             log.debug('> Loading migration file %s', module_file)
             migration_name = module_file.stem
             spec = importlib.util.spec_from_file_location(
-                f"{namespace}.{migration_name}", str(module_file)
+                "{}.{}".format(namespace, migration_name),
+                str(module_file)
             )
             migration_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(migration_module)
@@ -297,7 +304,8 @@ class MongoengineMigrate:
             if migration_name not in graph.migrations:
                 # TODO: ability to override with --force
                 raise MigrationGraphError(
-                    f'Migration {migration_name} was applied, but its python module not found'
+                    'Migration {} was applied, '
+                    'but its python module not found'.format(migration_name)
                 )
             graph.migrations[migration_name].applied = True
             applied.append(migration_name)
@@ -322,7 +330,7 @@ class MongoengineMigrate:
         left_schema = self.load_db_schema()
 
         if migration_name not in graph.migrations:
-            raise MigrationGraphError(f'Migration {migration_name} not found')
+            raise MigrationGraphError('Migration {} not found'.format(migration_name))
 
         # TODO: error handling
         db = self.db
@@ -365,7 +373,7 @@ class MongoengineMigrate:
         left_schema = self.load_db_schema()
 
         if migration_name not in graph.migrations:
-            raise MigrationGraphError(f'Migration {migration_name} not found')
+            raise MigrationGraphError('Migration {} not found'.format(migration_name))
 
         log.debug('Precalculating schema diffs...')
         # Collect schema diffs across all migrations
@@ -426,7 +434,7 @@ class MongoengineMigrate:
             migration_name = graph.last.name
 
         if migration_name not in graph.migrations:
-            raise MigrationGraphError(f'Migration {migration_name} not found')
+            raise MigrationGraphError('Migration {} not found'.format(migration_name))
 
         migration = graph.migrations[migration_name]
         if migration.applied:
@@ -482,7 +490,7 @@ class MongoengineMigrate:
         migration_source = tpl.render(tpl_ctx)
 
         seq_number = str(len(graph.migrations)).zfill(4)
-        name = f'{seq_number}_auto_{datetime.now().strftime("%Y%m%d_%H%M")}.py'
+        name = '{}_auto_{}.py'.format(seq_number, datetime.now().strftime("%Y%m%d_%H%M"))
         migration_file = Path(self.migration_dir) / name
         migration_file.write_text(migration_source)
 
@@ -501,8 +509,10 @@ class MongoengineMigrate:
             col = doc_schema.parameters['collection']
             top_lvl_doc = document_type.split(runtime_flags.DOCUMENT_NAME_SEPARATOR)[0]
             if top_lvl_doc in collections and collections[top_lvl_doc] != col:
-                log.warning(f'The collection in derived document {document_type} ({col}) '
-                            f'is differ than its base document {top_lvl_doc} '
-                            f'({collections[top_lvl_doc]}). Please fix collection name and rerun '
-                            f'an affected migration')
+                log.warning(
+                    'The collection in derived document {} ({}) is differ than its base document '
+                    '{} ({}). Please fix collection name and rerun an affected migration'.format(
+                        document_type, col, top_lvl_doc, collections[top_lvl_doc]
+                    )
+                )
             collections.setdefault(top_lvl_doc, col)

@@ -39,11 +39,8 @@ def test_drop_field__should_drop_field(test_db, load_fixture, document_type, fie
         ('Schema1Doc1', 'doc1_str'),
         ('~Schema1EmbDoc1', 'embdoc1_str'),
         ('~Schema1EmbDoc2', 'embdoc2_str'),
-        ('Schema1Doc1', 'doc1_list'),
-        ('~Schema1EmbDoc1', 'embdoc1_list'),
-        ('~Schema1EmbDoc2', 'embdoc2_list'),
 ))
-def test_item_to_list__should_wrap_value_in_a_list_with_single_element(
+def test_item_to_list__if_value_is_not_a_list__should_wrap_value_in_a_list_with_single_element(
         test_db, load_fixture, document_type, field_name, dump_db
 ):
     schema = load_fixture('schema1').get_schema()
@@ -53,6 +50,24 @@ def test_item_to_list__should_wrap_value_in_a_list_with_single_element(
     parsers = load_fixture('schema1').get_embedded_jsonpath_parsers(document_type)
     for doc in itertools.chain.from_iterable(p.find(expect) for p in parsers):
         doc.value[field_name] = [doc.value[field_name]]
+
+    converters.item_to_list(updater)
+
+    assert dump_db() == expect
+
+
+@pytest.mark.parametrize('document_type,field_name', (
+        ('Schema1Doc1', 'doc1_list'),
+        ('~Schema1EmbDoc1', 'embdoc1_list'),
+        ('~Schema1EmbDoc2', 'embdoc2_list'),
+))
+def test_item_to_list__if_value_is_list__should_wrap_value_in_a_list_with_single_element(
+        test_db, load_fixture, document_type, field_name, dump_db
+):
+    schema = load_fixture('schema1').get_schema()
+    updater = DocumentUpdater(test_db, document_type, schema, field_name, MigrationPolicy.strict)
+
+    expect = dump_db()
 
     converters.item_to_list(updater)
 
@@ -78,7 +93,7 @@ def test_extract_from_list__should_extract_the_first_value_from_list(
         else:
             doc.value[field_name] = None
 
-    converters.extract_from_list(updater)
+    converters.extract_from_list(updater, int)
 
     assert dump_db() == expect
 
@@ -95,7 +110,7 @@ def test_extract_from_list__if_value_is_not_list__should_raise_error(
     updater = DocumentUpdater(test_db, document_type, schema, field_name, MigrationPolicy.strict)
 
     with pytest.raises(MigrationError):
-        converters.extract_from_list(updater)
+        converters.extract_from_list(updater, int)
 
 
 @pytest.mark.parametrize('document_type,field_name', (

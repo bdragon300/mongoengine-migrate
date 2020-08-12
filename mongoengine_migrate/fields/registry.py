@@ -6,8 +6,8 @@ __all__ = [
     'CONVERTION_MATRIX'
 ]
 
-import inspect
 import decimal
+import inspect
 from datetime import datetime, date
 from functools import partial
 from typing import Dict, Type, Optional, NamedTuple
@@ -353,7 +353,7 @@ CONVERTION_MATRIX = {
         fields.URLField: converters.to_url_string,
         fields.EmailField: converters.to_email_string,
         fields.ComplexDateTimeField: converters.to_complex_datetime,
-        fields.DictField: converters.to_dict,  # + MapField
+        fields.DictField: converters.to_object,  # + MapField
         fields.ReferenceField: converters.to_dbref,
         fields.GenericReferenceField: converters.to_dbref,  # + GenericLazyReferenceField
         fields.BinaryField: converters.to_binary,
@@ -422,7 +422,7 @@ CONVERTION_MATRIX = {
     },
     fields.UUIDField: {
         **DENY_BASES,
-        fields.StringField: converters.to_uuid_str,
+        fields.StringField: converters.to_string,
         fields.URLField: converters.deny,  # Override StringField converter
         fields.EmailField: converters.deny,  # Override StringField converter
         fields.ComplexDateTimeField: converters.deny,  # Override StringField converter

@@ -13,15 +13,13 @@ package_name = __package__
 @pytest.fixture(autouse=True)
 def test_db():
     if 'DATABASE_URL' not in os.environ:
-        raise RuntimeError('Please set DATABASE_URL env variable')
+        raise RuntimeError(f'Please set DATABASE_URL env variable')
 
     client = MongoClient(os.environ['DATABASE_URL'])
     # Check if we accidentally using the main db instead of test db
     db = client.get_database()
     if not db.name.endswith('_test'):
-        raise RuntimeError(
-            'DATABASE_URL must point to testing db, not to master db ({})'.format(db.name)
-        )
+        raise RuntimeError(f'DATABASE_URL must point to testing db, not to master db ({db.name})')
 
     connect(host=os.environ['DATABASE_URL'])
     flags.mongo_version = '999.9'
@@ -60,7 +58,7 @@ def load_fixture(dump_db):
         if fixture_name in module_names:
             return sys.modules[module_names[fixture_name]]
 
-        module_name = '.fixtures.{}'.format(fixture_name)
+        module_name = f'.fixtures.{fixture_name}'
         module = import_module(module_name, package=package_name)
         module_names[fixture_name] = module.__name__
 

@@ -38,10 +38,10 @@ class Diff(NamedTuple):
     key: str
 
     def __str__(self):
-        return "Diff({}: {}, {})".format(self.key, self.old, self.new)
+        return f"Diff({self.key}: {self.old}, {self.new})"
 
     def __repr__(self):
-        return "<Diff({}: {}, {})>".format(self.key, self.old, self.new)
+        return f"<Diff({self.key}: {self.old}, {self.new})>"
 
 
 class Slotinit(object):
@@ -125,7 +125,7 @@ def get_document_type(document_cls: Type[BaseDocument]) -> Optional[str]:
     # treats dot in key as dict keys path
     document_type = document_type.replace('.', DOCUMENT_NAME_SEPARATOR)
     if issubclass(document_cls, EmbeddedDocument):
-        document_type = '{}{}'.format(EMBEDDED_DOCUMENT_NAME_PREFIX, document_type)
+        document_type = f'{EMBEDDED_DOCUMENT_NAME_PREFIX}{document_type}'
 
     return document_type
 

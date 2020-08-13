@@ -379,12 +379,12 @@ class TestAlterFieldCommonChoices:
         action.cleanup()
 
         # Corrupt data in db
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000002'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1']['embdoc1_str_ten'] = 'test!'
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000002')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000003'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0]['embdoc1_str_ten'] = 'test!'
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000003')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
         action.prepare(test_db, schema, MigrationPolicy.strict)
 
@@ -398,9 +398,9 @@ class TestAlterFieldCommonNull:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000002'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_str_empty'] = 'test!'
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000002')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
 
         expect = dump_db()
         parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('Schema1Doc1')
@@ -420,12 +420,12 @@ class TestAlterFieldCommonNull:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000002'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1']['embdoc1_str_empty'] = 'test!'
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000002')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000003'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0]['embdoc1_str_empty'] = 'test!'
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000003')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
         expect = dump_db()
         parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('~Schema1EmbDoc1')
@@ -445,9 +445,9 @@ class TestAlterFieldCommonNull:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000002'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_str_empty'] = 'test!'
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000002')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
 
         expect = dump_db()
         parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('Schema1Doc1')
@@ -470,12 +470,12 @@ class TestAlterFieldCommonNull:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000002'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1']['embdoc1_str_empty'] = 'test!'
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000002')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000003'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0]['embdoc1_str_empty'] = 'test!'
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000003')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
         expect = dump_db()
         parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('~Schema1EmbDoc1')
@@ -513,14 +513,14 @@ class TestAlterFieldNumberMinValue:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000001'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000001'))
         doc[field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000001')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000001'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
                 doc.value[field_name] = expect_value
 
         action = AlterField('Schema1Doc1', field_name, min_value=min_value)
@@ -540,19 +540,19 @@ class TestAlterFieldNumberMinValue:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000002'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1'][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000002')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000003'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000003')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000002'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1'][field_name] = expect_value
-            if doc.value['_id'] == ObjectId('000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0][field_name] = expect_value
 
         action = AlterField('~Schema1EmbDoc1', field_name, min_value=min_value)
@@ -572,14 +572,14 @@ class TestAlterFieldNumberMinValue:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000001'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000001'))
         doc[field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000001')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000001'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
                 doc.value[field_name] = expect_value
 
         action = AlterField('Schema1Doc1', field_name, min_value=min_value)
@@ -602,19 +602,19 @@ class TestAlterFieldNumberMinValue:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000002'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1'][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000002')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000003'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000003')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000002'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1'][field_name] = expect_value
-            if doc.value['_id'] == ObjectId('000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0][field_name] = expect_value
 
         action = AlterField('~Schema1EmbDoc1', field_name, min_value=min_value)
@@ -639,14 +639,14 @@ class TestAlterFieldNumberMaxValue:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000001'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000001'))
         doc[field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000001')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000001'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
                 doc.value[field_name] = expect_value
 
         action = AlterField('Schema1Doc1', field_name, max_value=max_value)
@@ -666,19 +666,19 @@ class TestAlterFieldNumberMaxValue:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000002'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1'][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000002')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000003'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000003')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000002'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1'][field_name] = expect_value
-            if doc.value['_id'] == ObjectId('000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0][field_name] = expect_value
 
         action = AlterField('~Schema1EmbDoc1', field_name, max_value=max_value)
@@ -698,14 +698,14 @@ class TestAlterFieldNumberMaxValue:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000001'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000001'))
         doc[field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000001')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000001'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
                 doc.value[field_name] = expect_value
 
         action = AlterField('Schema1Doc1', field_name, max_value=max_value)
@@ -728,19 +728,19 @@ class TestAlterFieldNumberMaxValue:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000002'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1'][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000002')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000003'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0][field_name] = db_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000003')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000002'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1'][field_name] = expect_value
-            if doc.value['_id'] == ObjectId('000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0][field_name] = expect_value
 
         action = AlterField('~Schema1EmbDoc1', field_name, max_value=max_value)
@@ -1015,14 +1015,14 @@ class TestAlterFieldDecimalForceString:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000001'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000001'))
         doc['doc1_decimal'] = init_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000001')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000001'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
                 doc.value['doc1_decimal'] = '3.14'
 
         action = AlterField('Schema1Doc1', 'doc1_decimal', force_string=True)
@@ -1038,19 +1038,19 @@ class TestAlterFieldDecimalForceString:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000002'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1']['embdoc1_decimal'] = init_value1
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000002')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000003'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0]['embdoc1_decimal'] = init_value2
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000003')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000002'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1']['embdoc1_decimal'] = '3.14'
-            if doc.value['_id'] == ObjectId('000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0]['embdoc1_decimal'] = '2.17'
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_decimal', force_string=True)
@@ -1066,14 +1066,14 @@ class TestAlterFieldDecimalForceString:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000001'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000001'))
         doc['doc1_decimal'] = init_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000001')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000001'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
                 doc.value['doc1_decimal'] = 3.14
 
         action = AlterField('Schema1Doc1', 'doc1_decimal', force_string=True)
@@ -1092,19 +1092,19 @@ class TestAlterFieldDecimalForceString:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000002'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1']['embdoc1_decimal'] = init_value1
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000002')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000003'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0]['embdoc1_decimal'] = init_value2
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000003')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000002'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1']['embdoc1_decimal'] = 3.14
-            if doc.value['_id'] == ObjectId('000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0]['embdoc1_decimal'] = 2.17
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_decimal', force_string=True)
@@ -1127,14 +1127,14 @@ class TestAlterFieldComplexDateTimeSeparator:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000001'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000001'))
         doc['doc1_complex_datetime'] = init_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000001')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000001'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
                 doc.value['doc1_complex_datetime'] = '2020|04|03|02|01|00|000000'
 
         action = AlterField('Schema1Doc1', 'doc1_complex_datetime', separator='|')
@@ -1153,20 +1153,20 @@ class TestAlterFieldComplexDateTimeSeparator:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000002'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1']['embdoc1_complex_datetime'] = init_value1
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000002')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000003'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0]['embdoc1_complex_datetime'] = init_value2
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000003')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000002'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1']['embdoc1_complex_datetime'] = \
                     '2020|00|01|02|03|04|000000'
-            if doc.value['_id'] == ObjectId('000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0]['embdoc1_complex_datetime'] = \
                     '2020|04|03|02|01|00|000000'
 
@@ -1185,14 +1185,14 @@ class TestAlterFieldComplexDateTimeSeparator:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000001'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000001'))
         doc['doc1_complex_datetime'] = init_value
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000001')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000001'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
                 doc.value['doc1_complex_datetime'] = '2020.04.03.02.01.00.000000'
 
         action = AlterField('Schema1Doc1', 'doc1_complex_datetime', separator='|')
@@ -1214,20 +1214,20 @@ class TestAlterFieldComplexDateTimeSeparator:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000002'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1']['embdoc1_complex_datetime'] = init_value1
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000002')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000003'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0]['embdoc1_complex_datetime'] = init_value2
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000003')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000002'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1']['embdoc1_complex_datetime'] = \
                     '2020.00.01.02.03.04.000000'
-            if doc.value['_id'] == ObjectId('000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0]['embdoc1_complex_datetime'] = \
                     '2020.04.03.02.01.00.000000'
 
@@ -1323,9 +1323,9 @@ class TestAlterFieldReferenceDbref:
     def test_forward__for_document__should_convert_to_dbref(self, load_fixture, test_db, dump_db):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000001'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000001'))
         doc['doc1_ref_self'] = ObjectId('000000000000000000000002')
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000001')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
@@ -1344,23 +1344,23 @@ class TestAlterFieldReferenceDbref:
     def test_forward__for_embedded__should_convert_to_dbref(self, load_fixture, test_db, dump_db):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000002'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
         doc['doc1_emb_embdoc1']['embdoc1_ref_doc1'] = ObjectId('000000000000000000000002')
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000002')}, doc)
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000003'))
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
         doc['doc1_emblist_embdoc1'][0]['embdoc1_ref_doc1'] = ObjectId('000000000000000000000002')
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000003')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000002'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000002'):
                 doc.value['doc1_emb_embdoc1']['embdoc1_ref_doc1'] = bson.DBRef(
-                    'schema1_doc1', ObjectId('000000000000000000000002')
+                    'schema1_doc1', ObjectId(f'000000000000000000000002')
                 )
-            if doc.value['_id'] == ObjectId('000000000000000000000003'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000003'):
                 doc.value['doc1_emblist_embdoc1'][0]['embdoc1_ref_doc1'] = bson.DBRef(
-                    'schema1_doc1', ObjectId('000000000000000000000002')
+                    'schema1_doc1', ObjectId(f'000000000000000000000002')
                 )
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_ref_doc1', dbref=True)
@@ -1398,13 +1398,13 @@ class TestAlterFieldCachedReferenceFields:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000001'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000001'))
         doc['doc1_cachedref_self'] = {
             '_id': ObjectId('000000000000000000000002'),
             'doc1_int': 2,
             'doc1_str': '2'
         }
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000001')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
         expect = dump_db()
 
@@ -1423,15 +1423,15 @@ class TestAlterFieldCachedReferenceFields:
         schema = load_fixture('schema1').get_schema()
         schema['Schema1Doc1']['doc1_cachedref_self']['fields'] = ['doc1_int', 'doc1_str']
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000001'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000001'))
         doc['doc1_cachedref_self'] = \
             {'_id': ObjectId('000000000000000000000002'), 'doc1_int': 2, 'doc1_str': '2'}
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000001')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')
         for doc in parser.find(expect):
-            if doc.value['_id'] == ObjectId('000000000000000000000001'):
+            if doc.value['_id'] == ObjectId(f'000000000000000000000001'):
                 doc.value['doc1_cachedref_self'] = {'_id': ObjectId('000000000000000000000002'),
                                                     'doc1_int': 2}
 
@@ -1457,13 +1457,13 @@ class TestAlterFieldCachedReferenceFields:
     ):
         schema = load_fixture('schema1').get_schema()
 
-        doc = test_db['schema1_doc1'].find_one(ObjectId('000000000000000000000001'))
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000001'))
         doc['doc1_cachedref_self'] = {
             '_id': ObjectId('000000000000000000000002'),
             'doc1_int': 2,
             'doc1_str': '2'
         }
-        test_db['schema1_doc1'].replace_one({'_id': ObjectId('000000000000000000000001')}, doc)
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000001')}, doc)
 
         expect = dump_db()
         parser = jsonpath_rw.parse('schema1_doc1[*]')

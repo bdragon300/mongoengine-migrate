@@ -11,11 +11,11 @@ from typing import Mapping, Any
 from pymongo.database import Database
 
 from mongoengine_migrate.exceptions import SchemaError
-from mongoengine_migrate.graph import MigrationPolicy
+from ..updater import ByPathContext, ByDocContext, DocumentUpdater
 from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.utils import document_type_to_class_name
+from mongoengine_migrate.graph import MigrationPolicy
 from .base import BaseFieldAction
-from ..updater import ByPathContext, ByDocContext, DocumentUpdater
 
 log = logging.getLogger('mongoengine-migrate')
 
@@ -42,18 +42,16 @@ class CreateField(BaseFieldAction):
         keys_to_check = {'type_key', 'db_field'}
         missed_keys = keys_to_check - self.parameters.keys()
         if missed_keys:
-            raise SchemaError("Missed required parameters in CreateField({}...): {}".format(
-                self.document_type, missed_keys
-            ))
+            raise SchemaError(f"Missed required parameters in "
+                              f"CreateField({self.document_type}...): {missed_keys}")
 
         # Get schema skeleton for field type
         field_handler_cls = self.get_field_handler_cls(self.parameters['type_key'])
         right_field_schema_skel = field_handler_cls.schema_skel()
         extra_keys = self.parameters.keys() - right_field_schema_skel.keys()
         if extra_keys:
-            raise SchemaError('Unknown CreateField({}...) parameters: {}'.format(
-                self.document_type, extra_keys
-            ))
+            raise SchemaError(f'Unknown CreateField({self.document_type}...) parameters: '
+                              f'{extra_keys}')
 
         field_params = {
             **right_field_schema_skel,
@@ -133,11 +131,9 @@ class DropField(BaseFieldAction):
 
     def to_schema_patch(self, left_schema: Schema):
         if self.document_type not in left_schema:
-            raise SchemaError('Document {!r} is not in schema'.format(self.document_type))
+            raise SchemaError(f'Document {self.document_type!r} is not in schema')
         if self.field_name not in left_schema[self.document_type]:
-            raise SchemaError('Field {}.{} is not in schema'.format(
-                self.document_type, self.field_name
-            ))
+            raise SchemaError(f'Field {self.document_type}.{self.field_name} is not in schema')
 
         left_field_schema = left_schema[self.document_type][self.field_name]
 
@@ -224,11 +220,9 @@ class AlterField(BaseFieldAction):
 
     def to_schema_patch(self, left_schema: Schema):
         if self.document_type not in left_schema:
-            raise SchemaError('Document {!r} is not in schema'.format(self.document_type))
+            raise SchemaError(f'Document {self.document_type!r} is not in schema')
         if self.field_name not in left_schema[self.document_type]:
-            raise SchemaError('Field {}.{} is not in schema'.format(
-                self.document_type, self.field_name
-            ))
+            raise SchemaError(f'Field {self.document_type}.{self.field_name} is not in schema')
 
         left_field_schema = left_schema[self.document_type][self.field_name]
 
@@ -239,23 +233,22 @@ class AlterField(BaseFieldAction):
         right_schema_skel = field_handler_cls.schema_skel()
         extra_keys = self.parameters.keys() - right_schema_skel.keys()
         if extra_keys:
-            raise SchemaError('Unknown keys in schema of field {}.{}: {}'.format(
-                self.document_type, self.field_name, extra_keys
-            ))
+            raise SchemaError(f'Unknown keys in schema of field '
+                              f'{self.document_type}.{self.field_name}: {extra_keys}')
 
         # Shortcuts
         left = left_field_schema
         params = self.parameters
 
         # Remove params
-        d = [('remove', '{}.{}'.format(self.document_type, self.field_name), [(key, ())])
+        d = [('remove', f'{self.document_type}.{self.field_name}', [(key, ())])
              for key in left.keys() - right_schema_skel.keys()]
         # Add new params
-        d += [('add', '{}.{}'.format(self.document_type, self.field_name), [(key, params[key])])
+        d += [('add', f'{self.document_type}.{self.field_name}', [(key, params[key])])
               for key in params.keys() - left.keys()]
         # Change params if they are requested to be changed
         d += [('change',
-               '{}.{}.{}'.format(self.document_type, self.field_name, key),
+               f'{self.document_type}.{self.field_name}.{key}',
                (left[key], params[key]))
               for key in params.keys() & left.keys()
               if left[key] != params[key]]
@@ -344,10 +337,8 @@ class AlterField(BaseFieldAction):
             or new_schema.get(field_name, {}).get('default')
         if become_required and default is None:
             # TODO: replace following error on interactive mode
-            raise SchemaError(
-                'Field {}.{} could not be created since it defined as required but has '
-                'not a default value'.format(document_type, field_name)
-            )
+            raise SchemaError(f'Field {document_type}.{field_name} could not be '
+                              f'created since it defined as required but has not a default value')
 
         return field_params
 
@@ -414,17 +405,15 @@ class RenameField(BaseFieldAction):
 
     def to_schema_patch(self, left_schema: Schema):
         if self.document_type not in left_schema:
-            raise SchemaError('Document {!r} is not in schema'.format(self.document_type))
+            raise SchemaError(f'Document {self.document_type!r} is not in schema')
         if self.field_name not in left_schema[self.document_type]:
-            raise SchemaError('Field {}.{} is not in schema'.format(
-                self.document_type, self.field_name
-            ))
+            raise SchemaError(f'Field {self.document_type}.{self.field_name} is not in schema')
 
         left_field_schema = left_schema[self.document_type][self.field_name]
 
         return [
-            ('remove', str(self.document_type), [(self.field_name, left_field_schema)]),
-            ('add', str(self.document_type), [(self.new_name, left_field_schema)])
+            ('remove', f'{self.document_type}', [(self.field_name, left_field_schema)]),
+            ('add', f'{self.document_type}', [(self.new_name, left_field_schema)])
         ]
 
     def run_forward(self):

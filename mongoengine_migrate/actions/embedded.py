@@ -8,11 +8,11 @@ __all__ = [
 import logging
 
 from mongoengine_migrate.flags import EMBEDDED_DOCUMENT_NAME_PREFIX
-from mongoengine_migrate.mongo import mongo_version
 from mongoengine_migrate.schema import Schema
-from mongoengine_migrate.utils import Diff, document_type_to_class_name
-from .base import BaseCreateDocument, BaseDropDocument, BaseRenameDocument, BaseAlterDocument
+from mongoengine_migrate.utils import Diff, UNSET, document_type_to_class_name
+from mongoengine_migrate.mongo import mongo_version
 from ..updater import ByPathContext, DocumentUpdater
+from .base import BaseCreateDocument, BaseDropDocument, BaseRenameDocument, BaseAlterDocument
 
 log = logging.getLogger('mongoengine-migrate')
 
@@ -109,7 +109,7 @@ class AlterEmbedded(BaseAlterDocument):
     def change_dynamic(self, diff: Diff):
         return  # FIXME: fix all below
         def by_path(ctx: ByPathContext):
-            dotpaths = {'{}.{}'.format(ctx.filter_dotpath, k): 1 for k in self_schema.keys()}
+            dotpaths = {f'{ctx.filter_dotpath}.{k}': 1 for k in self_schema.keys()}
             ctx.collection.aggregate([
                 {'$match': ctx.extra_filter},
                 {'$project': dotpaths},

@@ -15,9 +15,9 @@ from pymongo.collection import Collection
 from pymongo.database import Database
 
 from mongoengine_migrate import flags
-from mongoengine_migrate.exceptions import InconsistencyError
 from mongoengine_migrate.graph import MigrationPolicy
 from mongoengine_migrate.schema import Schema
+from mongoengine_migrate.exceptions import InconsistencyError
 
 log = logging.getLogger('mongoengine-migrate')
 
@@ -338,8 +338,8 @@ class DocumentUpdater:
                         # Field contains smth another than embedded doc
                         if self.migration_policy.name == 'strict':
                             raise InconsistencyError(
-                                "Field {} has wrong value {!r} (should be embedded document) "
-                                "in record {}".format(filter_dotpath, embedded_doc, doc)
+                                f"Field {filter_dotpath} has wrong value {embedded_doc!r} "
+                                f"(should be embedded document) in record {doc}"
                             )
                         else:
                             continue
@@ -504,8 +504,8 @@ class DocumentUpdater:
         update_path = update_path.copy()
         for num, item in enumerate(update_path):
             if item == '$[]':
-                update_path[num] = '$[elem{}]'.format(num)
-                array_filters['elem{}.{}'.format(num, update_path[num + 1])] = None
+                update_path[num] = f'$[elem{num}]'
+                array_filters[f'elem{num}.{update_path[num + 1]}'] = None
 
         return update_path, (list(array_filters.keys()) or None)
 

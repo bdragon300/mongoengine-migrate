@@ -6,8 +6,8 @@ from typing import Optional
 import click
 
 import mongoengine_migrate.flags as runtime_flags
-from mongoengine_migrate.exceptions import MongoengineMigrateError
 from mongoengine_migrate.loader import MongoengineMigrate, import_module
+from mongoengine_migrate.exceptions import MongoengineMigrateError
 
 mongoengine_migrate: Optional[MongoengineMigrate] = None
 

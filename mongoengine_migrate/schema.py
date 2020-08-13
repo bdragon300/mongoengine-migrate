@@ -11,7 +11,7 @@ class SchemaAccessMixin:
         try:
             return method(item)
         except KeyError as e:
-            raise SchemaError('Unknown key {!r}'.format(item)) from e
+            raise SchemaError(f'Unknown key {item!r}') from e
 
     def __getitem__(self, item):
         return self.__access(super().__getitem__, item)
@@ -26,7 +26,7 @@ class SchemaAccessMixin:
         try:
             return super().popitem()
         except KeyError as e:
-            raise SchemaError('Schema is empty') from e
+            raise SchemaError(f'Schema is empty') from e
 
 
 class Schema(SchemaAccessMixin, dict):
@@ -63,10 +63,10 @@ class Schema(SchemaAccessMixin, dict):
             return not self.__eq__(other)
 
         def __str__(self):
-            return 'Document({}, parameters={!s})'.format(super().__repr__(), self.parameters)
+            return f'Document({super().__repr__()}, parameters={self.parameters!s})'
 
         def __repr__(self):
-            return 'Document({}, parameters={!r})'.format(super().__repr__(), self.parameters)
+            return f'Document({super().__repr__()}, parameters={self.parameters!r})'
 
     def load(self, db_schema: dict):
         """Load schema from db dict schema representation"""
@@ -78,7 +78,7 @@ class Schema(SchemaAccessMixin, dict):
         return {name: doc.dump() for name, doc in self.items()}
 
     def __str__(self):
-        return 'Schema({})'.format(super().__repr__())
+        return f'Schema({super().__repr__()})'
 
     def __repr__(self):
-        return 'Schema({})'.format(super().__repr__())
+        return f'Schema({super().__repr__()})'

@@ -6,11 +6,13 @@ __all__ = [
 ]
 
 import logging
+from typing import Any
 
+from mongoengine_migrate.exceptions import SchemaError
 from mongoengine_migrate.flags import EMBEDDED_DOCUMENT_NAME_PREFIX
-from mongoengine_migrate.mongo import mongo_version
 from mongoengine_migrate.schema import Schema
-from mongoengine_migrate.utils import Diff
+from mongoengine_migrate.mongo import mongo_version
+from mongoengine_migrate.utils import Diff, UNSET
 from .base import BaseCreateDocument, BaseDropDocument, BaseRenameDocument, BaseAlterDocument
 
 log = logging.getLogger('mongoengine-migrate')

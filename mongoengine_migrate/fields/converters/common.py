@@ -45,9 +45,8 @@ def nothing(*args, **kwargs):
 
 def deny(updater: DocumentUpdater):
     """Convertion is denied"""
-    raise MigrationError("Such type_key convertion for field {}.{} is forbidden".format(
-        updater.document_type, updater.field_name
-    ))
+    raise MigrationError(f"Such type_key convertion for field "
+                         f"{updater.document_type}.{updater.field_name} is forbidden")
 
 
 def drop_field(updater: DocumentUpdater):
@@ -101,18 +100,14 @@ def extract_from_list(updater: DocumentUpdater, item_type, remove_cls_key=False)
                 if remove_cls_key and isinstance(f, dict) and '_cls' in f:
                     del f['_cls']
                 if not isinstance(f, item_type) and updater.migration_policy.name == 'strict':
-                    raise InconsistencyError(
-                        "Field {} has wrong value {!r} (should be {}) in record {}".format(
-                            updater.field_name, f, item_type, doc
-                        )
-                    )
+                    raise InconsistencyError(f"Field {updater.field_name} has wrong value {f!r} "
+                                             f"(should be {item_type}) in record {doc}")
             else:
                 f = None
             doc[updater.field_name] = f
         elif f is not None and updater.migration_policy.name == 'strict':
-            raise MigrationError('Could not extract item from non-list value {}: {}'.format(
-                updater.field_name, doc[updater.field_name]
-            ))
+            raise MigrationError(f'Could not extract item from non-list value '
+                                 f'{updater.field_name}: {doc[updater.field_name]}')
 
     updater.update_by_document(by_doc)
 
@@ -153,10 +148,9 @@ def to_object_id(updater: DocumentUpdater):
             doc[updater.field_name] = f['_id']
 
         elif updater.migration_policy.name == 'strict':  # Other data type
-            raise InconsistencyError(
-                "Field {} has wrong value {!r} (should be DBRef, ObjectId, manual ref, "
-                "dynamic ref, ObjectId string) in record {}".format(updater.field_name, f, doc)
-            )
+            raise InconsistencyError(f"Field {updater.field_name} has wrong value {f!r} "
+                                     f"(should be DBRef, ObjectId, manual ref, dynamic ref, "
+                                     f"ObjectId string) in record {doc}")
 
     # TODO: precheck if field actually contains value other than ObjectId
     updater.update_by_document(by_doc)
@@ -187,10 +181,9 @@ def to_manual_ref(updater: DocumentUpdater):
         elif isinstance(f, bson.ObjectId):
             doc[updater.field_name] = {'_id': f}
         elif updater.migration_policy.name == 'strict':  # Other data type
-            raise InconsistencyError(
-                "Field {} has wrong value {!r} (should be DBRef, ObjectId, manual ref, "
-                "dynamic ref, ObjectId string) in record {}".format(updater.field_name, f, doc)
-            )
+            raise InconsistencyError(f"Field {updater.field_name} has wrong value {f!r} "
+                                     f"(should be DBRef, ObjectId, manual ref, dynamic ref, "
+                                     f"ObjectId string) in record {doc}")
 
     # TODO: precheck if field actually contains value other than manual ref
     updater.update_by_document(by_doc)
@@ -222,10 +215,9 @@ def to_dbref(updater: DocumentUpdater):
         elif isinstance(f, bson.ObjectId):
             doc[updater.field_name] = bson.DBRef(collection_name, f)
         elif updater.migration_policy.name == 'strict':  # Other data type
-            raise InconsistencyError(
-                "Field {} has wrong value {!r} (should be DBRef, ObjectId, manual ref, "
-                "dynamic ref, ObjectId string) in record {}".format(updater.field_name, f, doc)
-            )
+            raise InconsistencyError(f"Field {updater.field_name} has wrong value {f!r} "
+                                     f"(should be DBRef, ObjectId, manual ref, dynamic ref, "
+                                     f"ObjectId string) in record {doc}")
 
     # TODO: precheck if field actually contains value other than DBRef
     updater.update_by_document(by_doc)
@@ -261,10 +253,9 @@ def to_dynamic_ref(updater: DocumentUpdater):
         elif isinstance(f, bson.ObjectId):
             doc[updater.field_name] = bson.DBRef(collection_name, f)
         elif updater.migration_policy.name == 'strict':  # Other data type
-            raise InconsistencyError(
-                "Field {} has wrong value {!r} (should be DBRef, ObjectId, manual ref, "
-                "dynamic ref) in record {}".format(updater.field_name, f, doc)
-            )
+            raise InconsistencyError(f"Field {updater.field_name} has wrong value {f!r} "
+                                     f"(should be DBRef, ObjectId, manual ref, dynamic ref) "
+                                     f"in record {doc}")
 
     # TODO: precheck if field actually contains value other than dynamic ref or DBRef
     updater.update_by_document(by_doc)
@@ -289,9 +280,8 @@ def to_string(updater: DocumentUpdater):
                 doc[updater.field_name] = str(f)
             except (TypeError, ValueError) as e:
                 if updater.migration_policy.name == 'strict':
-                    raise MigrationError('Cannot convert value {}: {} to string'.format(
-                        updater.field_name, doc[updater.field_name])
-                    ) from e
+                    raise MigrationError(f'Cannot convert value {updater.field_name}: '
+                                         f'{doc[updater.field_name]} to string') from e
 
     # TODO: precheck if field actually contains value other than string
     updater.update_by_document(by_doc)
@@ -342,10 +332,8 @@ def to_uuid_str(updater: DocumentUpdater):
         elif isinstance(f, uuid.UUID):
             doc[updater.field_name] = str(f)
         elif updater.migration_policy.name == 'strict':
-            raise InconsistencyError(
-                "Field {} has wrong value {!r} (should be UUID string or UUID Binary data) "
-                "in record {}".format(updater.field_name, f, doc)
-            )
+            raise InconsistencyError(f"Field {updater.field_name} has wrong value {f!r} "
+                                     f"(should be UUID string or UUID Binary data) in record {doc}")
 
     uuid_pattern = re.compile(r'\A[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}\Z',
                               re.IGNORECASE)
@@ -365,10 +353,8 @@ def to_uuid_bin(updater: DocumentUpdater):
         elif isinstance(f, str) and uuid_pattern.match(f):
             doc[updater.field_name] = uuid.UUID(f)
         elif updater.migration_policy.name == 'strict':
-            raise InconsistencyError(
-                "Field {} has wrong value {!r} (should be UUID string or UUID Binary data) "
-                "in record {}".format(updater.field_name, f, doc)
-            )
+            raise InconsistencyError(f"Field {updater.field_name} has wrong value {f!r} "
+                                     f"(should be UUID string or UUID Binary data) in record {doc}")
 
     uuid_pattern = re.compile(r'\A[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}\Z',
                               re.IGNORECASE)
@@ -455,8 +441,7 @@ def __mongo_convert(updater: DocumentUpdater, target_type: str):
                     doc[field_name] = type_map[target_type](doc[field_name])
                 except (TypeError, ValueError) as e:
                     if updater.migration_policy.name == 'strict':
-                        raise MigrationError('Cannot convert value {}: {} to type {}'.format(
-                            field_name, doc[field_name], t
-                        )) from e
+                        raise MigrationError(f'Cannot convert value '
+                                             f'{field_name}: {doc[field_name]} to type {t}') from e
 
     updater.update_by_document(by_doc)

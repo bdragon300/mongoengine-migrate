@@ -1,0 +1,16 @@
+[build-system]
+requires = [
+    "mongoengine>=0.16.0",
+    "pymongo>=3.0",
+    "dictdiffer>=0.7.0",
+    "jinja2",
+    "click",
+    "wrapt",
+    "python-dateutil",
+    "jsonpath_rw"
+]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.0.1a1.dev2"
+tag_format = "v$version"

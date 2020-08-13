@@ -16,7 +16,7 @@ install:
   - python setup.py install
 
 script:
-  - python -m pytest
+  - python setup.py test
 
 deploy:
   provider: pypi

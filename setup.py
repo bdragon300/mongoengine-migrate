@@ -35,6 +35,6 @@ setuptools.setup(
         'python-dateutil',
         'jsonpath_rw'
     ],
-    tests_require=['pytest'],
+    tests_require=['pytest', 'blinker'],
     setup_requires=['pytest-runner'],
 )

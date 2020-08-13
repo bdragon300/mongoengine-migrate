@@ -12,8 +12,8 @@ env:
   DATABASE_URL: "mongodb://localhost/mydb_test"
 
 install:
-  - pip install poetry
-  - poetry install
+  - pip install setuptools
+  - python setup.py install
 
 script:
   - python -m pytest
@@ -21,6 +21,6 @@ script:
 deploy:
   provider: pypi
   username: "__token__"
-  password:
+  password: $PYPI_TOKEN
   on:
     tags: true

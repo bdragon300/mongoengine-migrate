@@ -9,30 +9,8 @@ requires = [
     "python-dateutil",
     "jsonpath_rw"
 ]
-build-backend = "poetry.masonry.api"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
 version = "0.0.1a1.dev2"
 tag_format = "v$version"
-
-[tool.poetry]
-name = "mongoengine-migrate"
-description = "Migrations for MongoEngine ODM inspired by Django"
-version = "0.0.1a1.dev2"
-authors = ["Igor Derkach <gosha753951@gmail.com>"]
-readme = "README.md"
-homepage = "https://github.com/bdragon300/mongoengine-migrate"
-keywords = ["mongo", "mongodb", "mongoengine", "migrate", "migration"]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Development Status :: 2 - Pre-Alpha",
-    "License :: OSI Approved :: Apache Software License",
-    "Intended Audience :: Developers",
-    "Topic :: Database"
-]
-exclude = ["tests"]
-
-[tool.poetry.dev-dependencies]
-pytest = "*"
-pytest-runner = "*"

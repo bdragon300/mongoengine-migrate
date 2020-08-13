@@ -22,6 +22,29 @@ from mongoengine_migrate.schema import Schema
 log = logging.getLogger('mongoengine-migrate')
 
 
+def build_array_filters(
+        self, value: Optional[Union[Callable, Any]] = None
+) -> Optional[List[dict]]:
+    """
+    Return array filters dict filled out with given value
+    :param value: Optional value or callable with one argument
+     (array filter value) to substitute to each array filter.
+     Default is `{'$exists': True}`
+    :return:
+    """
+    if self.array_filters is None:
+        return None
+
+    res = []
+    for afilter in self.array_filters:
+        if value is None:
+            res.append({afilter: {'$exists': True}})
+        else:
+            res.append({afilter: value(afilter) if callable(value) else value})
+
+    return res
+
+
 class ByPathContext(NamedTuple):
     """
     Context of `by_path` callback
@@ -54,26 +77,12 @@ class ByPathContext(NamedTuple):
     array_filters: Optional[List[str]]
     extra_filter: dict
 
-    def build_array_filters(self,
-                            value: Optional[Union[Callable, Any]] = None) -> Optional[List[dict]]:
-        """
-        Return array filters dict filled out with given value
-        :param value: Optional value or callable with one argument
-         (array filter value) to substitute to each array filter.
-         Default is `{'$exists': True}`
-        :return:
-        """
-        if self.array_filters is None:
-            return None
+    # For IDE method highlight because of workaround below
+    build_array_filters = build_array_filters
 
-        res = []
-        for afilter in self.array_filters:
-            if value is None:
-                res.append({afilter: {'$exists': True}})
-            else:
-                res.append({afilter: value(afilter) if callable(value) else value})
 
-        return res
+# Workaround to define methods in NamedTuple for Python 3.6
+ByPathContext.build_array_filters = build_array_filters
 
 
 class ByDocContext(NamedTuple):

@@ -1,0 +1,26 @@
+language: python
+python:
+  - '3.6'
+  - '3.7'
+  - '3.8'
+
+
+services:
+  - mongodb
+
+env:
+  DATABASE_URL: "mongodb://localhost/mydb_test"
+
+install:
+  - pip install poetry
+  - poetry install
+
+script:
+  - python -m pytest
+
+deploy:
+  provider: pypi
+  username: "__token__"
+  password:
+  on:
+    tags: true

@@ -19,7 +19,10 @@ setuptools.setup(
     entry_points={"console_scripts": ["mongoengine_migrate=mongoengine_migrate.cli:cli"]},
     keywords=["mongo", "mongodb", "mongoengine", "migrate", "migration"],
     classifiers=[
-        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         'Development Status :: 2 - Pre-Alpha',
         'License :: OSI Approved :: Apache Software License',
         'Intended Audience :: Developers',

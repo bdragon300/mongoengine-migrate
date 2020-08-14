@@ -11,8 +11,7 @@ env:
   DATABASE_URL: "mongodb://localhost/mydb_test"
 
 install:
-  - pip install setuptools
-  - python setup.py install
+  - pip install setuptools tox
 
 script:
   - tox --skip-missing-interpreters true

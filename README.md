@@ -110,9 +110,6 @@ mongoengine-migrate migrate my_migration
 - [x] Document inheritance support
 - [x] Dynamic documents support
 - [x] Generic* fields support
-- [ ] Index support
-- [ ] Interactive mode
-- [ ] Schema repair tools
 - [ ] Alpha release
 
 # Author

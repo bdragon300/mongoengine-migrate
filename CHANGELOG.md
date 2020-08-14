@@ -29,7 +29,7 @@ and this project adheres to
 - Remove isinstance dict checks from by_doc callbacks
 
 
-## [0.0.1a1.dev2]
+## [Unreleased]
 ### Added
 - Implement geo fields
 - Implement convertion of legacy coordinates pair to/from GeoJSON fields

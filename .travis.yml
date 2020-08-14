@@ -15,8 +15,7 @@ install:
   - python setup.py install
 
 script:
-  - env
-  - tox
+  - tox --skip-missing-interpreters true
 
 deploy:
   provider: pypi

@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name='mongoengine-migrate',
     description='Migrations for MongoEngine ODM inspired by Django',
-    version='0.0.1a1.dev2',
+    version='0.0.1a1.dev2',  # Also pyproject.toml
     author='Igor Derkach',
     author_email='gosha753951@gmail.com',
     url='https://github.com/bdragon300/mongoengine-migrate',
@@ -27,6 +27,7 @@ setuptools.setup(
         'Intended Audience :: Developers',
         'Topic :: Database'
     ],
+    # Also tox.ini, pyproject.toml
     install_requires=[
         'mongoengine>=0.16.0',
         'pymongo>=3.0',
@@ -37,6 +38,4 @@ setuptools.setup(
         'python-dateutil',
         'jsonpath_rw'
     ],
-    tests_require=['pytest', 'blinker'],
-    setup_requires=['pytest-runner'],
 )

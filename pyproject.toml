@@ -1,4 +1,5 @@
 [build-system]
+# Also tox.ini, setup.py
 requires = [
     "mongoengine>=0.16.0",
     "pymongo>=3.0",
@@ -12,5 +13,5 @@ requires = [
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.0.1a1.dev2"
+version = "0.0.1a1.dev2"  # Also setup.py
 tag_format = "v$version"

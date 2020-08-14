@@ -15,7 +15,8 @@ install:
   - python setup.py install
 
 script:
-  - python setup.py test
+  - env
+  - tox
 
 deploy:
   provider: pypi

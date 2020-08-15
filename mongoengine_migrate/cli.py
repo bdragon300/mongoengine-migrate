@@ -102,11 +102,10 @@ def migration_options(f):
             help='Dry run mode. Just show queries to be executed, without running migrations'
         ),
         click.option(
-            '--schema-only',
+            '--dummy-actions',
             default=False,
             is_flag=True,
-            help='Migrate only schema, do not perform any modifications '
-                 'on database'
+            help='Perform migrations without doing any database modifications'
         )
     ]
     for decorator in reversed(decorators):

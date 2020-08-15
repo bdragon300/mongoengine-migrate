@@ -388,7 +388,6 @@ class MongoengineMigrate:
                         f"schema is corrupted. You can use schema repair tools to fix this issue"
                     ) from e
 
-        # TODO: error handling
         db = self.db
         for migration in graph.walk_up(graph.last, applied_only=True):
             if migration.name == migration_name:
@@ -416,7 +415,6 @@ class MongoengineMigrate:
                     action_object.prepare(db, left_schema, migration.policy)
                     action_object.run_backward()
                     action_object.cleanup()
-                # TODO: handle patch errors (if schema is corrupted)
 
             graph.migrations[migration.name].applied = False
 

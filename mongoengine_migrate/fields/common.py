@@ -211,7 +211,7 @@ class EmailFieldHandler(StringFieldHandler):
         re.IGNORECASE,
     )
 
-    def change_domain_whitelist(self, diff: Diff):
+    def change_domain_whitelist(self, updater: DocumentUpdater, diff: Diff):
         """
         `domain_whitelist` parameter is affected to domain validation:
         if domain in email address is in that list then validation will

@@ -186,7 +186,7 @@ class DocumentUpdater:
             self._update_by_path(callback, collection, [], [])
             return
 
-        for collection, update_path, filter_path in self._get_update_paths():
+        for collection, update_path, filter_path in self._get_embedded_paths():
             self._update_by_path(callback, collection, filter_path, update_path)
 
     def update_by_document(self, callback: Callable) -> None:
@@ -212,7 +212,7 @@ class DocumentUpdater:
             self._update_by_document(callback, collection, [], [])
             return
 
-        for collection, update_path, filter_path in self._get_update_paths():
+        for collection, update_path, filter_path in self._get_embedded_paths():
             self._update_by_document(callback, collection, filter_path, update_path)
 
     def update_combined(self,
@@ -252,7 +252,7 @@ class DocumentUpdater:
          by_doc callback, or by_path otherwise.
         """
         if self.is_embedded:
-            for collection, update_path, filter_path in self._get_update_paths():
+            for collection, update_path, filter_path in self._get_embedded_paths():
                 is_array_update = bool('$[]' in update_path)
                 call_by_doc = is_array_update and embedded_array_by_doc \
                     or not is_array_update and embedded_nonarray_by_doc
@@ -362,7 +362,7 @@ class DocumentUpdater:
             collection.bulk_write(buf, ordered=False)
             buf.clear()
 
-    def _get_update_paths(self) -> Generator[Tuple[Collection, list, list], None, None]:
+    def _get_embedded_paths(self) -> Generator[Tuple[Collection, list, list], None, None]:
         """
         Return dotpaths to fields of embedded documents found in db and
         collection object where they was found.
@@ -370,6 +370,11 @@ class DocumentUpdater:
         and update expressions (dotpath with `$[]` expressions)
         :return: tuple(collection_object, update_dotpath, filter_dotpath)
         """
+        # Current document_type is not EmbeddedDocument, so not
+        # embedded paths can be produced
+        if not self.is_embedded:
+            return
+
         # Document types of non-embedded documents
         document_types = ((name, schema) for name, schema in self.db_schema.items()
                           if not name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX))
@@ -378,7 +383,7 @@ class DocumentUpdater:
             collection = self.db[document_schema.parameters['collection']]
             for path in self._find_embedded_fields(collection,
                                                    document_type,
-                                                   self.document_type,  # FIXME: could not be an embedded!
+                                                   self.document_type,
                                                    self.db_schema):
                 update_path = path  # type: list
                 filter_path = [p for p in path if p != '$[]']

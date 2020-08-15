@@ -6,14 +6,12 @@ __all__ = [
 ]
 
 import logging
-from typing import Any
 
-from mongoengine_migrate.exceptions import SchemaError
 from mongoengine_migrate.flags import EMBEDDED_DOCUMENT_NAME_PREFIX
-from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.mongo import mongo_version
-from mongoengine_migrate.utils import Diff, UNSET
-from mongoengine_migrate.updater import DocumentUpdater
+from mongoengine_migrate.schema import Schema
+from mongoengine_migrate.updater import DocumentUpdater, ByDocContext
+from mongoengine_migrate.utils import Diff
 from .base import BaseCreateDocument, BaseDropDocument, BaseRenameDocument, BaseAlterDocument
 
 log = logging.getLogger('mongoengine-migrate')
@@ -134,18 +132,21 @@ class AlterDocument(BaseAlterDocument):
         # TODO: raise error if other documents use the same collection
         #       when inherit becoming False
 
-    @mongo_version(min_version='2.6')
     def change_dynamic(self, updater: DocumentUpdater, diff: Diff):
-        self._check_diff(diff, False, bool)
+        """If document becomes non-dynamic then remove fields which
+        are not defined in mongoengine Document
+        """
+        def by_doc(ctx: ByDocContext):
+            extra_keys = ctx.document.keys() - self_schema.keys()
+            if extra_keys:
+                newdoc = {k: v for k, v in ctx.document.items() if k in self_schema.keys()}
+                ctx.document.clear()
+                ctx.document.update(newdoc)
 
+        self._check_diff(diff, False, bool)
         if diff.new is True:
             return  # Nothing to do
 
         # Remove fields which are not in schema
-        self_schema = self._run_ctx['left_schema'][self.document_type]
-
-        project = {k: 1 for k in self_schema.keys()}
-        self._run_ctx['collection'].aggregate([
-            {'$project': project},
-            {'$out': self_schema.parameters['collection']}  # >= 2.6
-        ])  # FIXME: consider _cls for inherited documents
+        self_schema = self._run_ctx['left_schema'][self.document_type]  # type: Schema.Document
+        updater.update_by_document(by_doc)

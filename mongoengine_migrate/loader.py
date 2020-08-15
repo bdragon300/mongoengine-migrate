@@ -150,7 +150,6 @@ def collect_models_schema() -> Schema:
 
             handler_cls = field_mapping_registry[registry_field_cls].field_handler_cls
             schema[document_type][field_name] = handler_cls.build_schema(field_obj)
-            # TODO: warning about field type not implemented
             # TODO: validate default against all field restrictions such as min_length, regex, etc.
 
         log.debug("> Schema '%s' => %s", document_type, str(schema[document_type]))
@@ -295,9 +294,9 @@ class MongoengineMigrate:
         applied = []
         for migration_name in self.get_db_migration_names():
             if migration_name not in graph.migrations:
-                # TODO: ability to override with --force
                 raise MigrationGraphError(
-                    f'Migration {migration_name} was applied, but its python module not found'
+                    f'Migration {migration_name} was applied, but its python module not found. '
+                    f'You can use schema repair to fix this issue'
                 )
             graph.migrations[migration_name].applied = True
             applied.append(migration_name)

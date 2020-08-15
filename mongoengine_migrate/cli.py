@@ -99,14 +99,13 @@ def migration_options(f):
             '--dry-run',
             default=False,
             is_flag=True,
-            help='Dry run mode. Don\'t modify the database and print '
-                 'modification commands which would get executed'
+            help='Dry run mode. Just show queries to be executed, without running migrations'
         ),
         click.option(
             '--schema-only',
             default=False,
             is_flag=True,
-            help='Migrate only schema, do not perform any modifications'
+            help='Migrate only schema, do not perform any modifications '
                  'on database'
         )
     ]

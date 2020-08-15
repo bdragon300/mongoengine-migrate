@@ -13,6 +13,9 @@ from . import flags
 from mongoengine_migrate.updater import DocumentUpdater, FallbackDocumentUpdater
 
 
+log = logging.getLogger('mongoengine-migrate')
+
+
 def check_empty_result(collection: Collection, db_field: str, find_filter: dict) -> None:
     """
     Find records in collection satisfied to a given filter expression
@@ -46,7 +49,6 @@ def mongo_version(min_version: str = None, max_version: str = None):
     :return:
     """
     assert min_version or max_version
-    # TODO: add warning if monge version is not in range
 
     def dec(f):
         @functools.wraps(f)
@@ -55,6 +57,9 @@ def mongo_version(min_version: str = None, max_version: str = None):
                 or max_version and flags.mongo_version >= max_version
 
             if invalid:
+                log.debug('MongoDB version is not in range (>=%s, <%s) for method %s. '
+                          'Using fallback DocumentUpdater',
+                          min_version, max_version, f.__name__)
                 # Inject fallback updater instead of original updater
                 # on 0th place (general function) or 1st (class method)
                 for ind in range(2):

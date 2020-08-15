@@ -22,8 +22,9 @@ import mongoengine_migrate.flags as flags
 from mongoengine_migrate.exceptions import ActionError, SchemaError
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.schema import Schema
-from mongoengine_migrate.utils import Diff, UNSET
+from mongoengine_migrate.utils import Diff, UNSET, document_type_to_class_name
 from mongoengine_migrate.graph import MigrationPolicy
+from mongoengine_migrate.updater import DocumentUpdater
 
 #: Migration Actions registry. Mapping of class name and its class
 actions_registry: Dict[str, Type['BaseAction']] = {}
@@ -484,19 +485,28 @@ class BaseAlterDocument(BaseDocumentAction):
         for name in sorted(parameters.keys() | self_schema.parameters.keys()):
             left_value = self_schema.parameters.get(name, UNSET)
             right_value = parameters.get(name, UNSET)
+            if left_value == right_value:
+                continue
+
             diff = Diff(
                 old=right_value if swap else left_value,
                 new=left_value if swap else right_value,
                 key=name
             )
-            if diff.old != diff.new:
-                log.debug(">> Change %s: %s => %s", repr(name), repr(diff.old), repr(diff.new))
-                try:
-                    method = getattr(self, f'change_{name}')
-                except AttributeError as e:
-                    raise SchemaError(f'Unknown document parameter: {name}') from e
 
-                method(diff)
+            log.debug(">> Change %s: %s => %s", repr(name), repr(diff.old), repr(diff.new))
+            try:
+                method = getattr(self, f'change_{name}')
+            except AttributeError as e:
+                raise SchemaError(f'Unknown document parameter: {name}') from e
+
+            inherit = self._run_ctx['left_schema'][self.document_type].parameters.get('inherit')
+            document_cls = document_type_to_class_name(self.document_type) if inherit else None
+            updater = DocumentUpdater(self._run_ctx['db'], self.document_type,
+                                      self._run_ctx['left_schema'], '',
+                                      self._run_ctx['migration_policy'], document_cls)
+
+            method(updater, diff)
 
     def _check_diff(self, diff: Diff, can_be_none=True, check_type=None):
         if diff.new == diff.old:

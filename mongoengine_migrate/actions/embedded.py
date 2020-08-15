@@ -98,13 +98,13 @@ class AlterEmbedded(BaseAlterDocument):
 
         return super(AlterEmbedded, cls).build_object(document_type, left_schema, right_schema)
 
-    def change_inherit(self, diff: Diff):
+    def change_inherit(self, updater: DocumentUpdater, diff: Diff):
         self._check_diff(diff, False, bool)
         # TODO: remove '_cls' after inherit becoming False
         # TODO: raise error if other documents use the same collection
         #       when inherit becoming False
 
-    def change_dynamic(self, diff: Diff):
+    def change_dynamic(self, updater: DocumentUpdater, diff: Diff):
         """If document becomes non-dynamic then remove fields which
         are not defined in mongoengine Document
         """
@@ -121,9 +121,4 @@ class AlterEmbedded(BaseAlterDocument):
 
         # Remove fields which are not in schema
         self_schema = self._run_ctx['left_schema'][self.document_type]  # type: Schema.Document
-        inherit = self_schema.parameters.get('inherit')
-        document_cls = document_type_to_class_name(self.document_type) if inherit else None
-        updater = DocumentUpdater(self._run_ctx['db'], self.document_type,
-                                  self._run_ctx['left_schema'], '',
-                                  self._run_ctx['migration_policy'], document_cls)
         updater.update_by_document(by_doc)

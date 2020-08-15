@@ -13,6 +13,7 @@ from mongoengine_migrate.flags import EMBEDDED_DOCUMENT_NAME_PREFIX
 from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.mongo import mongo_version
 from mongoengine_migrate.utils import Diff, UNSET
+from mongoengine_migrate.updater import DocumentUpdater
 from .base import BaseCreateDocument, BaseDropDocument, BaseRenameDocument, BaseAlterDocument
 
 log = logging.getLogger('mongoengine-migrate')
@@ -113,7 +114,7 @@ class AlterDocument(BaseAlterDocument):
 
         return super(AlterDocument, cls).build_object(document_type, left_schema, right_schema)
 
-    def change_collection(self, diff: Diff):
+    def change_collection(self, updater: DocumentUpdater, diff: Diff):
         self._check_diff(diff, False, str)
 
         old_collection = self._run_ctx['db'][diff.old]
@@ -127,14 +128,14 @@ class AlterDocument(BaseAlterDocument):
             # Update collection object in run context after renaming
             self._run_ctx['collection'] = self._run_ctx['db'][diff.new]
 
-    def change_inherit(self, diff: Diff):
+    def change_inherit(self, updater: DocumentUpdater, diff: Diff):
         self._check_diff(diff, False, bool)
         # TODO: remove '_cls' after inherit becoming False
         # TODO: raise error if other documents use the same collection
         #       when inherit becoming False
 
     @mongo_version(min_version='2.6')
-    def change_dynamic(self, diff: Diff):
+    def change_dynamic(self, updater: DocumentUpdater, diff: Diff):
         self._check_diff(diff, False, bool)
 
         if diff.new is True:

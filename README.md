@@ -2,7 +2,7 @@
 
 ![version](https://img.shields.io/pypi/v/mongoengine-migrate)
 ![pyversions](https://img.shields.io/pypi/pyversions/mongoengine-migrate)
-![travis](https://img.shields.io/travis/com/bdragon300/mongoengine-migrate)
+![travis](https://img.shields.io/travis/com/bdragon300/mongoengine-migrate/master)
 ![license](https://img.shields.io/github/license/bdragon300/mongoengine-migrate)
 
 **Work in progress**

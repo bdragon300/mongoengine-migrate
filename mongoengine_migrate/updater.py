@@ -123,7 +123,8 @@ class DocumentUpdater:
         :param db_schema: current db schema
         :param field_name: If given then update only those records
          which have this field by every dotpath, otherwise update all
-         by dotpath
+         by dotpath. Can be empty string if updater should update
+         whole document
         :param migration_policy:
         :param document_cls: if given then we ignore those documents
          and embedded documents whose '_cls' field is not equal to this

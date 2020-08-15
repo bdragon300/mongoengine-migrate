@@ -23,6 +23,7 @@ def test_db():
 
     connect(host=os.environ['DATABASE_URL'])
     flags.mongo_version = '999.9'
+    flags.database2 = MongoClient(os.environ['DATABASE_URL']).get_database()
 
     # Drop test db if exists. (e.g if previous session was interrupted)
     client.drop_database(db.name)

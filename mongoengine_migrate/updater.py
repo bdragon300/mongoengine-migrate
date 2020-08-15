@@ -327,6 +327,9 @@ class DocumentUpdater:
             log.info(msg, collection.name, find_fltr, filter_dotpath, collection.name)
             return
 
+        bulk_db = flags.database2
+        bulk_collection = bulk_db[collection.name]
+
         buf = []
         for doc in collection.find(find_fltr):
             # Recursively apply the callback to every embedded doc
@@ -356,10 +359,10 @@ class DocumentUpdater:
 
             # Flush buffer
             if len(buf) >= flags.BULK_BUFFER_LENGTH:
-                collection.bulk_write(buf, ordered=False)  # FIXME: separate db session?
+                bulk_collection.bulk_write(buf, ordered=False)
                 buf.clear()
         if buf:
-            collection.bulk_write(buf, ordered=False)
+            bulk_collection.bulk_write(buf, ordered=False)
             buf.clear()
 
     def _get_embedded_paths(self) -> Generator[Tuple[Collection, list, list], None, None]:

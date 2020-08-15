@@ -168,6 +168,10 @@ class MongoengineMigrate:
         self.migration_dir = migrations_dir
         self._kwargs = kwargs
         self.client = MongoClient(mongo_uri)
+        # Another MongoClient for additional operations which should
+        # be performed in separate connection such as parallel bulk
+        # writes
+        self.client2 = MongoClient(mongo_uri)
 
         # Initiate immediate connect to MongoDB in order to ensure
         # that it is accessible
@@ -192,7 +196,17 @@ class MongoengineMigrate:
         """Return MongoDB database object"""
         db = self.client.get_database()
         if runtime_flags.dry_run:
-            log.debug('> Dry run mode requested, use mock database object')
+            log.debug('> Dry run mode requested, use mock database object for main connection')
+            db = DatabaseQueryTracer(db)
+
+        return db
+
+    @functools.cached_property
+    def db2(self) -> pymongo.database.Database:
+        """Return MongoDB database object for client2"""
+        db = self.client2.get_database()
+        if runtime_flags.dry_run:
+            log.debug('> Dry run mode requested, use mock database object for second connection')
             db = DatabaseQueryTracer(db)
 
         return db

@@ -324,7 +324,6 @@ class MongoengineMigrate:
         if migration_name not in graph.migrations:
             raise MigrationGraphError(f'Migration {migration_name} not found')
 
-        # TODO: error handling
         db = self.db
         for migration in graph.walk_down(graph.initial, unapplied_only=True):
             log.info('Upgrading %s...', migration.name)
@@ -334,9 +333,14 @@ class MongoengineMigrate:
                     action_object.prepare(db, left_schema, migration.policy)
                     action_object.run_forward()
                     action_object.cleanup()
-                # TODO: move the following to the place before cleanup
-                # TODO: handle patch errors (if schema is corrupted)
-                left_schema = patch(action_object.to_schema_patch(left_schema), left_schema)
+
+                try:
+                    left_schema = patch(action_object.to_schema_patch(left_schema), left_schema)
+                except (TypeError, ValueError, KeyError) as e:
+                    raise ActionError(
+                        f"Unable to apply schema patch of {action_object!r}. More likely that the "
+                        f"schema is corrupted. You can use schema repair tools to fix this issue"
+                    ) from e
 
             graph.migrations[migration.name].applied = True
 
@@ -376,7 +380,14 @@ class MongoengineMigrate:
             for action in migration.get_actions():
                 forward_patch = action.to_schema_patch(temp_left_schema)
                 migration_diffs[migration.name].append(forward_patch)
-                temp_left_schema = patch(forward_patch, temp_left_schema)
+
+                try:
+                    temp_left_schema = patch(forward_patch, temp_left_schema)
+                except (TypeError, ValueError, KeyError) as e:
+                    raise ActionError(
+                        f"Unable to apply schema patch of {action!r}. More likely that the "
+                        f"schema is corrupted. You can use schema repair tools to fix this issue"
+                    ) from e
 
         # TODO: error handling
         db = self.db
@@ -393,7 +404,14 @@ class MongoengineMigrate:
             )
             for action_object, action_diff, idx in reversed(list(action_diffs)):
                 log.debug('> [%d] %s', idx, str(action_object))
-                left_schema = patch(list(swap(action_diff)), left_schema)
+
+                try:
+                    left_schema = patch(list(swap(action_diff)), left_schema)
+                except (TypeError, ValueError, KeyError) as e:
+                    raise ActionError(
+                        f"Unable to apply schema patch of {action_object!r}. More likely that the "
+                        f"schema is corrupted. You can use schema repair tools to fix this issue"
+                    ) from e
 
                 if not action_object.dummy_action and not runtime_flags.schema_only:
                     action_object.prepare(db, left_schema, migration.policy)
@@ -450,7 +468,13 @@ class MongoengineMigrate:
         #  then try to guess which actions would reflect such changes
         for migration in graph.walk_down(graph.initial, unapplied_only=False):
             for action_object in migration.get_actions():
-                db_schema = patch(action_object.to_schema_patch(db_schema), db_schema)
+                try:
+                    db_schema = patch(action_object.to_schema_patch(db_schema), db_schema)
+                except (TypeError, ValueError, KeyError) as e:
+                    raise ActionError(
+                        f"Unable to apply schema patch of {action_object!r}. More likely that the "
+                        f"schema is corrupted. You can use schema repair tools to fix this issue"
+                    ) from e
 
         log.debug('Collecting schema from mongoengine documents...')
         models_schema = collect_models_schema()

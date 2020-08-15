@@ -53,7 +53,13 @@ def build_actions_chain(left_schema: Schema, right_schema: Schema) -> Iterable[B
 
         for action in new_actions:
             log.debug('> %s', action)
-            left_schema = patch(action.to_schema_patch(left_schema), left_schema)
+            try:
+                left_schema = patch(action.to_schema_patch(left_schema), left_schema)
+            except (TypeError, ValueError, KeyError) as e:
+                raise ActionError(
+                    f"Unable to apply schema patch of {action!r}. More likely that the "
+                    f"schema is corrupted. You can use schema repair tools to fix this issue"
+                ) from e
         action_chain.extend(new_actions)
         document_types = get_all_document_types(left_schema, right_schema)
 
@@ -63,7 +69,6 @@ def build_actions_chain(left_schema: Schema, right_schema: Schema) -> Iterable[B
             'Changes left to make (diff): %s',
             list(diff(left_schema, right_schema))
         )
-        # TODO: ability to force process without error
         raise ActionError('Could not reach target schema state after applying whole Action chain. '
                           'This could be a problem in some Action which does not process schema '
                           'properly or produces wrong schema diff. This is a programming error')
@@ -87,8 +92,14 @@ def build_document_action_chain(action_cls: Type[BaseDocumentAction],
     for document_type in document_types:
         action_obj = action_cls.build_object(document_type, left_schema, right_schema)
         if action_obj is not None:
-            # TODO: handle patch errors (if schema is corrupted)
-            left_schema = patch(action_obj.to_schema_patch(left_schema), left_schema)
+            try:
+                left_schema = patch(action_obj.to_schema_patch(left_schema), left_schema)
+            except (TypeError, ValueError, KeyError) as e:
+                raise ActionError(
+                    f"Unable to apply schema patch of {action_obj!r}. More likely that the "
+                    f"schema is corrupted. You can use schema repair tools to fix this issue"
+                ) from e
+
             yield action_obj
 
 
@@ -115,8 +126,14 @@ def build_field_action_chain(action_cls: Type[BaseFieldAction],
                                                  left_schema,
                                                  right_schema)
             if action_obj is not None:
-                # TODO: handle patch errors (if schema is corrupted)
-                left_schema = patch(action_obj.to_schema_patch(left_schema), left_schema)
+                try:
+                    left_schema = patch(action_obj.to_schema_patch(left_schema), left_schema)
+                except (TypeError, ValueError, KeyError) as e:
+                    raise ActionError(
+                        f"Unable to apply schema patch of {action_obj!r}. More likely that the "
+                        f"schema is corrupted. You can use schema repair tools to fix this issue"
+                    ) from e
+
                 yield action_obj
 
 

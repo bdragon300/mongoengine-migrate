@@ -8,9 +8,8 @@ __all__ = [
 import logging
 
 from mongoengine_migrate.flags import EMBEDDED_DOCUMENT_NAME_PREFIX
-from mongoengine_migrate.mongo import mongo_version
 from mongoengine_migrate.schema import Schema
-from mongoengine_migrate.updater import DocumentUpdater, ByDocContext
+from mongoengine_migrate.updater import DocumentUpdater, ByDocContext, ByPathContext
 from mongoengine_migrate.utils import Diff
 from .base import BaseCreateDocument, BaseDropDocument, BaseRenameDocument, BaseAlterDocument
 
@@ -127,8 +126,21 @@ class AlterDocument(BaseAlterDocument):
             self._run_ctx['collection'] = self._run_ctx['db'][diff.new]
 
     def change_inherit(self, updater: DocumentUpdater, diff: Diff):
+        """Remove '_cls' key if Document becomes non-inherit, otherwise
+        do nothing
+        """
+        def by_path(ctx: ByPathContext):
+            ctx.collection.update_many(
+                {ctx.filter_dotpath + '._cls': {'$exists': True}, **ctx.extra_filter},
+                {'$unset': {ctx.update_dotpath + '._cls': ''}},
+                array_filters=ctx.build_array_filters()
+            )
+
         self._check_diff(diff, False, bool)
-        # TODO: remove '_cls' after inherit becoming False
+        if diff.new:
+            return
+
+        updater.update_by_path(by_path)
 
     def change_dynamic(self, updater: DocumentUpdater, diff: Diff):
         """If document becomes non-dynamic then remove fields which
@@ -142,7 +154,7 @@ class AlterDocument(BaseAlterDocument):
                 ctx.document.update(newdoc)
 
         self._check_diff(diff, False, bool)
-        if diff.new is True:
+        if diff.new:
             return  # Nothing to do
 
         # Remove fields which are not in schema

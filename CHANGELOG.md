@@ -24,6 +24,12 @@ and this project adheres to
 - Improve convertion matrix
 - Fix converters idempotency
 - NamedTuple method declaration workaround for Python 3.6
+- Fix change_dynamic method to use by_doc callback
+- Rename --schema-only to --dummy-actions cli parameter
+- Fix EmailFieldHandler.change_domain_whitelist method signature
+- Implement change_inherit methods in actions
+- Fix retrieving update paths for non-embedded documents in DocumentUpdater
+- Using separate mongo connection for bulk writes
 
 ### Removed
 - Remove isinstance dict checks from by_doc callbacks

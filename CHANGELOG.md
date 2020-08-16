@@ -30,6 +30,7 @@ and this project adheres to
 - Implement change_inherit methods in actions
 - Fix retrieving update paths for non-embedded documents in DocumentUpdater
 - Using separate mongo connection for bulk writes
+- Write only actually changed documents during update_by_document execution
 
 ### Removed
 - Remove isinstance dict checks from by_doc callbacks

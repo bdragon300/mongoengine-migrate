@@ -13,6 +13,7 @@ import jsonpath_rw
 from pymongo import ReplaceOne
 from pymongo.collection import Collection
 from pymongo.database import Database
+from copy import deepcopy
 
 from mongoengine_migrate import flags
 from mongoengine_migrate.graph import MigrationPolicy
@@ -332,6 +333,8 @@ class DocumentUpdater:
 
         buf = []
         for doc in collection.find(find_fltr):
+            prev_doc = deepcopy(doc)
+
             # Recursively apply the callback to every embedded doc
             for embedded_doc in parser.find(doc):
                 embedded_doc = embedded_doc.value
@@ -348,14 +351,20 @@ class DocumentUpdater:
                         else:
                             continue
                     if embedded_doc.get('_cls', self.document_cls) != self.document_cls:
-                        # Entry doesn't contain value of document class
+                        # Skip since document doesn't belong to
+                        # document class (document inheritance,
+                        # DynamicField)
                         # See `DocumentMetaclass` implementation
                         continue
                 ctx = ByDocContext(collection=collection,
                                    document=embedded_doc,
                                    filter_dotpath=filter_dotpath)
+                # Callback should change a dict in-place
                 callback(ctx)
-            buf.append(ReplaceOne({'_id': doc['_id']}, doc, upsert=False))
+
+            # Write a document only if it was changed by callback
+            if prev_doc != doc:
+                buf.append(ReplaceOne({'_id': doc['_id']}, doc, upsert=False))
 
             # Flush buffer
             if len(buf) >= flags.BULK_BUFFER_LENGTH:

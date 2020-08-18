@@ -4,6 +4,7 @@ import pytest
 
 from mongoengine_migrate.actions import DropDocument
 from mongoengine_migrate.exceptions import SchemaError
+from mongoengine_migrate.graph import MigrationPolicy
 
 
 class TestDropDocument:
@@ -12,7 +13,7 @@ class TestDropDocument:
         dump = dump_db()
 
         action = DropDocument('Schema1Doc1')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         expect = deepcopy(dump)
         del expect['schema1_doc1']
 
@@ -29,7 +30,7 @@ class TestDropDocument:
         dump = dump_db()
 
         action = DropDocument('Schema1Doc1')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -40,7 +41,7 @@ class TestDropDocument:
         dump = dump_db()
 
         action = DropDocument('Schema1Doc1')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -55,7 +56,7 @@ class TestDropDocument:
         dump = dump_db()
 
         action = DropDocument('Schema1Doc1')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -70,4 +71,4 @@ class TestDropDocument:
         action = DropDocument('Schema1Doc1')
 
         with pytest.raises(SchemaError):
-            action.prepare(test_db, schema)
+            action.prepare(test_db, schema, MigrationPolicy.strict)

@@ -6,13 +6,11 @@ __all__ = [
 ]
 
 import logging
-from typing import Any
 
-from mongoengine_migrate.exceptions import SchemaError
 from mongoengine_migrate.flags import EMBEDDED_DOCUMENT_NAME_PREFIX
 from mongoengine_migrate.schema import Schema
-from mongoengine_migrate.mongo import mongo_version
-from mongoengine_migrate.utils import Diff, UNSET
+from mongoengine_migrate.updater import DocumentUpdater, ByDocContext, ByPathContext
+from mongoengine_migrate.utils import Diff
 from .base import BaseCreateDocument, BaseDropDocument, BaseRenameDocument, BaseAlterDocument
 
 log = logging.getLogger('mongoengine-migrate')
@@ -113,7 +111,7 @@ class AlterDocument(BaseAlterDocument):
 
         return super(AlterDocument, cls).build_object(document_type, left_schema, right_schema)
 
-    def change_collection(self, diff: Diff):
+    def change_collection(self, updater: DocumentUpdater, diff: Diff):
         self._check_diff(diff, False, str)
 
         old_collection = self._run_ctx['db'][diff.old]
@@ -127,24 +125,38 @@ class AlterDocument(BaseAlterDocument):
             # Update collection object in run context after renaming
             self._run_ctx['collection'] = self._run_ctx['db'][diff.new]
 
-    def change_inherit(self, diff: Diff):
-        self._check_diff(diff, False, bool)
-        # TODO: remove '_cls' after inherit becoming False
-        # TODO: raise error if other documents use the same collection
-        #       when inherit becoming False
+    def change_inherit(self, updater: DocumentUpdater, diff: Diff):
+        """Remove '_cls' key if Document becomes non-inherit, otherwise
+        do nothing
+        """
+        def by_path(ctx: ByPathContext):
+            ctx.collection.update_many(
+                {ctx.filter_dotpath + '._cls': {'$exists': True}, **ctx.extra_filter},
+                {'$unset': {ctx.update_dotpath + '._cls': ''}},
+                array_filters=ctx.build_array_filters()
+            )
 
-    @mongo_version(min_version='2.6')
-    def change_dynamic(self, diff: Diff):
         self._check_diff(diff, False, bool)
+        if diff.new:
+            return
 
-        if diff.new is True:
+        updater.update_by_path(by_path)
+
+    def change_dynamic(self, updater: DocumentUpdater, diff: Diff):
+        """If document becomes non-dynamic then remove fields which
+        are not defined in mongoengine Document
+        """
+        def by_doc(ctx: ByDocContext):
+            extra_keys = ctx.document.keys() - self_schema.keys()
+            if extra_keys:
+                newdoc = {k: v for k, v in ctx.document.items() if k in self_schema.keys()}
+                ctx.document.clear()
+                ctx.document.update(newdoc)
+
+        self._check_diff(diff, False, bool)
+        if diff.new:
             return  # Nothing to do
 
         # Remove fields which are not in schema
-        self_schema = self._run_ctx['left_schema'][self.document_type]
-
-        project = {k: 1 for k in self_schema.keys()}
-        self._run_ctx['collection'].aggregate([
-            {'$project': project},
-            {'$out': self_schema.parameters['collection']}  # >= 2.6
-        ])  # FIXME: consider _cls for inherited documents
+        self_schema = self._run_ctx['left_schema'][self.document_type]  # type: Schema.Document
+        updater.update_by_document(by_doc)

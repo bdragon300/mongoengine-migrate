@@ -4,13 +4,14 @@ __all__ = [
     'MongoengineMigrate',
 ]
 
+import functools
 import importlib.util
 import logging
-import functools
+import re
 from datetime import timezone, datetime
 from pathlib import Path
 from types import ModuleType
-from typing import Tuple, Iterable, Optional
+from typing import Tuple, Iterable, Optional, Dict
 
 import pymongo.database
 import pymongo.errors
@@ -24,7 +25,7 @@ import mongoengine_migrate.flags as runtime_flags
 from mongoengine_migrate.actions.factory import build_actions_chain
 from mongoengine_migrate.exceptions import MongoengineMigrateError, ActionError, MigrationGraphError
 from mongoengine_migrate.fields.registry import type_key_registry
-from mongoengine_migrate.graph import Migration, MigrationsGraph
+from mongoengine_migrate.graph import Migration, MigrationsGraph, MigrationPolicy
 from mongoengine_migrate.query_tracer import DatabaseQueryTracer
 from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.utils import get_closest_parent, get_document_type
@@ -84,6 +85,7 @@ def collect_models_schema() -> Schema:
     :return:
     """
     schema = Schema()
+    collections: Dict[str, set] = {}  # {collection_name: set(top_level_documents)}
 
     # Retrieve models from mongoengine global document registry
     for model_cls in _document_registry.values():
@@ -103,7 +105,18 @@ def collect_models_schema() -> Schema:
 
         schema[document_type] = Schema.Document()
         if not document_type.startswith(runtime_flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
-            schema[document_type].parameters['collection'] = model_cls._get_collection_name()
+            col = schema[document_type].parameters['collection'] = model_cls._get_collection_name()
+
+            # Determine if unrelated documents have the same collection
+            # E.g. DropDocument could drop all of these documents
+            top_lvl_doc = document_type.split(runtime_flags.DOCUMENT_NAME_SEPARATOR)[0]
+            collections.setdefault(col, set())
+            if collections[col] and top_lvl_doc not in collections[col]:
+                collections[col].add(top_lvl_doc)
+                log.warning(f'These mongoengine documents use the same collection '
+                            f'which can be a cause of data corruption: {collections[col]}')
+            else:
+                collections[col].add(top_lvl_doc)
 
         if model_cls._meta.get('allow_inheritance'):
             schema[document_type].parameters['inherit'] = True
@@ -137,12 +150,9 @@ def collect_models_schema() -> Schema:
 
             handler_cls = field_mapping_registry[registry_field_cls].field_handler_cls
             schema[document_type][field_name] = handler_cls.build_schema(field_obj)
-            # TODO: warning about field type not implemented
             # TODO: validate default against all field restrictions such as min_length, regex, etc.
 
-        log.debug("> Schema '%s' => %s",
-                  document_type,
-                  str(schema[document_type]))
+        log.debug("> Schema '%s' => %s", document_type, str(schema[document_type]))
 
     return schema
 
@@ -158,6 +168,10 @@ class MongoengineMigrate:
         self.migration_dir = migrations_dir
         self._kwargs = kwargs
         self.client = MongoClient(mongo_uri)
+        # Another MongoClient for additional operations which should
+        # be performed in separate connection such as parallel bulk
+        # writes
+        self.client2 = MongoClient(mongo_uri)
 
         # Initiate immediate connect to MongoDB in order to ensure
         # that it is accessible
@@ -182,7 +196,17 @@ class MongoengineMigrate:
         """Return MongoDB database object"""
         db = self.client.get_database()
         if runtime_flags.dry_run:
-            log.debug('> Dry run mode requested, use mock database object')
+            log.debug('> Dry run mode requested, use mock database object for main connection')
+            db = DatabaseQueryTracer(db)
+
+        return db
+
+    @functools.cached_property
+    def db2(self) -> pymongo.database.Database:
+        """Return MongoDB database object for client2"""
+        db = self.client2.get_database()
+        if runtime_flags.dry_run:
+            log.debug('> Dry run mode requested, use mock database object for second connection')
             db = DatabaseQueryTracer(db)
 
         return db
@@ -284,9 +308,9 @@ class MongoengineMigrate:
         applied = []
         for migration_name in self.get_db_migration_names():
             if migration_name not in graph.migrations:
-                # TODO: ability to override with --force
                 raise MigrationGraphError(
-                    f'Migration {migration_name} was applied, but its python module not found'
+                    f'Migration {migration_name} was applied, but its python module not found. '
+                    f'You can use schema repair to fix this issue'
                 )
             graph.migrations[migration_name].applied = True
             applied.append(migration_name)
@@ -308,34 +332,40 @@ class MongoengineMigrate:
             log.debug('Loading migration files...')
             graph = self.build_graph()
         log.debug('Loading schema from database...')
-        current_schema = self.load_db_schema()
+        left_schema = self.load_db_schema()
 
         if migration_name not in graph.migrations:
             raise MigrationGraphError(f'Migration {migration_name} not found')
 
-        # TODO: error handling
         db = self.db
         for migration in graph.walk_down(graph.initial, unapplied_only=True):
             log.info('Upgrading %s...', migration.name)
             for idx, action_object in enumerate(migration.get_actions(), start=1):
                 log.debug('> [%d] %s', idx, str(action_object))
                 if not action_object.dummy_action and not runtime_flags.schema_only:
-                    action_object.prepare(db, current_schema)
+                    action_object.prepare(db, left_schema, migration.policy)
                     action_object.run_forward()
                     action_object.cleanup()
-                # TODO: move the following to the place before cleanup
-                # TODO: handle patch errors (if schema is corrupted)
-                current_schema = patch(action_object.to_schema_patch(current_schema),
-                                       current_schema)
+
+                try:
+                    left_schema = patch(action_object.to_schema_patch(left_schema), left_schema)
+                except (TypeError, ValueError, KeyError) as e:
+                    raise ActionError(
+                        f"Unable to apply schema patch of {action_object!r}. More likely that the "
+                        f"schema is corrupted. You can use schema repair tools to fix this issue"
+                    ) from e
 
             graph.migrations[migration.name].applied = True
+
+            if not runtime_flags.dry_run:
+                log.debug('Writing db schema and migrations graph...')
+                self.write_db_schema(left_schema)
+                self.write_db_migrations_graph(graph)
+
             if migration.name == migration_name:
                 break   # We've reached the target migration
 
-        if not runtime_flags.dry_run:
-            log.debug('Writing db schema, applied migrations list...')
-            self.write_db_schema(current_schema)
-            self.write_db_migrations_graph(graph)
+        self._verify_schema(left_schema)
 
     def downgrade(self, migration_name: str, graph: Optional[MigrationsGraph] = None):
         """
@@ -363,9 +393,15 @@ class MongoengineMigrate:
             for action in migration.get_actions():
                 forward_patch = action.to_schema_patch(temp_left_schema)
                 migration_diffs[migration.name].append(forward_patch)
-                temp_left_schema = patch(forward_patch, temp_left_schema)
 
-        # TODO: error handling
+                try:
+                    temp_left_schema = patch(forward_patch, temp_left_schema)
+                except (TypeError, ValueError, KeyError) as e:
+                    raise ActionError(
+                        f"Unable to apply schema patch of {action!r}. More likely that the "
+                        f"schema is corrupted. You can use schema repair tools to fix this issue"
+                    ) from e
+
         db = self.db
         for migration in graph.walk_up(graph.last, applied_only=True):
             if migration.name == migration_name:
@@ -380,20 +416,28 @@ class MongoengineMigrate:
             )
             for action_object, action_diff, idx in reversed(list(action_diffs)):
                 log.debug('> [%d] %s', idx, str(action_object))
-                left_schema = patch(list(swap(action_diff)), left_schema)
+
+                try:
+                    left_schema = patch(list(swap(action_diff)), left_schema)
+                except (TypeError, ValueError, KeyError) as e:
+                    raise ActionError(
+                        f"Unable to apply schema patch of {action_object!r}. More likely that the "
+                        f"schema is corrupted. You can use schema repair tools to fix this issue"
+                    ) from e
 
                 if not action_object.dummy_action and not runtime_flags.schema_only:
-                    action_object.prepare(db, left_schema)
+                    action_object.prepare(db, left_schema, migration.policy)
                     action_object.run_backward()
                     action_object.cleanup()
-                # TODO: handle patch errors (if schema is corrupted)
 
             graph.migrations[migration.name].applied = False
 
-        if not runtime_flags.dry_run:
-            log.debug('Writing db schema, applied migrations list...')
-            self.write_db_schema(left_schema)
-            self.write_db_migrations_graph(graph)
+            if not runtime_flags.dry_run:
+                log.debug('Writing db schema and migrations graph...')
+                self.write_db_schema(left_schema)
+                self.write_db_migrations_graph(graph)
+
+        self._verify_schema(left_schema)
 
     def migrate(self, migration_name: str = None):
         """
@@ -435,7 +479,13 @@ class MongoengineMigrate:
         #  then try to guess which actions would reflect such changes
         for migration in graph.walk_down(graph.initial, unapplied_only=False):
             for action_object in migration.get_actions():
-                db_schema = patch(action_object.to_schema_patch(db_schema), db_schema)
+                try:
+                    db_schema = patch(action_object.to_schema_patch(db_schema), db_schema)
+                except (TypeError, ValueError, KeyError) as e:
+                    raise ActionError(
+                        f"Unable to apply schema patch of {action_object!r}. More likely that the "
+                        f"schema is corrupted. You can use schema repair tools to fix this issue"
+                    ) from e
 
         log.debug('Collecting schema from mongoengine documents...')
         models_schema = collect_models_schema()
@@ -446,12 +496,21 @@ class MongoengineMigrate:
         log.debug('Building actions chain...')
         actions_chain = build_actions_chain(db_schema, models_schema)
 
+        import_expressions = {'from mongoengine_migrate.actions import *'}
+        for action in actions_chain:
+            # If `regex` is set in action, then we probably need 're'
+            if isinstance(action.parameters.get('regex'), re.Pattern):
+                import_expressions.add('import re')
+                break
+
         log.debug('Writing migrations file...')
         env = Environment()
         env.filters['symbol_wrap'] = symbol_wrap
         tpl_ctx = {
             'graph': graph,
-            'actions_chain': actions_chain
+            'actions_chain': actions_chain,
+            'policy_enum': MigrationPolicy,
+            'import_expressions': import_expressions
         }
         tpl_path = Path(__file__).parent / 'migration_template.tpl'
         tpl = env.from_string(tpl_path.read_text())
@@ -463,3 +522,22 @@ class MongoengineMigrate:
         migration_file.write_text(migration_source)
 
         log.info('Migration file "%s" was created', migration_file)
+
+    def _verify_schema(self, schema: Schema):
+        # Check if all derived documents have the same collection as
+        # their parents.
+        # E.g. user could comment/remove AlterDocument(collection=...)
+        # for any derived document, but leave for base one)
+        collections = {}  # {top_level_document: collection}
+        for document_type, doc_schema in schema.items():
+            if 'collection' not in doc_schema.parameters:
+                continue
+
+            col = doc_schema.parameters['collection']
+            top_lvl_doc = document_type.split(runtime_flags.DOCUMENT_NAME_SEPARATOR)[0]
+            if top_lvl_doc in collections and collections[top_lvl_doc] != col:
+                log.warning(f'The collection in derived document {document_type} ({col}) '
+                            f'is differ than its base document {top_lvl_doc} '
+                            f'({collections[top_lvl_doc]}). Please fix collection name and rerun '
+                            f'an affected migration')
+            collections.setdefault(top_lvl_doc, col)

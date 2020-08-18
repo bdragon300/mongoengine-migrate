@@ -6,6 +6,7 @@ import itertools
 
 from mongoengine_migrate.actions import DropField
 from mongoengine_migrate.exceptions import SchemaError
+from mongoengine_migrate.graph import MigrationPolicy
 
 
 class TestDropFieldInDocument:
@@ -18,7 +19,7 @@ class TestDropFieldInDocument:
                 del rec.value['doc1_str']
 
         action = DropField('Schema1Doc1', 'doc1_str')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -31,7 +32,7 @@ class TestDropFieldInDocument:
         dump = dump_db()
 
         action = DropField('Schema1Doc1', 'doc1_str')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -64,7 +65,7 @@ class TestDropFieldInDocument:
             rec.value['test_field'] = default
 
         action = DropField('Schema1Doc1', 'test_field')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
         assert expect == dump_db()
@@ -96,7 +97,7 @@ class TestDropFieldInDocument:
             ids.add(doc['_id'])
 
         action = DropField('Schema1Doc1', 'test_field')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -113,7 +114,7 @@ class TestDropFieldInDocument:
         action = DropField('Schema1Doc1', 'doc1_str')
 
         with pytest.raises(SchemaError):
-            action.prepare(test_db, schema)
+            action.prepare(test_db, schema, MigrationPolicy.strict)
 
     def test_prepare__if_such_field_in_document_is_not_in_schema__should_raise_error(self,
                                                                                      load_fixture,
@@ -123,7 +124,7 @@ class TestDropFieldInDocument:
         action = DropField('Schema1Doc1', 'unknown_field')
 
         with pytest.raises(SchemaError):
-            action.prepare(test_db, schema)
+            action.prepare(test_db, schema, MigrationPolicy.strict)
 
 
 class TestCreateFieldEmbedded:
@@ -134,7 +135,7 @@ class TestCreateFieldEmbedded:
         dump = dump_db()
 
         action = DropField('~Schema1EmbDoc1', 'embdoc1_str')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -167,7 +168,7 @@ class TestCreateFieldEmbedded:
             rec.value['test_field'] = default
 
         action = DropField('~Schema1EmbDoc1', 'test_field')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -183,7 +184,7 @@ class TestCreateFieldEmbedded:
                 del rec.value['embdoc1_str']
 
         action = DropField('~Schema1EmbDoc1', 'embdoc1_str')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 

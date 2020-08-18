@@ -4,6 +4,7 @@ import pytest
 
 from mongoengine_migrate.actions import AlterDocument
 from mongoengine_migrate.exceptions import SchemaError
+from mongoengine_migrate.graph import MigrationPolicy
 
 
 class TestAlterDocument:
@@ -15,7 +16,7 @@ class TestAlterDocument:
         dump = dump_db()
 
         action = AlterDocument('Schema1Doc1', collection='new_name1')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         expect = deepcopy(dump)
         expect['new_name1'] = expect.pop('schema1_doc1')
 
@@ -32,7 +33,7 @@ class TestAlterDocument:
         dump = dump_db()
 
         action = AlterDocument('Schema1Doc1', collection='new_name1')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -46,7 +47,7 @@ class TestAlterDocument:
         dump = dump_db()
 
         action = AlterDocument('Schema1Doc1', collection='new_name1')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
 
         action.run_backward()
@@ -62,7 +63,7 @@ class TestAlterDocument:
         dump = dump_db()
 
         action = AlterDocument('Schema1Doc1', collection='new_name1')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -77,4 +78,4 @@ class TestAlterDocument:
         action = AlterDocument('Schema1Doc1')
 
         with pytest.raises(SchemaError):
-            action.prepare(test_db, schema)
+            action.prepare(test_db, schema, MigrationPolicy.strict)

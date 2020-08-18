@@ -5,7 +5,7 @@ from typing import Optional
 
 import click
 
-import mongoengine_migrate.flags as runtime_flags
+import mongoengine_migrate.flags as flags
 from mongoengine_migrate.loader import MongoengineMigrate, import_module
 from mongoengine_migrate.exceptions import MongoengineMigrateError
 
@@ -99,15 +99,13 @@ def migration_options(f):
             '--dry-run',
             default=False,
             is_flag=True,
-            help='Dry run mode. Don\'t modify the database and print '
-                 'modification commands which would get executed'
+            help='Dry run mode. Just show queries to be executed, without running migrations'
         ),
         click.option(
-            '--schema-only',
+            '--dummy-actions',
             default=False,
             is_flag=True,
-            help='Migrate only schema, do not perform any modifications'
-                 'on database'
+            help='Perform migrations without doing any database modifications'
         )
     ]
     for decorator in reversed(decorators):
@@ -120,19 +118,20 @@ def migration_options(f):
 def cli(uri, directory, collection, **kwargs):
     global mongoengine_migrate
     setup_logger(kwargs['log_level'])
-    runtime_flags.mongo_version = kwargs.get('mongo_version')
+    flags.mongo_version = kwargs.get('mongo_version')
 
     mongoengine_migrate = MongoengineMigrate(mongo_uri=uri,
                                              collection_name=collection,
                                              migrations_dir=directory)
+    flags.database2 = mongoengine_migrate.db2
 
 
 @click.command(short_help='Upgrade db to the given migration')
 @click.argument('migration', required=True)
 @migration_options
 def upgrade(migration, dry_run, schema_only):
-    runtime_flags.dry_run = dry_run
-    runtime_flags.schema_only = schema_only
+    flags.dry_run = dry_run
+    flags.schema_only = schema_only
 
     mongoengine_migrate.upgrade(migration)
 
@@ -141,8 +140,8 @@ def upgrade(migration, dry_run, schema_only):
 @click.argument('migration', required=True)
 @migration_options
 def downgrade(migration, dry_run, schema_only):
-    runtime_flags.dry_run = dry_run
-    runtime_flags.schema_only = schema_only
+    flags.dry_run = dry_run
+    flags.schema_only = schema_only
     mongoengine_migrate.downgrade(migration)
 
 
@@ -150,8 +149,8 @@ def downgrade(migration, dry_run, schema_only):
 @click.argument('migration', required=False)
 @migration_options
 def migrate(migration, dry_run, schema_only):
-    runtime_flags.dry_run = dry_run
-    runtime_flags.schema_only = schema_only
+    flags.dry_run = dry_run
+    flags.schema_only = schema_only
     mongoengine_migrate.migrate(migration)
 
 

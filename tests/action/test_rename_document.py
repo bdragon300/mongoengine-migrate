@@ -2,6 +2,7 @@ import pytest
 
 from mongoengine_migrate.actions import RenameDocument
 from mongoengine_migrate.exceptions import SchemaError
+from mongoengine_migrate.graph import MigrationPolicy
 
 
 class TestRenameDocument:
@@ -10,7 +11,7 @@ class TestRenameDocument:
         dump = dump_db()
 
         action = RenameDocument('Schema1Doc1', new_name='NewNameDoc')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -21,7 +22,7 @@ class TestRenameDocument:
         dump = dump_db()
 
         action = RenameDocument('Schema1Doc1', new_name='NewNameDoc')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -36,4 +37,4 @@ class TestRenameDocument:
         action = RenameDocument('Schema1Doc1', new_name='NewNameDoc')
 
         with pytest.raises(SchemaError):
-            action.prepare(test_db, schema)
+            action.prepare(test_db, schema, MigrationPolicy.strict)

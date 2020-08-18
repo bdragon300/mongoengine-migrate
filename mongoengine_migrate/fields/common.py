@@ -27,11 +27,9 @@ import mongoengine.fields
 from mongoengine_migrate.exceptions import SchemaError, InconsistencyError
 from mongoengine_migrate.mongo import (
     check_empty_result,
-    mongo_version,
-    DocumentUpdater,
-    ByPathContext,
-    ByDocContext
+    mongo_version
 )
+from ..updater import ByPathContext, ByDocContext, DocumentUpdater
 from mongoengine_migrate.utils import get_document_type, Diff, UNSET
 from .base import CommonFieldHandler
 from .converters import to_string, to_decimal
@@ -93,10 +91,9 @@ class StringFieldHandler(CommonFieldHandler):
         """Cut off a string if it longer than limitation (if any)"""
         def by_doc(ctx: ByDocContext):
             doc = ctx.document
-            if isinstance(doc, dict):
-                match = updater.field_name in doc and len(doc[updater.field_name]) > diff.new
-                if match:
-                    doc[updater.field_name] = doc[updater.field_name][:diff.new]
+            match = updater.field_name in doc and len(doc[updater.field_name]) > diff.new
+            if match:
+                doc[updater.field_name] = doc[updater.field_name][:diff.new]
 
         self._check_diff(updater, diff, True, int)
         if diff.new in (UNSET, None):
@@ -120,13 +117,12 @@ class StringFieldHandler(CommonFieldHandler):
 
         def by_doc(ctx: ByDocContext):
             doc = ctx.document
-            if isinstance(doc, dict):
-                val = doc.get(updater.field_name)
-                if isinstance(val, str) and len(val) < diff.new:
-                    raise InconsistencyError(
-                        f"String field {ctx.collection.name}.{ctx.filter_dotpath} on one of "
-                        f"records has length less than minimum: {doc}"
-                    )
+            val = doc.get(updater.field_name)
+            if isinstance(val, str) and len(val) < diff.new:
+                raise InconsistencyError(
+                    f"String field {ctx.collection.name}.{ctx.filter_dotpath} on one of "
+                    f"records has length less than minimum: {doc}"
+                )
 
         self._check_diff(updater, diff, True, int)
         if diff.new in (UNSET, None):
@@ -136,7 +132,8 @@ class StringFieldHandler(CommonFieldHandler):
 
         # We can't to increase string length, so raise error if
         # there was found strings which are shorter than should be
-        updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
+        if self.migration_policy.name == 'strict':
+            updater.update_combined(by_path, by_doc, False)
 
     def change_regex(self, updater: DocumentUpdater, diff: Diff):
         """Raise error if string does not match regex (if any)"""
@@ -151,7 +148,8 @@ class StringFieldHandler(CommonFieldHandler):
         if diff.new in (UNSET, None):
             return
 
-        updater.update_by_path(by_path)
+        if self.migration_policy.name == 'strict':
+            updater.update_by_path(by_path)
 
 
 class URLFieldHandler(StringFieldHandler):
@@ -173,7 +171,8 @@ class URLFieldHandler(StringFieldHandler):
 
         # Check if some records contains non-url values in db_field
         scheme_regex = re.compile(rf'\A(?:({"|".join(re.escape(x) for x in diff.new)}))://')
-        updater.update_by_path(by_path)
+        if self.migration_policy.name == 'strict':
+            updater.update_by_path(by_path)
 
 
 class EmailFieldHandler(StringFieldHandler):
@@ -212,7 +211,7 @@ class EmailFieldHandler(StringFieldHandler):
         re.IGNORECASE,
     )
 
-    def change_domain_whitelist(self, diff: Diff):
+    def change_domain_whitelist(self, updater: DocumentUpdater, diff: Diff):
         """
         `domain_whitelist` parameter is affected to domain validation:
         if domain in email address is in that list then validation will
@@ -231,7 +230,8 @@ class EmailFieldHandler(StringFieldHandler):
             return
 
         regex = self.UTF8_USER_REGEX if diff.new is True else self.USER_REGEX
-        updater.update_by_path(by_path)
+        if self.migration_policy.name == 'strict':
+            updater.update_by_path(by_path)
 
     def change_allow_ip_domain(self, updater: DocumentUpdater, diff: Diff):
         """
@@ -255,7 +255,8 @@ class EmailFieldHandler(StringFieldHandler):
         whitelist_regex = '|'.join(
             re.escape(x) for x in self.left_field_schema.get('domain_whitelist', [])
         ) or '.*'
-        updater.update_by_path(by_path)
+        if self.migration_policy.name == 'strict':
+            updater.update_by_path(by_path)
 
     def convert_type(self,
                      updater: DocumentUpdater,
@@ -277,7 +278,8 @@ class EmailFieldHandler(StringFieldHandler):
         whitelist_regex = '|'.join(
             re.escape(x) for x in self.left_field_schema.get('domain_whitelist', [])
         ) or '.*'
-        updater.update_by_path(by_path)
+        if self.migration_policy.name == 'strict':
+            updater.update_by_path(by_path)
 
 
 class DecimalFieldHandler(NumberFieldHandler):
@@ -321,12 +323,11 @@ class ComplexDateTimeFieldHandler(StringFieldHandler):
 
     schema_skel_keys = {'separator'}
 
-    @mongo_version(min_version='3.4')
     def change_separator(self, updater: DocumentUpdater, diff: Diff):
         """Change separator in datetime strings"""
         def by_doc(ctx: ByDocContext):
             doc = ctx.document
-            if isinstance(doc, dict) and updater.field_name in doc:
+            if updater.field_name in doc:
                 doc[updater.field_name] = doc[updater.field_name].replace(diff.old, diff.new)
 
         self._check_diff(updater, diff, False, str)
@@ -364,15 +365,13 @@ class ListFieldHandler(CommonFieldHandler):
 
         return skel
 
-    @mongo_version(min_version='3.6')
     def change_max_length(self, updater: DocumentUpdater, diff: Diff):
         """Cut off a list if it longer than limitation (if any)"""
         def by_doc(ctx: ByDocContext):
             doc = ctx.document
-            if isinstance(doc, dict):
-                match = updater.field_name in doc and len(doc[updater.field_name]) > diff.new
-                if match:
-                    doc[updater.field_name] = doc[updater.field_name][:diff.new]
+            match = updater.field_name in doc and len(doc[updater.field_name]) > diff.new
+            if match:
+                doc[updater.field_name] = doc[updater.field_name][:diff.new]
 
         self._check_diff(updater, diff, True, int)
         if diff.new in (UNSET, None):
@@ -468,20 +467,18 @@ class ReferenceFieldHandler(CommonFieldHandler):
         else:
             self._dbref_to_objectid(updater)
 
-    @mongo_version(min_version='3.6')
     def _objectid_to_dbref(self, updater: DocumentUpdater):
         def by_doc(ctx: ByDocContext):
             doc = ctx.document
-            if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), bson.ObjectId):
+            if isinstance(doc.get(updater.field_name), bson.ObjectId):
                 doc[updater.field_name] = bson.DBRef(ctx.collection.name, doc[updater.field_name])
 
         updater.update_by_document(by_doc)
 
-    @mongo_version(min_version='3.6')
     def _dbref_to_objectid(self, updater: DocumentUpdater):
         def by_doc(ctx: ByDocContext):
             doc = ctx.document
-            if isinstance(doc, dict) and isinstance(doc.get(updater.field_name), bson.DBRef):
+            if isinstance(doc.get(updater.field_name), bson.DBRef):
                 doc[updater.field_name] = doc[updater.field_name].id
 
         updater.update_by_document(by_doc)
@@ -516,7 +513,7 @@ class CachedReferenceFieldHandler(CommonFieldHandler):
 
     def change_fields(self, updater: DocumentUpdater, diff: Diff):
         def by_doc(ctx: ByDocContext):
-            if isinstance(ctx.document, dict) and updater.field_name in ctx.document:
+            if updater.field_name in ctx.document:
                 if isinstance(ctx.document[updater.field_name], dict):
                     ctx.document[updater.field_name] = {
                         k: v for k, v in ctx.document[updater.field_name].items()

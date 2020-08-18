@@ -22,7 +22,9 @@ import mongoengine_migrate.flags as flags
 from mongoengine_migrate.exceptions import ActionError, SchemaError
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.schema import Schema
-from mongoengine_migrate.utils import Diff, UNSET
+from mongoengine_migrate.utils import Diff, UNSET, document_type_to_class_name
+from mongoengine_migrate.graph import MigrationPolicy
+from mongoengine_migrate.updater import DocumentUpdater
 
 #: Migration Actions registry. Mapping of class name and its class
 actions_registry: Dict[str, Type['BaseAction']] = {}
@@ -76,16 +78,21 @@ class BaseAction(metaclass=BaseActionMeta):
         self.parameters = kwargs
         self._run_ctx = None  # Run context, filled by `prepare()`
 
-    def prepare(self, db: Database, left_schema: Schema):
+    def prepare(self, db: Database, left_schema: Schema, migration_policy: MigrationPolicy):
         """
         Prepare action before Action run (both forward and backward)
         :param db: pymongo.Database object
         :param left_schema: db schema before migration (left side)
+        :param migration_policy:
         :return:
         """
-        self._prepare(db, left_schema, True)
+        self._prepare(db, left_schema, migration_policy, True)
 
-    def _prepare(self, db: Database, left_schema: Schema, ensure_existence: bool):
+    def _prepare(self,
+                 db: Database,
+                 left_schema: Schema,
+                 migration_policy: MigrationPolicy,
+                 ensure_existence: bool):
         if ensure_existence and self.document_type not in left_schema:
             raise SchemaError(f'Document {self.document_type} does not exist in schema')
         elif not ensure_existence and self.document_type in left_schema:
@@ -102,7 +109,8 @@ class BaseAction(metaclass=BaseActionMeta):
         self._run_ctx = {
             'left_schema': left_schema,
             'db': db,
-            'collection': collection
+            'collection': collection,
+            'migration_policy': migration_policy
         }
 
     def cleanup(self):
@@ -222,14 +230,18 @@ class BaseFieldAction(BaseAction):
         """
         pass
 
-    def prepare(self, db: Database, left_schema: Schema):
-        self._prepare(db, left_schema, True)
+    def prepare(self, db: Database, left_schema: Schema, migration_policy: MigrationPolicy):
+        self._prepare(db, left_schema, migration_policy, True)
 
         self._run_ctx['left_field_schema'] = \
             left_schema[self.document_type].get(self.field_name, {})
 
-    def _prepare(self, db: Database, left_schema: Schema, ensure_existence: bool):
-        super()._prepare(db, left_schema, True)
+    def _prepare(self,
+                 db: Database,
+                 left_schema: Schema,
+                 migration_policy: MigrationPolicy,
+                 ensure_existence: bool):
+        super()._prepare(db, left_schema, migration_policy, True)
 
         if ensure_existence and self.field_name not in left_schema[self.document_type]:
             raise SchemaError(f'Field {self.document_type}.{self.field_name} '
@@ -265,7 +277,8 @@ class BaseFieldAction(BaseAction):
                               self.document_type,
                               self._run_ctx['left_schema'],
                               left_field_schema,
-                              right_field_schema)
+                              right_field_schema,
+                              self._run_ctx['migration_policy'])
         return handler
 
     def __repr__(self):
@@ -355,8 +368,8 @@ class BaseCreateDocument(BaseDocumentAction):
         item.parameters.update(self.parameters)
         return [('add', '', [(self.document_type, item)])]
 
-    def prepare(self, db: Database, left_schema: Schema):
-        self._prepare(db, left_schema, False)
+    def prepare(self, db: Database, left_schema: Schema, migration_policy: MigrationPolicy):
+        self._prepare(db, left_schema, migration_policy, False)
 
 
 class BaseDropDocument(BaseDocumentAction):
@@ -472,19 +485,28 @@ class BaseAlterDocument(BaseDocumentAction):
         for name in sorted(parameters.keys() | self_schema.parameters.keys()):
             left_value = self_schema.parameters.get(name, UNSET)
             right_value = parameters.get(name, UNSET)
+            if left_value == right_value:
+                continue
+
             diff = Diff(
                 old=right_value if swap else left_value,
                 new=left_value if swap else right_value,
                 key=name
             )
-            if diff.old != diff.new:
-                log.debug(">> Change %s: %s => %s", repr(name), repr(diff.old), repr(diff.new))
-                try:
-                    method = getattr(self, f'change_{name}')
-                except AttributeError as e:
-                    raise SchemaError(f'Unknown document parameter: {name}') from e
 
-                method(diff)
+            log.debug(">> Change %s: %s => %s", repr(name), repr(diff.old), repr(diff.new))
+            try:
+                method = getattr(self, f'change_{name}')
+            except AttributeError as e:
+                raise SchemaError(f'Unknown document parameter: {name}') from e
+
+            inherit = self._run_ctx['left_schema'][self.document_type].parameters.get('inherit')
+            document_cls = document_type_to_class_name(self.document_type) if inherit else None
+            updater = DocumentUpdater(self._run_ctx['db'], self.document_type,
+                                      self._run_ctx['left_schema'], '',
+                                      self._run_ctx['migration_policy'], document_cls)
+
+            method(updater, diff)
 
     def _check_diff(self, diff: Diff, can_be_none=True, check_type=None):
         if diff.new == diff.old:

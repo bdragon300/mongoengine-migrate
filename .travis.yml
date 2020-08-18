@@ -1,0 +1,24 @@
+language: python
+python:
+  - '3.6'
+  - '3.7'
+  - '3.8'
+
+services:
+  - mongodb
+
+env:
+  DATABASE_URL: "mongodb://localhost/mydb_test"
+
+install:
+  - pip install setuptools tox
+
+script:
+  - tox --skip-missing-interpreters true
+
+deploy:
+  provider: pypi
+  username: "__token__"
+  password: $PYPI_TOKEN
+  on:
+    tags: true

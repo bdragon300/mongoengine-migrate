@@ -6,12 +6,12 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name='mongoengine-migrate',
     description='Migrations for MongoEngine ODM inspired by Django',
-    version='0.0.1a1.dev2',
+    version='0.0.1a1',  # Also pyproject.toml
     author='Igor Derkach',
     author_email='gosha753951@gmail.com',
     url='https://github.com/bdragon300/mongoengine-migrate',
     license='Apache-2.0',
-    python_requires='>=3',
+    python_requires='>=3.6',
     packages=setuptools.find_packages(exclude=['tests']),
     package_data={'mongoengine_migrate': ['migration_template.tpl']},
     long_description=long_description,
@@ -19,12 +19,15 @@ setuptools.setup(
     entry_points={"console_scripts": ["mongoengine_migrate=mongoengine_migrate.cli:cli"]},
     keywords=["mongo", "mongodb", "mongoengine", "migrate", "migration"],
     classifiers=[
-        'Programming Language :: Python :: 3',
-        'Development Status :: 2 - Pre-Alpha',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Development Status :: 3 - Alpha',
         'License :: OSI Approved :: Apache Software License',
         'Intended Audience :: Developers',
         'Topic :: Database'
     ],
+    # Also tox.ini, pyproject.toml
     install_requires=[
         'mongoengine>=0.16.0',
         'pymongo>=3.0',
@@ -35,6 +38,4 @@ setuptools.setup(
         'python-dateutil',
         'jsonpath_rw'
     ],
-    tests_require=['pytest'],
-    setup_requires=['pytest-runner'],
 )

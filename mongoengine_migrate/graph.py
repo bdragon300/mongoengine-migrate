@@ -1,9 +1,39 @@
-__all__ = ['Migration', 'MigrationsGraph']
+__all__ = [
+    'MigrationPolicy',
+    'Migration',
+    'MigrationsGraph'
+]
 
 from typing import Dict, List
 
 from mongoengine_migrate.exceptions import MigrationGraphError
 from mongoengine_migrate.utils import Slotinit
+from enum import Enum
+
+
+class MigrationPolicy(Enum):
+    """Policy which determines how much the migration engine will
+    be tolerant to already existing data which does not satisfy to
+    mongoengine schema.
+
+    MongoDB allows to keep any type of data in any field because of
+    its schemaless nature. The data could be fed from various sources,
+    not only those one with our mongoengine documents, MongoDB does not
+    check their type.
+
+    When `strict` policy is used the presence of data which does not
+    satisfy to schema is treated as error and migration process will
+    be interrupted.
+
+    Using `relaxed` policy the migration engine does not check
+    existing value types and tries to migrate data which related only to
+    migration itself. E.g. when we change a field type from `long` to
+    `string`, only `long` values will be casted to string type, but
+    existing objectId or embedded documents or smth else in the same
+    field will be skipped.
+    """
+    strict = 0
+    relaxed = 1
 
 
 class Migration(Slotinit):
@@ -22,6 +52,11 @@ class Migration(Slotinit):
         # FIXME: type checking, attribute checking
         # FIXME: tests
         return self.module.actions
+
+    @property
+    def policy(self) -> MigrationPolicy:
+        attr = getattr(self.module, 'policy', MigrationPolicy.strict.name)
+        return getattr(MigrationPolicy, attr)
 
 
 class MigrationsGraph:

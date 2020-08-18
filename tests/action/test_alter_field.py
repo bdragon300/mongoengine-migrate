@@ -10,6 +10,7 @@ from bson import ObjectId
 
 from mongoengine_migrate.actions import AlterField
 from mongoengine_migrate.exceptions import SchemaError, MigrationError, InconsistencyError
+from mongoengine_migrate.graph import MigrationPolicy
 
 
 class TestAlterFieldCommonDbField:
@@ -23,7 +24,7 @@ class TestAlterFieldCommonDbField:
             rec.value['new_field'] = rec.value.pop('doc1_str')
 
         action = AlterField('Schema1Doc1', 'doc1_str', db_field='new_field')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -40,7 +41,7 @@ class TestAlterFieldCommonDbField:
             rec.value['new_embfield'] = rec.value.pop('embdoc1_str')
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_str', db_field='new_embfield')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -59,10 +60,10 @@ class TestAlterFieldCommonDbField:
         dump = dump_db()
 
         action = AlterField(document_type, field_name, db_field='new_field')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -83,7 +84,7 @@ class TestAlterFieldCommonRequired:
             rec.value['doc1_str_empty'] = default
 
         action = AlterField('Schema1Doc1', 'doc1_str_empty', required=True, default=default)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -102,7 +103,7 @@ class TestAlterFieldCommonRequired:
             rec.value['embdoc1_str_empty'] = default
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_str_empty', required=True, default=default)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -121,10 +122,10 @@ class TestAlterFieldCommonRequired:
             rec.value['doc1_str_empty'] = default
 
         action = AlterField('Schema1Doc1', 'doc1_str_empty', required=True, default=default)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -143,10 +144,10 @@ class TestAlterFieldCommonRequired:
             rec.value['embdoc1_str_empty'] = default
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_str_empty', required=True, default=default)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -163,7 +164,7 @@ class TestAlterFieldCommonRequired:
         schema = load_fixture('schema1').get_schema()
 
         action = AlterField(document_type, field_name, required=True, default=None)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         with pytest.raises(SchemaError):
             action.run_forward()
@@ -179,7 +180,7 @@ class TestAlterFieldCommonDefault:
         dump = dump_db()
 
         action = AlterField('Schema1Doc1', 'doc1_str_empty', default=default)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -199,10 +200,10 @@ class TestAlterFieldCommonDefault:
         dump = dump_db()
 
         action = AlterField(document_type, field_name, default=default)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -224,7 +225,7 @@ class TestAlterFieldCommonPrimaryKey:
         dump = dump_db()
 
         action = AlterField('Schema1Doc1', 'doc1_str', primary_key=True)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -237,7 +238,7 @@ class TestAlterFieldCommonPrimaryKey:
                                                {'$set': {'doc1_str_empty': 'test!'}})
 
         action = AlterField('Schema1Doc1', 'doc1_str_empty', primary_key=True)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         with pytest.raises(InconsistencyError):
             action.run_forward()
@@ -248,10 +249,10 @@ class TestAlterFieldCommonPrimaryKey:
         dump = dump_db()
 
         action = AlterField('Schema1Doc1', 'doc1_str', primary_key=True)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -261,7 +262,7 @@ class TestAlterFieldCommonPrimaryKey:
         schema = load_fixture('schema1').get_schema()
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_str', primary_key=True)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         with pytest.raises(SchemaError):
             action.run_forward()
@@ -270,7 +271,7 @@ class TestAlterFieldCommonPrimaryKey:
         schema = load_fixture('schema1').get_schema()
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_str', primary_key=True)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         with pytest.raises(SchemaError):
             action.run_backward()
@@ -296,7 +297,7 @@ class TestAlterFieldCommonChoices:
         dump = dump_db()
 
         action = AlterField(document_type, field_name, choices=new_choices)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -318,7 +319,7 @@ class TestAlterFieldCommonChoices:
         schema[document_type][field_name]['choices'] = old_choices
 
         action = AlterField(document_type, field_name, choices=new_choices)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         with pytest.raises(InconsistencyError):
             action.run_forward()
@@ -341,10 +342,10 @@ class TestAlterFieldCommonChoices:
         dump = dump_db()
 
         action = AlterField(document_type, field_name, choices=new_choices)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -356,13 +357,13 @@ class TestAlterFieldCommonChoices:
         schema = load_fixture('schema1').get_schema()
 
         action = AlterField('Schema1Doc1', 'doc1_str_ten', choices=None)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
         for doc in test_db['schema1_doc1'].find(limit=2):
             test_db['schema1_doc1'].update_one({'_id': doc['_id']},
                                                {'$set': {'doc1_str_ten': 'out_of_choices'}})
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         with pytest.raises(InconsistencyError):
             action.run_backward()
@@ -373,7 +374,7 @@ class TestAlterFieldCommonChoices:
         schema = load_fixture('schema1').get_schema()
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_str_ten', choices=None)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
 
@@ -385,14 +386,112 @@ class TestAlterFieldCommonChoices:
         doc['doc1_emblist_embdoc1'][0]['embdoc1_str_ten'] = 'test!'
         test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
 
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         with pytest.raises(InconsistencyError):
             action.run_backward()
 
 
 class TestAlterFieldCommonNull:
-    pass  # TODO
+    def test_forward__for_document_if_field_is_unset__should_set_unset_fields_to_null(
+            self, load_fixture, test_db, dump_db
+    ):
+        schema = load_fixture('schema1').get_schema()
+
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
+        doc['doc1_str_empty'] = 'test!'
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+
+        expect = dump_db()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('Schema1Doc1')
+        for doc in itertools.chain.from_iterable(p.find(expect) for p in parsers):
+            if 'doc1_str_empty' not in doc.value:
+                doc.value['doc1_str_empty'] = None
+
+        action = AlterField('Schema1Doc1', 'doc1_str_empty', null=True)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_forward()
+
+        assert dump_db() == expect
+
+    def test_forward__for_embedded_if_field_is_unset__should_set_unset_fields_to_null(
+            self, load_fixture, test_db, dump_db
+    ):
+        schema = load_fixture('schema1').get_schema()
+
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
+        doc['doc1_emb_embdoc1']['embdoc1_str_empty'] = 'test!'
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
+        doc['doc1_emblist_embdoc1'][0]['embdoc1_str_empty'] = 'test!'
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
+
+        expect = dump_db()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('~Schema1EmbDoc1')
+        for doc in itertools.chain.from_iterable(p.find(expect) for p in parsers):
+            if 'embdoc1_str_empty' not in doc.value:
+                doc.value['embdoc1_str_empty'] = None
+
+        action = AlterField('~Schema1EmbDoc1', 'embdoc1_str_empty', null=True)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_forward()
+
+        assert dump_db() == expect
+
+    def test_forward_backward__for_document_if_field_is_unset__should_set_unset_fields_to_null(
+            self, load_fixture, test_db, dump_db
+    ):
+        schema = load_fixture('schema1').get_schema()
+
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
+        doc['doc1_str_empty'] = 'test!'
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+
+        expect = dump_db()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('Schema1Doc1')
+        for doc in itertools.chain.from_iterable(p.find(expect) for p in parsers):
+            if 'doc1_str_empty' not in doc.value:
+                doc.value['doc1_str_empty'] = None
+
+        action = AlterField('Schema1Doc1', 'doc1_str_empty', null=True)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+        action.run_forward()
+        action.cleanup()
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_backward()
+
+        assert dump_db() == expect
+
+    def test_forward_backward__for_embedded_if_field_is_unset__should_set_unset_fields_to_null(
+            self, load_fixture, test_db, dump_db
+    ):
+        schema = load_fixture('schema1').get_schema()
+
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000002'))
+        doc['doc1_emb_embdoc1']['embdoc1_str_empty'] = 'test!'
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000002')}, doc)
+        doc = test_db['schema1_doc1'].find_one(ObjectId(f'000000000000000000000003'))
+        doc['doc1_emblist_embdoc1'][0]['embdoc1_str_empty'] = 'test!'
+        test_db['schema1_doc1'].replace_one({'_id': ObjectId(f'000000000000000000000003')}, doc)
+
+        expect = dump_db()
+        parsers = load_fixture('schema1').get_embedded_jsonpath_parsers('~Schema1EmbDoc1')
+        for doc in itertools.chain.from_iterable(p.find(expect) for p in parsers):
+            if 'embdoc1_str_empty' not in doc.value:
+                doc.value['embdoc1_str_empty'] = None
+
+        action = AlterField('~Schema1EmbDoc1', 'embdoc1_str_empty', null=True)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+        action.run_forward()
+        action.cleanup()
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_backward()
+
+        assert dump_db() == expect
 
 
 class TestAlterFieldCommonSparse:
@@ -425,7 +524,7 @@ class TestAlterFieldNumberMinValue:
                 doc.value[field_name] = expect_value
 
         action = AlterField('Schema1Doc1', field_name, min_value=min_value)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -457,7 +556,7 @@ class TestAlterFieldNumberMinValue:
                 doc.value['doc1_emblist_embdoc1'][0][field_name] = expect_value
 
         action = AlterField('~Schema1EmbDoc1', field_name, min_value=min_value)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -484,10 +583,10 @@ class TestAlterFieldNumberMinValue:
                 doc.value[field_name] = expect_value
 
         action = AlterField('Schema1Doc1', field_name, min_value=min_value)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -519,10 +618,10 @@ class TestAlterFieldNumberMinValue:
                 doc.value['doc1_emblist_embdoc1'][0][field_name] = expect_value
 
         action = AlterField('~Schema1EmbDoc1', field_name, min_value=min_value)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -551,7 +650,7 @@ class TestAlterFieldNumberMaxValue:
                 doc.value[field_name] = expect_value
 
         action = AlterField('Schema1Doc1', field_name, max_value=max_value)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -583,7 +682,7 @@ class TestAlterFieldNumberMaxValue:
                 doc.value['doc1_emblist_embdoc1'][0][field_name] = expect_value
 
         action = AlterField('~Schema1EmbDoc1', field_name, max_value=max_value)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -610,10 +709,10 @@ class TestAlterFieldNumberMaxValue:
                 doc.value[field_name] = expect_value
 
         action = AlterField('Schema1Doc1', field_name, max_value=max_value)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -645,10 +744,10 @@ class TestAlterFieldNumberMaxValue:
                 doc.value['doc1_emblist_embdoc1'][0][field_name] = expect_value
 
         action = AlterField('~Schema1EmbDoc1', field_name, max_value=max_value)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -669,7 +768,7 @@ class TestAlterFieldStringMaxLength:
         expect = dump_db()
 
         action = AlterField(document_type, field_name, max_length=200)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -686,7 +785,7 @@ class TestAlterFieldStringMaxLength:
             doc.value['doc1_str'] = 'st'
 
         action = AlterField('Schema1Doc1', 'doc1_str', max_length=2)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -703,7 +802,7 @@ class TestAlterFieldStringMaxLength:
             doc.value['embdoc1_str'] = 'st'
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_str', max_length=2)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -722,10 +821,10 @@ class TestAlterFieldStringMaxLength:
         expect = dump_db()
 
         action = AlterField(document_type, field_name, max_length=200)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -742,10 +841,10 @@ class TestAlterFieldStringMaxLength:
             doc.value['doc1_str'] = 'st'
 
         action = AlterField('Schema1Doc1', 'doc1_str', max_length=2)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -762,10 +861,10 @@ class TestAlterFieldStringMaxLength:
             doc.value['embdoc1_str'] = 'st'
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_str', max_length=2)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -786,7 +885,7 @@ class TestAlterFieldStringMinLength:
         expect = dump_db()
 
         action = AlterField(document_type, field_name, min_length=2)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -803,7 +902,7 @@ class TestAlterFieldStringMinLength:
         schema = load_fixture('schema1').get_schema()
 
         action = AlterField(document_type, field_name, min_length=200)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         with pytest.raises(InconsistencyError):
             action.run_forward()
@@ -821,10 +920,10 @@ class TestAlterFieldStringMinLength:
         expect = dump_db()
 
         action = AlterField(document_type, field_name, min_length=2)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -846,7 +945,7 @@ class TestAlterFieldStringRegex:
         expect = dump_db()
 
         action = AlterField(document_type, field_name, regex=regex)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -864,7 +963,7 @@ class TestAlterFieldStringRegex:
         schema = load_fixture('schema1').get_schema()
 
         action = AlterField(document_type, field_name, regex=regex)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         with pytest.raises(InconsistencyError):
             action.run_forward()
@@ -883,10 +982,10 @@ class TestAlterFieldStringRegex:
         expect = dump_db()
 
         action = AlterField(document_type, field_name, regex=regex)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -927,7 +1026,7 @@ class TestAlterFieldDecimalForceString:
                 doc.value['doc1_decimal'] = '3.14'
 
         action = AlterField('Schema1Doc1', 'doc1_decimal', force_string=True)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -955,7 +1054,7 @@ class TestAlterFieldDecimalForceString:
                 doc.value['doc1_emblist_embdoc1'][0]['embdoc1_decimal'] = '2.17'
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_decimal', force_string=True)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -978,10 +1077,10 @@ class TestAlterFieldDecimalForceString:
                 doc.value['doc1_decimal'] = 3.14
 
         action = AlterField('Schema1Doc1', 'doc1_decimal', force_string=True)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -1009,10 +1108,10 @@ class TestAlterFieldDecimalForceString:
                 doc.value['doc1_emblist_embdoc1'][0]['embdoc1_decimal'] = 2.17
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_decimal', force_string=True)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -1039,7 +1138,7 @@ class TestAlterFieldComplexDateTimeSeparator:
                 doc.value['doc1_complex_datetime'] = '2020|04|03|02|01|00|000000'
 
         action = AlterField('Schema1Doc1', 'doc1_complex_datetime', separator='|')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -1072,7 +1171,7 @@ class TestAlterFieldComplexDateTimeSeparator:
                     '2020|04|03|02|01|00|000000'
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_complex_datetime', separator='|')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -1097,10 +1196,10 @@ class TestAlterFieldComplexDateTimeSeparator:
                 doc.value['doc1_complex_datetime'] = '2020.04.03.02.01.00.000000'
 
         action = AlterField('Schema1Doc1', 'doc1_complex_datetime', separator='|')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -1133,10 +1232,10 @@ class TestAlterFieldComplexDateTimeSeparator:
                     '2020.04.03.02.01.00.000000'
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_complex_datetime', separator='|')
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -1155,7 +1254,7 @@ class TestAlterFieldListMaxLength:
                 doc.value['doc1_list'] = doc.value['doc1_list'][:2]
 
         action = AlterField('Schema1Doc1', 'doc1_list', max_length=2)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -1171,7 +1270,7 @@ class TestAlterFieldListMaxLength:
                 doc.value['embdoc1_list'] = doc.value['embdoc1_list'][:2]
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_list', max_length=2)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -1189,10 +1288,10 @@ class TestAlterFieldListMaxLength:
                 doc.value['doc1_list'] = doc.value['doc1_list'][:2]
 
         action = AlterField('Schema1Doc1', 'doc1_list', max_length=2)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -1210,10 +1309,10 @@ class TestAlterFieldListMaxLength:
                 doc.value['embdoc1_list'] = doc.value['embdoc1_list'][:2]
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_list', max_length=2)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -1236,7 +1335,7 @@ class TestAlterFieldReferenceDbref:
                                                         ObjectId('000000000000000000000002'))
 
         action = AlterField('Schema1Doc1', 'doc1_ref_self', dbref=True)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -1265,7 +1364,7 @@ class TestAlterFieldReferenceDbref:
                 )
 
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_ref_doc1', dbref=True)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -1283,10 +1382,10 @@ class TestAlterFieldReferenceDbref:
         expect = dump_db()
 
         action = AlterField(document_type, field_name, dbref=True)
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -1312,7 +1411,7 @@ class TestAlterFieldCachedReferenceFields:
         action = AlterField('Schema1Doc1',
                             'doc1_cachedref_self',
                             fields=['doc1_int', 'doc1_str', 'another_field'])
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -1337,7 +1436,7 @@ class TestAlterFieldCachedReferenceFields:
                                                     'doc1_int': 2}
 
         action = AlterField('Schema1Doc1', 'doc1_cachedref_self', fields=['doc1_int'])
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_forward()
 
@@ -1351,7 +1450,7 @@ class TestAlterFieldCachedReferenceFields:
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_cachedref_self', fields=['doc1_int'])
 
         with pytest.raises(SchemaError):
-            action.prepare(test_db, schema)
+            action.prepare(test_db, schema, MigrationPolicy.strict)
 
     def test_forward_backward__for_document__should_remove_extra_subfields(
             self, load_fixture, test_db, dump_db
@@ -1374,10 +1473,10 @@ class TestAlterFieldCachedReferenceFields:
                                                     'doc1_int': 2}
 
         action = AlterField('Schema1Doc1', 'doc1_cachedref_self', fields=['doc1_int'])
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
         action.run_forward()
         action.cleanup()
-        action.prepare(test_db, schema)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -1391,4 +1490,4 @@ class TestAlterFieldCachedReferenceFields:
         action = AlterField('~Schema1EmbDoc1', 'embdoc1_cachedref_self', fields=['doc1_int'])
 
         with pytest.raises(SchemaError):
-            action.prepare(test_db, schema)
+            action.prepare(test_db, schema, MigrationPolicy.strict)

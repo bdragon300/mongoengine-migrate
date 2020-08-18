@@ -5,7 +5,7 @@ __all__ = [
 
 import inspect
 import weakref
-from typing import Type, Iterable, List, Tuple, Collection
+from typing import Type, Iterable, List, Tuple, Collection, Any
 
 import mongoengine.fields
 from pymongo.database import Database
@@ -13,15 +13,12 @@ from pymongo.database import Database
 import mongoengine_migrate.flags as flags
 from mongoengine_migrate.exceptions import SchemaError, MigrationError, ActionError
 from mongoengine_migrate.fields.registry import type_key_registry, add_field_handler
-from mongoengine_migrate.mongo import (
-    check_empty_result,
-    DocumentUpdater,
-    ByPathContext,
-    ByDocContext
-)
+from mongoengine_migrate.graph import MigrationPolicy
+from mongoengine_migrate.mongo import check_empty_result
 from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.utils import get_closest_parent, document_type_to_class_name, Diff, UNSET
 from .registry import CONVERTION_MATRIX
+from ..updater import ByPathContext, ByDocContext, DocumentUpdater
 
 
 class FieldHandlerMeta(type):
@@ -70,7 +67,8 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                  document_type: str,
                  left_schema: Schema,
                  left_field_schema: dict,  # FIXME: get rid of
-                 right_field_schema: dict):
+                 right_field_schema: dict,
+                 migration_policy: MigrationPolicy):
         """
         :param db: pymongo Database object
         :param document_type: collection name. Could contain
@@ -78,12 +76,14 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param left_schema:
         :param left_field_schema:
         :param right_field_schema:
+        :param migration_policy:
         """
         self.db = db
         self.document_type = document_type
+        self.left_schema = left_schema
         self.left_field_schema = left_field_schema
         self.right_field_schema = right_field_schema
-        self.left_schema = left_schema
+        self.migration_policy = migration_policy
 
         self.is_embedded = self.document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
         self.collection = None
@@ -162,7 +162,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         inherit = self.left_schema[self.document_type].parameters.get('inherit')
         document_cls = document_type_to_class_name(self.document_type) if inherit else None
         updater = DocumentUpdater(self.db, self.document_type, self.left_schema, db_field,
-                                  document_cls)
+                                  self.migration_policy, document_cls)
         return method(updater, diff)
 
     def change_db_field(self, updater: DocumentUpdater, diff: Diff):
@@ -181,7 +181,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         def by_doc(ctx: ByDocContext):
             doc = ctx.document
-            if isinstance(doc, dict) and diff.old in doc:
+            if diff.old in doc:
                 doc[diff.new] = doc.pop(diff.old)
 
         self._check_diff(updater, diff, False, str)
@@ -189,7 +189,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             raise SchemaError(f"{updater.document_type}{updater.field_name}.db_field "
                               f"must be a non-empty string")
 
-        updater.update_combined(by_path, by_doc, embedded_noarray_by_path_cb=by_path)
+        updater.update_combined(by_path, by_doc, False)
 
     def change_required(self, updater: DocumentUpdater, diff: Diff):
         """
@@ -199,21 +199,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         :param diff:
         :return:
         """
-        def by_path(ctx: ByPathContext):
-            # Update documents only
-            ctx.collection.update_many(
-                {ctx.filter_dotpath: {'$exists': False}, **ctx.extra_filter},
-                {'$set': {ctx.update_dotpath: default}},
-                array_filters=ctx.build_array_filters()
-            )
-
-        def by_doc(ctx: ByDocContext):
-            # Update embedded documents
-            if isinstance(ctx.document, dict) and updater.field_name not in ctx.document:
-                ctx.document.setdefault(updater.field_name, default)
-
         self._check_diff(updater, diff, False, bool)
-
         if diff.old is not True and diff.new is True:
             default = self.right_field_schema.get('default')
             # None and UNSET default has the same meaning here
@@ -221,9 +207,7 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                 raise SchemaError(f'{updater.document_type}{updater.field_name}.default is not '
                                   f'set for required field')
 
-            updater.with_missed_fields().update_combined(
-                by_path, by_doc, embedded_noarray_by_document_cb=by_doc
-            )
+            self._set_default_value(updater, default)
 
     def change_default(self, updater: DocumentUpdater, diff: Diff):
         """Stub method. No need to do smth on default change"""
@@ -252,7 +236,8 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         if updater.is_embedded:
             raise SchemaError(f'Embedded document {updater.document_type} cannot have primary key')
-        updater.update_by_path(by_path)
+        if self.migration_policy.name == 'strict':
+            updater.update_by_path(by_path)
         # self.change_unique([], []) or []  # TODO
 
     # TODO: consider Document, EmbeddedDocument as choices
@@ -273,11 +258,16 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
 
         self._check_diff(updater, diff, True, Collection)
 
-        if diff.new is not None:
+        if diff.new is not None and self.migration_policy.name == 'strict':
             updater.update_by_path(by_path)
 
     def change_null(self, updater: DocumentUpdater, diff: Diff):
-        pass
+        """Force set db fields to `null` if they are was not set and
+        they defined with `null=True` in mongoengine
+        """
+        self._check_diff(updater, diff, False, bool)
+        if diff.new is True:
+            self._set_default_value(updater, None)
 
     def change_sparse(self, updater: DocumentUpdater, diff: Diff):
         pass
@@ -306,7 +296,8 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
                                       self.document_type,
                                       self.left_schema,
                                       self.left_field_schema,
-                                      self.right_field_schema)
+                                      self.right_field_schema,
+                                      self.migration_policy)
         new_handler.convert_type(updater, *field_classes)
 
     def convert_type(self,
@@ -394,3 +385,21 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             choices = tuple(choices)
 
         return choices
+
+    @staticmethod
+    def _set_default_value(updater: DocumentUpdater, value: Any):
+        """Set a given value only for unset fields"""
+        def by_path(ctx: ByPathContext):
+            # Update documents only
+            ctx.collection.update_many(
+                {ctx.filter_dotpath: {'$exists': False}, **ctx.extra_filter},
+                {'$set': {ctx.update_dotpath: value}},
+                array_filters=ctx.build_array_filters()
+            )
+
+        def by_doc(ctx: ByDocContext):
+            # Update embedded documents
+            if updater.field_name not in ctx.document:
+                ctx.document.setdefault(updater.field_name, value)
+
+        updater.with_missed_fields().update_combined(by_path, by_doc)

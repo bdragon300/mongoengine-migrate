@@ -8,7 +8,7 @@ services:
   - mongodb
 
 env:
-  DATABASE_URL: "mongodb://localhost/mydb_test"
+  - DATABASE_URL: "mongodb://localhost/mydb_test"
 
 install:
   - pip install setuptools tox
@@ -16,9 +16,14 @@ install:
 script:
   - tox --skip-missing-interpreters true
 
-deploy:
-  provider: pypi
-  username: "__token__"
-  password: $PYPI_TOKEN
-  on:
-    tags: true
+jobs:
+  include:
+  - stage: deploy
+    if: branch = master
+    script: skip
+    deploy:
+      provider: pypi
+      username: "__token__"
+      password: $PYPI_TOKEN
+      on:
+        tags: true

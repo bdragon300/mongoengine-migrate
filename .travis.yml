@@ -19,9 +19,11 @@ script:
 jobs:
   include:
   - stage: deploy
-    if: (tag =~ ^v) AND (branch = master)
     script: skip
     deploy:
       provider: pypi
       username: "__token__"
       password: $PYPI_TOKEN
+      on:
+        tags: true
+        branch: master

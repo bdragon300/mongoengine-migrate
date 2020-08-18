@@ -27,7 +27,7 @@ setuptools.setup(
         'Intended Audience :: Developers',
         'Topic :: Database'
     ],
-    # Also tox.ini, pyproject.toml
+    # Also tox.ini
     install_requires=[
         'mongoengine>=0.16.0',
         'pymongo>=3.0',

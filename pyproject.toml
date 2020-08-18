@@ -13,5 +13,5 @@ requires = [
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.0.1a1.dev2"  # Also setup.py
+version = "0.0.1a1"  # Also setup.py
 tag_format = "v$version"

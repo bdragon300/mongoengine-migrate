@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Python Versioning](https://www.python.org/dev/peps/pep-0440/#public-version-identifiers).
 
-## [Unreleased]
+## [0.0.1a1]
 ### Added
 - Implement FallbackDocumentUpdater for perform an action in python loop when MongoDB version
   below minimal for query

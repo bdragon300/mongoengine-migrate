@@ -27,3 +27,4 @@ jobs:
       password: $PYPI_TOKEN
       on:
         tags: true
+

@@ -102,7 +102,7 @@ def migration_options(f):
             help='Dry run mode. Just show queries to be executed, without running migrations'
         ),
         click.option(
-            '--dummy-actions',
+            '--schema-only',
             default=False,
             is_flag=True,
             help='Perform migrations without doing any database modifications'

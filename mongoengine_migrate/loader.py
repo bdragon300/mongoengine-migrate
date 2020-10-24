@@ -316,7 +316,10 @@ class MongoengineMigrate:
             applied.append(migration_name)
 
         log.debug('> Applied migrations: %s', applied)
-        log.debug('> Last migration is: %s', graph.last.name)
+        if graph.last:
+            log.debug('> Last migration is: %s', graph.last.name)
+        else:
+            log.debug('> Last migration is: %s', 'None')
 
         return graph
 

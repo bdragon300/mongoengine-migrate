@@ -5,9 +5,72 @@ import pytest
 from mongoengine_migrate.actions import DropDocument
 from mongoengine_migrate.exceptions import SchemaError
 from mongoengine_migrate.graph import MigrationPolicy
+from mongoengine_migrate.schema import Schema
 
 
 class TestDropDocument:
+    def test_build_object__on_embdedded_document_type__should_return_none(self):
+        left_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'},
+            }, parameters={'collection': 'document1'}),
+            '~EmbeddedDocument': Schema.Document({
+                'field1': {'param_new': 'schemavalue_new'},
+            }, parameters={'collection': 'document_new', 'test_parameter': 'test_value'})
+        })
+        right_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'},
+            }, parameters={'collection': 'document1'}),
+        })
+
+        res = DropDocument.build_object('~EmbeddedDocument', left_schema, right_schema)
+
+        assert res is None
+
+    def test_build_object__if_document_is_droppoing__should_return_object(self):
+        left_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'},
+            }, parameters={'collection': 'document1'}),
+            'Document2': Schema.Document({
+                'field21': {'param21': 'schemavalue21', 'param22': 'schemavalue22'},
+            }, parameters={'collection': 'document21'}),
+        })
+        right_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'},
+            }, parameters={'collection': 'document1'}),
+        })
+
+        res = DropDocument.build_object('Document2', left_schema, right_schema)
+
+        assert isinstance(res, DropDocument)
+        assert res.document_type == 'Document2'
+        assert res.parameters == {}
+
+    @pytest.mark.parametrize('document_type', ('Document1', 'Document_unknown'))
+    def test_build_object__if_document_is_not_dropping_in_schema__should_return_none(
+            self, document_type
+    ):
+        left_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'},
+            }, parameters={'collection': 'document1'}),
+            'Document2': Schema.Document({
+                'field21': {'param21': 'schemavalue21', 'param22': 'schemavalue22'},
+            }, parameters={'collection': 'document21'}),
+        })
+        right_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'},
+            }, parameters={'collection': 'document1'}),
+        })
+
+        res = DropDocument.build_object(document_type, left_schema, right_schema)
+
+        assert res is None
+
     def test_forward__should_drop_collection(self, load_fixture, test_db, dump_db):
         schema = load_fixture('schema1').get_schema()
         dump = dump_db()

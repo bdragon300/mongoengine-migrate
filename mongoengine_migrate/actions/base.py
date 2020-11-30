@@ -158,7 +158,7 @@ class BaseAction(metaclass=BaseActionMeta):
         """
 
     def __repr__(self):
-        params_str = ', '.join(f'{k!r}={v!r}' for k, v in self.parameters.items())
+        params_str = ', '.join(f'{k!r}={v!r}' for k, v in sorted(self.parameters.items()))
         args_str = repr(self.document_type)
         if self.dummy_action:
             params_str += f', dummy_action={self.dummy_action}'
@@ -409,6 +409,8 @@ class BaseRenameDocument(BaseDocumentAction):
         matches = 0
         compares = 0
         for right_document_type, right_document_schema in right_schema.items():
+            # FIXME: exclude embedded documents in order to prevent
+            #  document->embedded renaming
             # Skip collections which was not renamed
             if right_document_type in left_schema:
                 continue
@@ -508,7 +510,8 @@ class BaseAlterDocument(BaseDocumentAction):
 
             method(updater, diff)
 
-    def _check_diff(self, diff: Diff, can_be_none=True, check_type=None):
+    @staticmethod
+    def _check_diff(diff: Diff, can_be_none=True, check_type=None):
         if diff.new == diff.old:
             raise SchemaError(f'Parameter {diff.key} does not changed from previous Action')
 

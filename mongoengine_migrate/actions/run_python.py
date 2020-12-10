@@ -50,10 +50,15 @@ class RunPython(BaseAction):
             name: getattr(val, 'to_python_expr', lambda: repr(val))()
             for name, val in self.parameters.items()
         }
-        kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
-        ff_expr = f'forward_func={self.forward_func.__name__ if self.forward_func else None}'
-        bf_expr = f'backward_func={self.backward_func.__name__ if self.backward_func else None}'
-        return f'{self.__class__.__name__}({self.document_type!r}, ' \
-               f'{ff_expr + ", " if self.forward_func else ""}' \
-               f'{bf_expr + ", " if self.backward_func else ""}' \
-               f'{kwargs_str})'
+        if self.dummy_action:
+            parameters['dummy_action'] = True
+
+        kwargs = []
+        if self.forward_func:
+            kwargs.append(f', forward_func={self.forward_func.__name__}')
+        if self.backward_func:
+            kwargs.append(f', backward_func={self.backward_func.__name__}')
+        kwargs += [f", {name!s}={val!s}" for name, val in sorted(parameters.items())]
+        kwargs_str = ''.join(kwargs)
+
+        return f'{self.__class__.__name__}({self.document_type!r}{kwargs_str})'

@@ -3,17 +3,15 @@ from unittest import mock
 
 import pytest
 
-from mongoengine_migrate.actions import base
+from mongoengine_migrate.actions import base as actions_base
 from mongoengine_migrate.actions.base import (
-    BaseActionMeta,
     BaseAction,
     BaseFieldAction,
     BaseDocumentAction,
     BaseCreateDocument,
     BaseDropDocument,
     BaseRenameDocument,
-    BaseAlterDocument,
-    actions_registry
+    BaseAlterDocument
 )
 from mongoengine_migrate.exceptions import SchemaError, ActionError
 from mongoengine_migrate.graph import MigrationPolicy
@@ -49,9 +47,6 @@ def basefieldaction_stub() -> Type[BaseFieldAction]:
             pass
 
         def to_schema_patch(self, left_schema: Schema):
-            pass
-
-        def to_python_expr(self) -> str:
             pass
 
         @classmethod
@@ -150,20 +145,20 @@ def left_schema():
 class TestBaseActionMeta:
     @pytest.fixture(autouse=True)
     def setup(self):
+        actions_base.actions_registry = {}
+
         yield
 
-        base.actions_registry = {}
-
     def test_registry__if_only_base_actions_defined__registry_should_be_empty(self):
-        assert actions_registry == {}
+        assert actions_base.actions_registry == {}
 
     def test_registry__on_action_was_instantiated__should_be_added_to_registry(
             self, baseaction_stub
     ):
-        assert actions_registry == {'StubAction': baseaction_stub}
+        assert actions_base.actions_registry == {'StubAction': baseaction_stub}
 
     def test_instantiate__meta_attr_should_point_to_metaclass_instance(self, baseaction_stub):
-        assert baseaction_stub._meta is BaseActionMeta
+        assert baseaction_stub._meta.__name__ == 'BaseActionMeta'
 
 
 class TestBaseAction:
@@ -284,7 +279,7 @@ class TestBaseFieldAction:
 
     @mock.patch('mongoengine_migrate.actions.base.type_key_registry')
     def test_get_field_handler_cls__should_return_class_from_type_registry(
-            self, basefieldaction_stub, type_key_registry_mock
+            self, type_key_registry_mock, basefieldaction_stub
     ):
         type_key_registry_mock.__contains__.return_value = True
         obj = basefieldaction_stub('Document1', 'field1',
@@ -296,7 +291,7 @@ class TestBaseFieldAction:
 
     @mock.patch('mongoengine_migrate.actions.base.type_key_registry')
     def test_get_field_handler_cls__if_type_key_is_unknown__should_raise_error(
-            self, basefieldaction_stub, type_key_registry_mock
+            self, type_key_registry_mock, basefieldaction_stub
     ):
         type_key_registry_mock.__contains__.return_value = False
         obj = basefieldaction_stub('Document1', 'field1',
@@ -334,7 +329,8 @@ class TestBaseFieldAction:
             'left_schema': left_schema,
             'db': test_db,
             'collection': test_db['COLLECTION_PLACEHOLDER'],
-            'migration_policy': policy
+            'migration_policy': policy,
+            'left_field_schema': {'param3': 'schemavalue3'}
         }
 
     def test_prepare__if_document_type_not_in_schema__should_raise_error(
@@ -380,7 +376,7 @@ class TestBaseFieldAction:
             self, basefieldaction_stub
     ):
         param1 = mock.Mock()
-        param1.to_python_expr.return_value = 'param1_repr'
+        param1.to_python_expr.return_value = "'param1_repr'"
         obj = basefieldaction_stub('Document1', 'field1', param1=param1)  # type: BaseFieldAction
         expect = "StubFieldAction('Document1', 'field1', param1='param1_repr')"
 
@@ -396,17 +392,18 @@ class TestBaseFieldAction:
         obj.prepare(test_db, left_schema, MigrationPolicy.relaxed)
 
         with mock.patch.object(obj, 'get_field_handler_cls') as get_field_handler_cls_mock:
+            handler_cls_mock = get_field_handler_cls_mock.return_value
             res = obj._get_field_handler('StringName',
                                          left_schema['Document1']['field1'],
                                          right_schema['Document1']['field1'])
 
-            assert res == get_field_handler_cls_mock.return_value
-            get_field_handler_cls_mock.assert_called_once_with(test_db,
-                                                               'Document1',
-                                                               left_schema,
-                                                               left_schema['Document1']['field1'],
-                                                               right_schema['Document1']['field1'],
-                                                               MigrationPolicy.relaxed)
+            assert res == handler_cls_mock.return_value
+            handler_cls_mock.assert_called_once_with(test_db,
+                                                     'Document1',
+                                                     left_schema,
+                                                     left_schema['Document1']['field1'],
+                                                     right_schema['Document1']['field1'],
+                                                     MigrationPolicy.relaxed)
 
     @pytest.mark.parametrize('args,kwargs,expect', (
         (
@@ -429,12 +426,12 @@ class TestBaseFieldAction:
         (
             ('Document1', 'field1'),
             {'param1': 'val1', 'param2': 4},
-            "StubAction('Document1', 'field1', ...)"
+            "StubFieldAction('Document1', 'field1', ...)"
         ),
         (
             ('Document1', 'field1'),
             {'param1': 'val1', 'param2': 4, 'dummy_action': True},
-            "StubAction('Document1', 'field1', dummy_action=True, ...)"
+            "StubFieldAction('Document1', 'field1', dummy_action=True, ...)"
         ),
     ))
     def test_str__should_return_str_string(self, basefieldaction_stub, args, kwargs, expect):
@@ -469,7 +466,7 @@ class TestBaseDocumentAction:
             self, basedocumentaction_stub
     ):
         param1 = mock.Mock()
-        param1.to_python_expr.return_value = 'param1_repr'
+        param1.to_python_expr.return_value = "'param1_repr'"
         obj = basedocumentaction_stub('Document1', param1=param1)  # type: BaseDocumentAction
         expect = "StubDocumentAction('Document1', param1='param1_repr')"
 
@@ -489,9 +486,9 @@ class TestBaseDocumentAction:
         assert res is False
 
     def test_is_my_collection_used_by_other_documents__if_used_by_document__should_return_true(
-            self, test_db, left_schema, basedocumentaction_stub
+            self, test_db, basedocumentaction_stub
     ):
-        Schema({
+        left_schema = Schema({
             'Document1': Schema.Document({
                 'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'},
             }, parameters={'collection': 'document1'}),
@@ -573,34 +570,21 @@ class TestBaseCreateDocument:
         obj = basecreatedocumentaction_stub('Document_new',
                                             collection='document_new',
                                             param1='value1')
+        item = Schema.Document()
+        item.parameters.update(dict(collection='document_new', param1='value1'))
+
         expect = [(
             'add',
             '',
             [(
                 'Document_new',
-                Schema.Document(collection='document_new', param1='value1')
+                item
             )]
         )]
 
         res = obj.to_schema_patch(left_schema)
 
         assert res == expect
-
-    def test_prepare__if_collection_in_left_schema__should_prepare_run_context(
-            self, test_db, left_schema, basecreatedocumentaction_stub
-    ):
-        obj = basecreatedocumentaction_stub('Document_new', dummy_action=False,
-                                            param1='value1', param2=123)  # type: BaseAction
-        policy = MigrationPolicy.relaxed
-
-        obj.prepare(test_db, left_schema, policy)
-
-        assert obj._run_ctx == {
-            'left_schema': left_schema,
-            'db': test_db,
-            'collection': test_db['document1'],
-            'migration_policy': policy
-        }
 
     def test_prepare__if_collection_in_parameters__should_pick_it_and_prepare_run_context(
             self, test_db, left_schema, basecreatedocumentaction_stub
@@ -660,7 +644,7 @@ class TestBaseDropDocument:
                                                        left_schema,
                                                        test_right_schema)
 
-        assert isinstance(res, BaseCreateDocument)
+        assert isinstance(res, BaseDropDocument)
         assert res.document_type == '~Document2'
         assert res.parameters == {}
 
@@ -686,15 +670,16 @@ class TestBaseDropDocument:
     def test_to_schema_patch__should_return_dictdiffer_diff(
             self, left_schema, basedropdocumentaction_stub
     ):
-        obj = basedropdocumentaction_stub('Document_new',
-                                            collection='document_new',
-                                            param1='value1')
+        obj = basedropdocumentaction_stub('Document1',
+                                           collection='document1',
+                                           param1='value1')
         expect = [(
             'remove',
             '',
             [(
-                'Document_new',
-                Schema.Document(collection='document_new', param1='value1')
+                'Document1',
+                Schema.Document({'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'}},
+                                parameters=dict(collection='document1'))
             )]
         )]
 
@@ -703,7 +688,7 @@ class TestBaseDropDocument:
         assert res == expect
 
 
-class TestRenameDocument:
+class TestBaseRenameDocument:
     def test_init__should_set_attributes(self, baserenamedocumentaction_stub):
         obj = baserenamedocumentaction_stub('Document1', new_name='Document11', dummy_action=False,
                                             param1='value1', param2=123)  # type: BaseRenameDocument
@@ -737,37 +722,130 @@ class TestRenameDocument:
 
     @pytest.mark.parametrize('new_schema', (
         Schema.Document({
-            'field1': {'param3': 'schemavalue1', 'param2': 'schemavalue2'},
+            'field_changed': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
+            'field12': {'param21': 'schemavalue21', 'param22': 'schemavalue22'},
+            'field13': {'param31': 'schemavalue31', 'param32': 'schemavalue32'},
+            'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
+            'field15': {'param51': 'schemavalue51', 'param52': 'schemavalue52'},
         }, parameters={'collection': 'document1'}),
         Schema.Document({
-            'field1': {'param1': 'schemavalue3', 'param2': 'schemavalue2'},
+            'field11': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
+            'field12': {'param_changed': 'schemavalue21', 'param22': 'schemavalue22'},
+            'field13': {'param31': 'schemavalue31', 'param32': 'schemavalue32'},
+            'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
+            'field15': {'param51': 'schemavalue51', 'param52': 'schemavalue52'},
         }, parameters={'collection': 'document1'}),
         Schema.Document({
-            'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'},
-        }, parameters={'collection': 'document5'}),
+            'field11': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
+            'field12': {'param21': 'schemavalue21', 'param22': 'schemavalue22'},
+            'field13': {'param31': 'schemavalue_changed', 'param32': 'schemavalue32'},
+            'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
+            'field15': {'param51': 'schemavalue51', 'param52': 'schemavalue52'},
+        }, parameters={'collection': 'document1'}),
+        Schema.Document({
+            'field11': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
+            'field12': {'param21': 'schemavalue21', 'param22': 'schemavalue22'},
+            'field13': {'param31': 'schemavalue31', 'param32': 'schemavalue32'},
+            'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
+            'field15': {'param51': 'schemavalue51', 'param52': 'schemavalue52'},
+        }, parameters={'collection': 'document_changed'}),
     ))
     def test_build_object__if_changes_similarity_more_than_threshold__should_return_object(
-            self, left_schema, baserenamedocumentaction_stub, new_schema
+            self, baserenamedocumentaction_stub, new_schema
     ):
-        test_right_schema = Schema({
-            'Document11': new_schema,
-            'Document_new': Schema.Document({
-                'field1': {'param_new': 'schemavalue_new'},
-            }, parameters={'collection': 'document_new', 'test_parameter': 'test_value'})
+        left_schema = Schema({
+            'Document1': new_schema,
+            'Document2': Schema.Document({
+                'field1': {'param123': 'schemavalue123'},
+            }, parameters={'collection': 'document123', 'test_parameter': 'test_value'}),
+            'Document3': Schema.Document({
+                'field11': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
+                'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
+            })
         })
+        del left_schema['Document1']['parameters']  # TODO: remove after Schema.Document parameters issue will be resolved
+        del left_schema['Document2']['parameters']  #
+        right_schema = Schema({
+            'Document11': Schema.Document({
+                'field11': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
+                'field12': {'param21': 'schemavalue21', 'param22': 'schemavalue22'},
+                'field13': {'param31': 'schemavalue31', 'param32': 'schemavalue32'},
+                'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
+                'field15': {'param51': 'schemavalue51', 'param52': 'schemavalue52'},
+            }, parameters={'collection': 'document1'}),
+            'Document2': Schema.Document({
+                'field1': {'param123': 'schemavalue123'},
+            }, parameters={'collection': 'document123', 'test_parameter': 'test_value'}),
+            'Document31': Schema.Document({
+                'field11': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
+                'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
+            })
+        })
+        del right_schema['Document11']['parameters']  # TODO: remove after Schema.Document parameters issue will be resolved
+        del right_schema['Document2']['parameters']   #
 
-        res = baserenamedocumentaction_stub.build_object('Document1',
-                                                         left_schema,
-                                                         test_right_schema)
+        res = baserenamedocumentaction_stub.build_object('Document1', left_schema, right_schema)
 
         assert isinstance(res, BaseRenameDocument)
         assert res.document_type == 'Document1'
         assert res.new_name == 'Document11'
         assert res.parameters == {}
 
+    def test_build_object__if_there_are_several_rename_candidates__should_return_none(
+            self, baserenamedocumentaction_stub
+    ):
+        left_schema = Schema({
+            'Document1': Schema.Document({
+                'field11': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
+                'field12': {'param21': 'schemavalue21', 'param22': 'schemavalue22'},
+                'field13': {'param31': 'schemavalue31', 'param32': 'schemavalue32'},
+                'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
+                'field15': {'param51': 'schemavalue51', 'param52': 'schemavalue52'},
+            }, parameters={'collection': 'document1'}),
+            'Document2': Schema.Document({
+                'field1': {'param123': 'schemavalue123'},
+            }, parameters={'collection': 'document123', 'test_parameter': 'test_value'}),
+            'Document3': Schema.Document({
+                'field11': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
+                'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
+            })
+        })
+        del left_schema['Document1']['parameters']  # TODO: remove after Schema.Document parameters issue will be resolved
+        del left_schema['Document2']['parameters']  #
+        right_schema = Schema({
+            'Document11': Schema.Document({
+                'field_changed': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
+                'field12': {'param21': 'schemavalue21', 'param22': 'schemavalue22'},
+                'field13': {'param31': 'schemavalue31', 'param32': 'schemavalue32'},
+                'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
+                'field15': {'param51': 'schemavalue51', 'param52': 'schemavalue52'},
+            }, parameters={'collection': 'document1'}),
+            'Document111': Schema.Document({
+                'field11': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
+                'field12': {'param21': 'schemavalue_changed', 'param22': 'schemavalue22'},
+                'field13': {'param31': 'schemavalue31', 'param32': 'schemavalue32'},
+                'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
+                'field15': {'param51': 'schemavalue51', 'param52': 'schemavalue52'},
+            }, parameters={'collection': 'document1'}),
+            'Document2': Schema.Document({
+                'field1': {'param123': 'schemavalue123'},
+            }, parameters={'collection': 'document123', 'test_parameter': 'test_value'}),
+            'Document31': Schema.Document({
+                'field11': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
+                'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
+            }),
+        })
+        del right_schema['Document11']['parameters']   # TODO: remove after Schema.Document parameters issue will be resolved
+        del right_schema['Document111']['parameters']  #
+        del right_schema['Document2']['parameters']    #
+
+        res = baserenamedocumentaction_stub.build_object('Document1', left_schema, right_schema)
+
+        assert res is None
+
     @pytest.mark.parametrize('document_type', ('Document1', 'Document_new', 'Document_unknown'))
     def test_build_object__if_document_is_not_disappears_in_right_schema__should_return_none(
-            self, left_schema, basecreatedocumentaction_stub, document_type
+            self, left_schema, baserenamedocumentaction_stub, document_type
     ):
         test_right_schema = Schema({
             'Document1': Schema.Document({
@@ -778,7 +856,7 @@ class TestRenameDocument:
             }, parameters={'collection': 'document_new', 'test_parameter': 'test_value'})
         })
 
-        res = basecreatedocumentaction_stub.build_object(document_type,
+        res = baserenamedocumentaction_stub.build_object(document_type,
                                                          left_schema,
                                                          test_right_schema)
 
@@ -810,13 +888,19 @@ class TestRenameDocument:
             ('remove', '',
                 [(
                     'Document1',
-                    Schema.Document(new_name='Document11', param1='value1')
+                    Schema.Document(
+                        {'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'}},
+                        parameters={'collection': 'document1'}
+                    )
                 )]
             ),
             ('add', '',
                 [(
                     'Document11',
-                    Schema.Document(new_name='Document11', param1='value1')
+                    Schema.Document(
+                        {'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'}},
+                        parameters={'collection': 'document1'}
+                    )
                 )]
             )
         ]
@@ -885,11 +969,9 @@ class TestBaseAlterDocument:
     ):
         obj = basealterdocumentaction_stub('Document1', param1='new_value1', param2='new_param2')
         expect_left_docschema = left_schema['Document1']
-        expect_right_docschema = Schema({
-            'Document1': Schema.Document({
-                'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'},
-            }, parameters={'param1': 'new_value1', 'param2': 'new_param2'})
-        })
+        expect_right_docschema = Schema.Document({
+            'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'},
+        }, parameters={'param1': 'new_value1', 'param2': 'new_param2'})
         expect = [(
             'change',
             'Document1',
@@ -904,7 +986,6 @@ class TestBaseAlterDocument:
         (Diff(1, 2, "key"), True, None),
         (Diff(1, None, "key"), True, None),
         (Diff(None, 1, "key"), True, None),
-        (Diff(None, None, "key"), True, None),
         (Diff(1, 2, "key"), True, int),
         (Diff(1, "2", "key"), True, (int, str)),
         (Diff("1", 2, "key"), True, (int, str)),
@@ -918,9 +999,10 @@ class TestBaseAlterDocument:
 
     @pytest.mark.parametrize('diff,can_be_none,check_type', (
         (Diff(1, 1, "key"), True, None),  # old == new
+        (Diff(None, None, "key"), True, None),  # old == new
+        (Diff(None, None, "key"), False, None),  # old == new
         (Diff(1, None, "key"), False, None),  # Can not be None
         (Diff(None, 1, "key"), False, None),  # Can not be None
-        (Diff(None, None, "key"), False, None),  # Can not be None
         (Diff(1, "2", "key"), True, int),  # Wrong type
         (Diff("1", 2, "key"), True, int)   # Wrong type
     ))

@@ -21,7 +21,7 @@ class TestCreateDocument:
             }, parameters={'collection': 'document1'}),
             '~EmbeddedDocument': Schema.Document({
                 'field1': {'param_new': 'schemavalue_new'},
-            }, parameters={'collection': 'document_new', 'test_parameter': 'test_value'})
+            }, parameters={})
         })
 
         res = CreateDocument.build_object('~EmbeddedDocument', left_schema, right_schema)
@@ -125,7 +125,7 @@ class TestCreateDocument:
 
         assert dump == dump_db()
 
-    def test_prepare__if_such_document_is_in_schema__should_raise_error(
+    def test_prepare__if_such_document_is_already_in_schema__should_raise_error(
             self, load_fixture, test_db
     ):
         schema = load_fixture('schema1').get_schema()

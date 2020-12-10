@@ -1,12 +1,28 @@
-from copy import deepcopy
-
-import pytest
-import jsonpath_rw
 import itertools
+from copy import deepcopy
+from unittest.mock import patch
+
+import jsonpath_rw
+import pytest
 
 from mongoengine_migrate.actions import CreateField
 from mongoengine_migrate.exceptions import SchemaError
 from mongoengine_migrate.graph import MigrationPolicy
+from mongoengine_migrate.schema import Schema
+
+
+@pytest.fixture
+def left_schema():
+    return Schema({
+        'Document1': Schema.Document({
+            'field1': {'param11': 'schemavalue11', 'param12': 'schemavalue12'},
+            'field2': {'param21': 'schemavalue21', 'param22': 'schemavalue22'},
+        }, parameters={'collection': 'document1'}),
+        '~EmbeddedDocument2': Schema.Document({
+            'field1': {'param3': 'schemavalue3'},
+            'field2': {'param4': 'schemavalue4'},
+        })
+    })
 
 
 class TestCreateFieldInDocument:
@@ -122,6 +138,122 @@ class TestCreateFieldInDocument:
 
         with pytest.raises(SchemaError):
             action.prepare(test_db, schema, MigrationPolicy.strict)
+
+    def test_build_object__if_field_creates__should_return_object(self, left_schema):
+        right_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param11': 'schemavalue11', 'param12': 'schemavalue12'},
+                'field2': {'param21': 'schemavalue21', 'param22': 'schemavalue22'},
+                'field3': {'param31': 'schemavalue31', 'param32': 'schemavalue32'},
+            }, parameters={'collection': 'document1'}),
+            '~EmbeddedDocument2': Schema.Document({
+                'field1': {'param3': 'schemavalue3'},
+                'field2': {'param4': 'schemavalue4'},
+            })
+        })
+
+        res = CreateField.build_object('Document1', 'field3', left_schema, right_schema)
+
+        assert isinstance(res, CreateField)
+        assert res.document_type == 'Document1'
+        assert res.field_name == 'field3'
+        assert res.parameters == {'param31': 'schemavalue31', 'param32': 'schemavalue32'}
+
+    @pytest.mark.parametrize('document_type', ('Document1', 'Document_new', 'Document_unknown'))
+    def test_build_object__if_document_not_in_both_schemas__should_return_none(
+            self, left_schema, document_type
+    ):
+        right_schema = Schema({
+            'Document_new': Schema.Document({
+                'field1': {'param11': 'schemavalue11', 'param12': 'schemavalue12'},
+                'field2': {'param21': 'schemavalue21', 'param22': 'schemavalue22'},
+                'field3': {'param31': 'schemavalue31', 'param32': 'schemavalue32'},
+            }, parameters={'collection': 'document1'}),
+            '~EmbeddedDocument2': Schema.Document({
+                'field1': {'param3': 'schemavalue3'},
+                'field2': {'param4': 'schemavalue4'},
+            })
+        })
+
+        res = CreateField.build_object(document_type, 'field3', left_schema, right_schema)
+
+        assert res is None
+
+    @pytest.mark.parametrize('field_name', ('field1', 'field2', 'field_unknown'))
+    def test_build_object__if_field_does_not_create_in_schema__should_return_none(
+            self, left_schema, field_name
+    ):
+        right_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param11': 'schemavalue11', 'param12': 'schemavalue12'},
+                'field3': {'param31': 'schemavalue31', 'param32': 'schemavalue32'},
+            }, parameters={'collection': 'document1'}),
+            '~EmbeddedDocument2': Schema.Document({
+                'field1': {'param3': 'schemavalue3'},
+                'field2': {'param4': 'schemavalue4'},
+            })
+        })
+
+        res = CreateField.build_object('Document1', field_name, left_schema, right_schema)
+
+        assert res is None
+
+    def test_to_schema_patch__should_return_dictdiff_object(self):
+        left_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param11': 'schemavalue11', 'param12': 'schemavalue12'},
+                'field2': {'param21': 'schemavalue21', 'param22': 'schemavalue22'},
+                'field3': {'param31': 'schemavalue31', 'param32': 'schemavalue32'},
+            }, parameters={'collection': 'document1'})
+        })
+
+        action = CreateField('Document1', 'field3',
+                             db_field='field3', type_key='StringField', param1='value1')
+        test_schema_skel = {'type_key': None, 'db_field': None, 'param1': None, 'param2': None}
+        field_params = {
+            'type_key': 'StringField',
+            'db_field': 'field3',
+            'param1': 'value1',
+            'param2': None
+        }
+        expect = [(
+            'add',
+            'Document1',
+            [('field3', field_params)]
+        )]
+
+        patcher = patch.object(action, 'get_field_handler_cls')
+        with patcher as get_field_handler_cls_mock:
+            get_field_handler_cls_mock().schema_skel.return_value = test_schema_skel
+
+            res = action.to_schema_patch(left_schema)
+
+        assert res == expect
+
+    @pytest.mark.parametrize('parameters', (
+            {'db_field': 'field3', 'param1': 'value1'},  # Missed 'type_key"
+            {'type_key': 'StringField', 'param1': 'value1'},  # Missed 'db_field"
+            # 'unknown_param' not in schema skel
+            {'type_key': 'StringField', 'param1': 'value1', 'unknown_param': 'value'},
+    ))
+    def test_to_schema_patch__if_wrong_parameters_passed__should_raise_error(self, parameters):
+        left_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param11': 'schemavalue11', 'param12': 'schemavalue12'},
+                'field2': {'param21': 'schemavalue21', 'param22': 'schemavalue22'},
+                'field3': {'param31': 'schemavalue31', 'param32': 'schemavalue32'},
+            }, parameters={'collection': 'document1'})
+        })
+
+        action = CreateField('Document1', 'field3', **parameters)
+        test_schema_skel = {'type_key': None, 'db_field': None, 'param1': None, 'param2': None}
+
+        patcher = patch.object(action, 'get_field_handler_cls')
+        with patcher as get_field_handler_cls_mock:
+            get_field_handler_cls_mock.schema_skel.return_value = test_schema_skel
+
+            with pytest.raises(SchemaError):
+                action.to_schema_patch(left_schema)
 
 
 class TestCreateFieldEmbedded:

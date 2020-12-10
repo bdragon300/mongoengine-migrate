@@ -18,6 +18,7 @@ class TestAlterDocument:
                 'field1': {'param': 'schemavalue'},
             }, parameters={'collection': 'document', 'test_parameter': 'test_value'})
         })
+
         right_schema = Schema({
             'Document1': Schema.Document({
                 'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'},

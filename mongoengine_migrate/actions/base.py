@@ -14,7 +14,7 @@ import logging
 import weakref
 from abc import ABCMeta, abstractmethod
 from copy import deepcopy
-from typing import Dict, Type, Optional, Mapping, Any
+from typing import Dict, Type, Optional, Mapping, Any, Tuple
 
 from pymongo.database import Database
 
@@ -158,7 +158,7 @@ class BaseAction(metaclass=BaseActionMeta):
         """
 
     def __repr__(self):
-        params_str = ', '.join(f'{k!r}={v!r}' for k, v in sorted(self.parameters.items()))
+        params_str = ', '.join(f'{k!s}={v!r}' for k, v in sorted(self.parameters.items()))
         args_str = repr(self.document_type)
         if self.dummy_action:
             params_str += f', dummy_action={self.dummy_action}'
@@ -251,6 +251,7 @@ class BaseFieldAction(BaseAction):
                               f'already exists in schema')
 
     def to_python_expr(self) -> str:
+        # `to_python_expr` must return repr() string
         parameters = {
             name: getattr(val, 'to_python_expr', lambda: repr(val))()
             for name, val in self.parameters.items()
@@ -258,7 +259,7 @@ class BaseFieldAction(BaseAction):
         if self.dummy_action:
             parameters['dummy_action'] = True
 
-        kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
+        kwargs_str = ''.join(f", {name!s}={val!s}" for name, val in sorted(parameters.items()))
         return f'{self.__class__.__name__}({self.document_type!r}, {self.field_name!r}' \
                f'{kwargs_str})'
 
@@ -282,7 +283,7 @@ class BaseFieldAction(BaseAction):
         return handler
 
     def __repr__(self):
-        params_str = ', '.join(f'{k!r}={v!r}' for k, v in self.parameters.items())
+        params_str = ', '.join(f'{k!s}={v!r}' for k, v in self.parameters.items())
         args_str = f'{self.document_type!r}, {self.field_name!r}'
         if self.dummy_action:
             params_str += f', dummy_action={self.dummy_action}'
@@ -339,7 +340,7 @@ class BaseDocumentAction(BaseAction):
         if self.dummy_action:
             parameters['dummy_action'] = True
 
-        kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
+        kwargs_str = ''.join(f", {name!s}={val!s}" for name, val in sorted(parameters.items()))
         return f'{self.__class__.__name__}({self.document_type!r}{kwargs_str})'
 
     def _is_my_collection_used_by_other_documents(self) -> bool:
@@ -390,7 +391,7 @@ class BaseRenameDocument(BaseDocumentAction):
     similarity_threshold = 70
 
     def __init__(self, document_type: str, *, new_name, **kwargs):
-        super().__init__(document_type, new_name=new_name, **kwargs)
+        super().__init__(document_type, **kwargs)
         self.new_name = new_name
 
     @classmethod
@@ -406,32 +407,31 @@ class BaseRenameDocument(BaseDocumentAction):
 
         left_document_schema = left_schema[document_type]
         candidates = []
-        matches = 0
-        compares = 0
         for right_document_type, right_document_schema in right_schema.items():
             # FIXME: exclude embedded documents in order to prevent
             #  document->embedded renaming
-            # Skip collections which was not renamed
+            matches = 0
+            compares = 0
+
+            # Skip collections which apparently was not renamed
             if right_document_type in left_schema:
                 continue
 
-            # Exact match, collection was just renamed
+            # Exact match, collection was just renamed. We found it
             if left_document_schema == right_document_schema:
                 candidates = [(right_document_type, right_document_schema)]
                 break
 
-            # Try to find collection by its schema similarity
-            # Compares are counted as every field schema comparing
-            common_fields = left_document_schema.keys() | right_document_schema.keys()
-            for field_name in common_fields:
-                left_field_schema = left_document_schema.get(field_name, {})
-                right_field_schema = right_document_schema.get(field_name, {})
-                common_keys = left_field_schema.keys() & right_field_schema.keys()
-                compares += len(common_keys)
-                matches += sum(
-                    left_field_schema[k] == right_field_schema[k]
-                    for k in common_keys
-                )
+            # Count of equal fields and parameters items and then
+            # divide it on whole compared fields/parameters count
+            items = ((left_document_schema, right_document_schema),
+                     (left_document_schema.parameters, right_document_schema.parameters))
+            for left, right in items:
+                all_keys = left.keys() | right.keys()
+                compares += len(all_keys)
+                # FIXME: keys can be functions (default for instance)
+                #  they will not be equal then dispite they hasn't change
+                matches += sum(left.get(k) == right.get(k) for k in all_keys)
 
             if compares > 0 and (matches / compares * 100) >= cls.similarity_threshold:
                 candidates.append((right_document_type, right_document_schema))

@@ -242,15 +242,15 @@ class AlterField(BaseFieldAction):
 
         # Remove params
         d = [('remove', f'{self.document_type}.{self.field_name}', [(key, ())])
-             for key in left.keys() - right_schema_skel.keys()]
+             for key in sorted(left.keys() - right_schema_skel.keys())]
         # Add new params
         d += [('add', f'{self.document_type}.{self.field_name}', [(key, params[key])])
-              for key in params.keys() - left.keys()]
+              for key in sorted(params.keys() - left.keys())]
         # Change params if they are requested to be changed
         d += [('change',
                f'{self.document_type}.{self.field_name}.{key}',
                (left[key], params[key]))
-              for key in params.keys() & left.keys()
+              for key in sorted(params.keys() & left.keys())
               if left[key] != params[key]]
 
         return d
@@ -375,6 +375,7 @@ class RenameField(BaseFieldAction):
             return
 
         left_field_schema = left_schema[document_type][field_name]
+        db_field = left_field_schema.get('db_field')
         candidates = []
         for right_field_name, right_field_schema in right_schema[document_type].items():
             # Skip fields which was not renamed
@@ -383,8 +384,7 @@ class RenameField(BaseFieldAction):
                 continue
 
             # Model field renamed, but db field is the same
-            db_field = right_field_schema.get('db_field')
-            if db_field == right_field_name:
+            if db_field == right_field_schema.get('db_field') and db_field is not None:
                 candidates = [(right_field_name, right_field_schema)]
                 break
 

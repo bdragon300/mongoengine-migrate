@@ -385,7 +385,7 @@ def to_email_string(updater: DocumentUpdater):
     to_string(updater)
 
     email_regex = re.compile(
-        r"\A.*\Z",  # TODO: insert email validation regex here
+        r"\A[^\W][A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}\Z",
         re.IGNORECASE
     )
     if updater.migration_policy.name == 'strict':

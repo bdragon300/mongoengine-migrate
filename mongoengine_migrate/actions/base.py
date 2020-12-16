@@ -430,7 +430,7 @@ class BaseRenameDocument(BaseDocumentAction):
                 all_keys = left.keys() | right.keys()
                 compares += len(all_keys)
                 # FIXME: keys can be functions (default for instance)
-                #  they will not be equal then dispite they hasn't change
+                #        they will not be equal then dispite they hasn't change
                 matches += sum(left.get(k) == right.get(k) for k in all_keys)
 
             if compares > 0 and (matches / compares * 100) >= cls.similarity_threshold:

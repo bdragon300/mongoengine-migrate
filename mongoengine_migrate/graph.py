@@ -188,8 +188,8 @@ class MigrationsGraph:
         :return: Migration objects generator
         """
         # FIXME: may yield nodes not related to target migration if branchy graph
-        # FIXME: if migration was applied after its dependencies unapplied then it is an error
-        # FIXME: should have stable migrations order
+        #        if migration was applied after its dependencies unapplied then it is an error
+        #        should have stable migrations order
         if _node_counters is None:
             _node_counters = {}
         if from_node is None:
@@ -233,7 +233,7 @@ class MigrationsGraph:
         :return: Migration objects generator
         """
         # FIXME: may yield nodes not related to reverting if branchy graph
-        # FIXME: if migration was unapplied before its dependencies applied then it is an error
+        #        if migration was unapplied before its dependencies applied then it is an error
         if _node_counters is None:
             _node_counters = {}
         if from_node is None:

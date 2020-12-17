@@ -35,24 +35,38 @@ class Schema(SchemaAccessMixin, dict):
         class Parameters(SchemaAccessMixin, dict):
             pass
 
+        class Indexes(SchemaAccessMixin, dict):
+            pass
+
         def __init__(self, *args, **kwargs):
             # FIXME: Schema.Document(a=1, b=2, parameters=3) sets both key and parameters
             #        Schema.Document({'a': 1, 'b': 2}, parameters=3) does the same
             #        Bear in mind that user can have "parameters" field
+            #        The same for indexes
             super().__init__(*args, **kwargs)
             self.__parameters = kwargs.pop('parameters', Schema.Document.Parameters())
+            self.__indexes = kwargs.pop('indexes', Schema.Document.Indexes())
 
         @property
-        def parameters(self) -> dict:
+        def parameters(self) -> Parameters:
             return self.__parameters
+
+        @property
+        def indexes(self) -> Indexes:
+            return self.__indexes
 
         def load(self, document_schema: dict):
             self.__parameters = Schema.Document.Parameters(document_schema.get('parameters', {}))
+            self.__indexes = Schema.Document.Indexes(document_schema.get('indexes', {}))
             self.update(document_schema.get('fields', {}))
             return self
 
         def dump(self) -> dict:
-            return {'fields': dict(self.items()), 'parameters': self.__parameters}
+            return {
+                'fields': dict(self.items()),
+                'parameters': self.__parameters,
+                'indexes': self.__indexes
+            }
 
         def __eq__(self, other):
             if self is other:
@@ -60,16 +74,20 @@ class Schema(SchemaAccessMixin, dict):
             if not isinstance(other, Schema.Document):
                 return False
 
-            return self.items() == other.items() and self.parameters == other.parameters
+            return self.items() == other.items() \
+                   and self.parameters == other.parameters \
+                   and self.indexes == other.indexes
 
         def __ne__(self, other):
             return not self.__eq__(other)
 
         def __str__(self):
-            return f'Document({super().__repr__()}, parameters={self.parameters!s})'
+            return f'Document({super().__repr__()}, ' \
+                   f'parameters={self.parameters!s}, indexes={self.indexes!s})'
 
         def __repr__(self):
-            return f'Document({super().__repr__()}, parameters={self.parameters!r})'
+            return f'Document({super().__repr__()}, ' \
+                   f'parameters={self.parameters!r}, indexes={self.indexes!r})'
 
     def load(self, db_schema: dict):
         """Load schema from db dict schema representation"""

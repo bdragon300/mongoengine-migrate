@@ -2,6 +2,8 @@
 for example
 """
 from typing import Optional
+
+import pymongo
 from pymongo.database import Database
 
 #: Dry run mode. Don\'t modify the database and print modification
@@ -35,3 +37,10 @@ DOCUMENT_NAME_SEPARATOR = '->'
 #: Pay attention: max BSON size is 16Mb
 #: https://docs.mongodb.com/manual/reference/limits/#bson-documents
 BULK_BUFFER_LENGTH = 10000
+
+
+#: Separator which separates parts in index name
+INDEX_NAME_SEPARATOR = '_'
+
+#: Default field index type if no type explicitly set
+DEFAULT_INDEX_TYPE = pymongo.ASCENDING

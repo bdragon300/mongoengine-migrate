@@ -7,11 +7,13 @@ __all__ = [
 import functools
 import importlib.util
 import logging
+import random
 import re
+import string
 from datetime import timezone, datetime
 from pathlib import Path
 from types import ModuleType
-from typing import Tuple, Iterable, Optional, Dict
+from typing import Tuple, Iterable, Optional, Dict, List
 
 import pymongo.database
 import pymongo.errors
@@ -19,6 +21,7 @@ from bson import CodecOptions
 from dictdiffer import patch, swap
 from jinja2 import Environment
 from mongoengine.base import _document_registry
+from mongoengine.document import Document
 from pymongo import MongoClient
 
 import mongoengine_migrate.flags as runtime_flags
@@ -28,7 +31,12 @@ from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.graph import Migration, MigrationsGraph, MigrationPolicy
 from mongoengine_migrate.query_tracer import DatabaseQueryTracer
 from mongoengine_migrate.schema import Schema
-from mongoengine_migrate.utils import get_closest_parent, get_document_type
+from mongoengine_migrate.utils import (
+    get_closest_parent,
+    get_document_type,
+    get_index_name,
+    normalize_index_fields_spec
+)
 
 log = logging.getLogger('mongoengine-migrate')
 
@@ -124,6 +132,9 @@ def collect_models_schema() -> Schema:
         if model_cls._dynamic:
             schema[document_type].parameters['dynamic'] = True
 
+        if isinstance(model_cls, Document):
+            schema[document_type].indexes.update(_extract_indexes(model_cls))
+
         # {field_cls: TypeKeyRegistryItem}
         field_mapping_registry = {x.field_cls: x for x in type_key_registry.values()}
 
@@ -155,6 +166,67 @@ def collect_models_schema() -> Schema:
         log.debug("> Schema '%s' => %s", document_type, str(schema[document_type]))
 
     return schema
+
+
+def _extract_indexes(model_cls) -> Dict[str, dict]:
+    """
+    Extract index declarations from a Document. Return dict
+    {index_name: params_dict}. `params_dict` contains:
+
+    - `create_index()` keyword arguments
+    - | `fields` - fields specification list, e.g.
+      | (('db_field1, 1), ('db_field2', 'geoHaystack')) or ['field1']
+
+    See: https://docs.mongoengine.org/guide/defining-documents.html#indexes
+
+    :param model_cls: Document class
+    :return: dict with index parameters
+    """
+    assert isinstance(model_cls, type) and issubclass(model_cls, Document)
+
+    global_spec = model_cls._meta.get('index_opts') or {}  # type: dict
+    field_specs = model_cls._build_index_specs(model_cls._meta['indexes'])  # type: List[dict]
+    indexes = {}
+
+    # determine if an index which we are creating includes
+    # _cls as its first field; if so, we can avoid creating
+    # an extra index on _cls, as mongodb will use the existing
+    # index to service queries against _cls
+    cls_indexed = False
+    index_cls = model_cls._meta.get("index_cls", True)
+
+    for spec in field_specs:
+        spec = {**global_spec, **spec}
+        fields = spec.pop('fields')  # Key must present, otherwise this is fatal anyway
+        fields = [list(normalize_index_fields_spec(s)) for s in fields]
+        cls_indexed = cls_indexed or any(s[0] == '_cls' for s in fields)
+
+        # Discard bad values in 'name' (if any): '', None, etc.
+        index_name = spec.get('name') or get_index_name(fields)
+
+        if index_name in indexes:
+            log.warning("Index for fields %s was declared multiple times in %s document, replacing",
+                        fields, model_cls.__name__)
+
+        indexes[index_name] = {**spec, 'fields': fields}
+
+    # If _cls field is being used (for polymorphism), it needs an index,
+    # only if another index doesn't begin with _cls
+    if index_cls and not cls_indexed and model_cls._meta.get("allow_inheritance"):
+        index_name = global_spec.get('name') or '_cls'
+
+        if index_name in indexes:
+            log.warning(
+                "Auto-created index %s was declared manually in %s document, use another name",
+                index_name, model_cls.__name__
+            )
+            # Append random letters to the end of name
+            index_name += '_' + ''.join(random.choice(string.ascii_letters) for _ in range(8))
+
+        field_spec = list(normalize_index_fields_spec(['_cls']))
+        indexes[index_name] = {'fields': field_spec, **global_spec}
+
+    return indexes
 
 
 class MongoengineMigrate:

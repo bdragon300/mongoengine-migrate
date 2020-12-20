@@ -7,24 +7,26 @@ __all__ = [
     'BaseCreateDocument',
     'BaseDropDocument',
     'BaseRenameDocument',
-    'BaseAlterDocument'
+    'BaseAlterDocument',
+    'BaseIndexAction'
 ]
 
 import logging
 import weakref
 from abc import ABCMeta, abstractmethod
 from copy import deepcopy
-from typing import Dict, Type, Optional, Mapping, Any, Tuple
+from typing import Dict, Type, Optional, Mapping, Any, Iterable, Sequence
 
-from pymongo.database import Database
+from bson import SON
+from pymongo.database import Database, Collection
 
 import mongoengine_migrate.flags as flags
 from mongoengine_migrate.exceptions import ActionError, SchemaError
 from mongoengine_migrate.fields.registry import type_key_registry
-from mongoengine_migrate.schema import Schema
-from mongoengine_migrate.utils import Diff, UNSET, document_type_to_class_name
 from mongoengine_migrate.graph import MigrationPolicy
+from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.updater import DocumentUpdater
+from mongoengine_migrate.utils import Diff, UNSET, document_type_to_class_name
 
 #: Migration Actions registry. Mapping of class name and its class
 actions_registry: Dict[str, Type['BaseAction']] = {}
@@ -214,7 +216,7 @@ class BaseFieldAction(BaseAction):
         reflect schema change. It's called for several times for each
         field which was modified by a user in mongoengine documents.
 
-        For example, on field deleting the method defined in
+        For example, on field deletion the method defined in
         CreateField action should return None, but those one in
         DropField action should return DeleteField object with
         filled out parameters of change (type of field, required flag,
@@ -318,7 +320,7 @@ class BaseDocumentAction(BaseAction):
         collection which was modified by a user in mongoengine
         documents.
 
-        For example, on collection deleting the method defined in
+        For example, on collection deletion the method defined in
         CreateCollection action should return None, but those one in
         DropCollection action should return DropCollection object with
         filled out parameters of change (collection name, indexes, etc.)
@@ -523,3 +525,108 @@ class BaseAlterDocument(BaseDocumentAction):
         if not can_be_none:
             if diff.old is None or diff.new is None:
                 raise SchemaError(f'{diff.key} could not be None')
+
+
+class BaseIndexAction(BaseAction):
+    def __init__(self, document_type: str, name: str, *, fields: Sequence, **kwargs):
+        super().__init__(document_type, fields=fields, **kwargs)
+
+        self.name = name
+
+    @classmethod
+    @abstractmethod
+    def build_object(cls,
+                     document_type: str,
+                     name: str,
+                     left_schema: Schema,
+                     right_schema: Schema) -> Optional['BaseIndexAction']:
+        """
+        Factory method which tests if current action type could process
+        schema changes for a given collection and fields. If yes then
+        it produces object of current action type with filled out
+        perameters. If no then it returns None.
+
+        This method is used to guess which action is suitable to
+        reflect schema change. It's called for several times for each
+        field which was modified by a user in mongoengine documents.
+
+        For example, on index of particular fields deletion, the
+        method defined in CreateIndex action should return None, but
+        those one in DropIndex action should return DropIndex object
+        with filled out parameters of change (document type, indexed
+        fields)
+
+        :param document_type: document type in schema to consider
+        :param name: index name
+        :param left_schema: database schema before a migration
+         would get applied (left side)
+        :param right_schema: database schema after a migration
+         would get applied (right side)
+        :return: object of self type or None
+        """
+
+    def prepare(self, db: Database, left_schema: Schema, migration_policy: MigrationPolicy):
+        self._prepare(db, left_schema, migration_policy, True)
+
+        self._run_ctx['left_index_schema'] = \
+            left_schema[self.document_type].indexes.get(self.name, {})
+
+    def _prepare(self,
+                 db: Database,
+                 left_schema: Schema,
+                 migration_policy: MigrationPolicy,
+                 ensure_existence: bool):
+        super()._prepare(db, left_schema, migration_policy, True)
+
+        if ensure_existence and self.name not in left_schema[self.document_type].indexes:
+            raise SchemaError(f'Index {self.name} does not exist in schema of {self.document_type}')
+        elif not ensure_existence and self.name in left_schema[self.document_type].indexes:
+            raise SchemaError(f'Index {self.name} already exists in schema of {self.document_type}')
+
+    def to_python_expr(self) -> str:
+        # `to_python_expr` must return repr() string
+        parameters = {
+            name: getattr(val, 'to_python_expr', lambda: repr(val))()
+            for name, val in self.parameters.items()
+        }
+        if self.dummy_action:
+            parameters['dummy_action'] = True
+
+        kwargs_str = ''.join(f", {name!s}={val!s}" for name, val in sorted(parameters.items()))
+        return f'{self.__class__.__name__}({self.document_type!r}, {self.name!r}{kwargs_str})'
+
+    @staticmethod
+    def _find_index_name_by_spec(fields_spec: Iterable[Iterable[Any]],
+                                 collection: Collection) -> Optional[str]:
+        """
+        Search existing MongoDB actual index name with given fields
+        spec in a collection
+        :param fields_spec: fields spec
+        :param collection: pymongo.Collection object
+        :return: name of found index or None if nothing found
+        """
+        fields_spec = SON(fields_spec)
+        for index in collection.list_indexes():
+            if index['key'] == fields_spec:
+                return index['name']
+
+    def _drop_index(self):
+        left_index_schema = deepcopy(self._run_ctx['left_index_schema'])
+        fields = left_index_schema.pop('fields')  # Key must be present
+
+        # Drop all indexes by name since some of index types
+        # (text ones, for instance) are require to be dropped by name
+        name = left_index_schema.get('name')
+        if not name:  # Discard bad values in 'name' (if any): '', None, etc.
+            name = self._find_index_name_by_spec(fields, self._run_ctx['collection'])
+        if name is None:
+            log.warning("Could not drop index for spec %s since it not found, ignore", fields)
+            return
+
+        self._run_ctx['collection'].drop_index(name)
+
+    def _create_index(self):
+        left_index_schema = deepcopy(self._run_ctx['left_index_schema'])
+        fields = left_index_schema.pop('fields')  # Key must be present
+
+        self._run_ctx['collection'].create_index(fields, **left_index_schema)

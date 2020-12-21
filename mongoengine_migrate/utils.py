@@ -8,7 +8,7 @@ __all__ = [
 ]
 
 import inspect
-from typing import Type, Iterable, Optional, NamedTuple, Any, Union, List, Generator
+from typing import Type, Iterable, Optional, NamedTuple, Any, Union, List, Iterator
 
 from mongoengine import EmbeddedDocument
 from mongoengine.base import BaseDocument
@@ -174,7 +174,7 @@ def get_index_name(fields_spec: Iterable[Iterable[Any]]) -> str:
 
 
 def normalize_index_fields_spec(
-        fields_spec: Iterable[Union[str, Iterable[Any]]]) -> Generator[List[Any]]:
+        fields_spec: Iterable[Union[str, Iterable[Any]]]) -> Iterator[List[Any]]:
     """
     Normalize index fields specification.
 

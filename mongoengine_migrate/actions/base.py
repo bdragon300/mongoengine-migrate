@@ -610,8 +610,18 @@ class BaseIndexAction(BaseAction):
             if index['key'] == fields_spec:
                 return index['name']
 
-    def _drop_index(self):
-        left_index_schema = deepcopy(self._run_ctx['left_index_schema'])
+    def _drop_index(self, parameters: dict) -> None:
+        """
+        Drop current index by name.
+
+        If name was not specified in parameters (the most often
+        scenario), we search for an index with given fields, obtain
+        its name and drop by name
+
+        :param parameters: index parameters
+        :return:
+        """
+        left_index_schema = deepcopy(parameters)
         fields = left_index_schema.pop('fields')  # Key must be present
 
         # Drop all indexes by name since some of index types
@@ -625,8 +635,13 @@ class BaseIndexAction(BaseAction):
 
         self._run_ctx['collection'].drop_index(name)
 
-    def _create_index(self):
-        left_index_schema = deepcopy(self._run_ctx['left_index_schema'])
+    def _create_index(self, parameters: dict) -> None:
+        """
+        Create index with given parameters
+        :param parameters:
+        :return:
+        """
+        left_index_schema = deepcopy(parameters)
         fields = left_index_schema.pop('fields')  # Key must be present
 
         self._run_ctx['collection'].create_index(fields, **left_index_schema)

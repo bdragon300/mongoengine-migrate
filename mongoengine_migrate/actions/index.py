@@ -1,11 +1,9 @@
-import logging
 from copy import deepcopy
 from typing import Optional
 
+from mongoengine_migrate.flags import EMBEDDED_DOCUMENT_NAME_PREFIX
 from mongoengine_migrate.schema import Schema
 from .base import BaseIndexAction
-
-log = logging.getLogger('mongoengine-migrate')
 
 
 class CreateIndex(BaseIndexAction):
@@ -18,7 +16,8 @@ class CreateIndex(BaseIndexAction):
                      name: str,
                      left_schema: Schema,
                      right_schema: Schema) -> Optional['CreateIndex']:
-        match = document_type in left_schema \
+        match = not document_type.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX) \
+                and document_type in left_schema \
                 and document_type in right_schema \
                 and name not in left_schema.Document.indexes \
                 and name in right_schema.Document.indexes
@@ -51,7 +50,8 @@ class DropIndex(BaseIndexAction):
                      name: str,
                      left_schema: Schema,
                      right_schema: Schema) -> Optional['DropIndex']:
-        match = document_type in left_schema \
+        match = not document_type.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX) \
+                and document_type in left_schema \
                 and document_type in right_schema \
                 and name in left_schema[document_type].indexes \
                 and name not in right_schema[document_type].indexes
@@ -87,7 +87,8 @@ class AlterIndex(BaseIndexAction):
                      left_schema: Schema,
                      right_schema: Schema) -> Optional['AlterIndex']:
         right, left = right_schema, left_schema
-        match = document_type in left \
+        match = not document_type.startswith(EMBEDDED_DOCUMENT_NAME_PREFIX) \
+                and document_type in left \
                 and document_type in right \
                 and name in left[document_type].indexes \
                 and name in right[document_type].indexes \

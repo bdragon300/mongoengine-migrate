@@ -18,6 +18,7 @@ from .base import (
     actions_registry,
     BaseFieldAction,
     BaseDocumentAction,
+    BaseIndexAction,
     BaseAction
 )
 
@@ -47,6 +48,10 @@ def build_actions_chain(left_schema: Schema, right_schema: Schema) -> Iterable[B
         elif issubclass(action_cls, BaseFieldAction):
             new_actions = list(
                 build_field_action_chain(action_cls, left_schema, right_schema, document_types)
+            )
+        elif issubclass(action_cls, BaseIndexAction):
+            new_actions = list(
+                build_index_action_chain(action_cls, left_schema, right_schema, document_types)
             )
         else:
             continue
@@ -123,6 +128,40 @@ def build_field_action_chain(action_cls: Type[BaseFieldAction],
         for field in all_fields:
             action_obj = action_cls.build_object(document_type,
                                                  field,
+                                                 left_schema,
+                                                 right_schema)
+            if action_obj is not None:
+                try:
+                    left_schema = patch(action_obj.to_schema_patch(left_schema), left_schema)
+                except (TypeError, ValueError, KeyError) as e:
+                    raise ActionError(
+                        f"Unable to apply schema patch of {action_obj!r}. More likely that the "
+                        f"schema is corrupted. You can use schema repair tools to fix this issue"
+                    ) from e
+
+                yield action_obj
+
+
+def build_index_action_chain(action_cls: Type[BaseIndexAction],
+                             left_schema: Schema,
+                             right_schema: Schema,
+                             document_types: Iterable[str]) -> Iterable[BaseAction]:
+    """
+    Walk through schema changes, and produce chain of Action objects
+    of given type which could handle schema changes from left to right
+    :param action_cls: Action type to consider
+    :param left_schema:
+    :param right_schema:
+    :param document_types: list of document types to inspect
+    :return: iterable of suitable Action objects
+    """
+    for document_type in document_types:
+        # Take all indexes to detect if they created, altered, dropped
+        all_indexes = left_schema.get(document_type, {}).indexes.keys() | \
+                      right_schema.get(document_type, {}).indexes.keys()
+        for index_name in all_indexes:
+            action_obj = action_cls.build_object(document_type,
+                                                 index_name,
                                                  left_schema,
                                                  right_schema)
             if action_obj is not None:

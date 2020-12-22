@@ -63,7 +63,8 @@ class BaseAction(metaclass=BaseActionMeta):
     #: Priority which this action will be tested with. The smaller
     #: priority number, the higher priority this action has.
     #: This flag is suitable for rename actions which should get tested
-    #: before create/drop actions. Default is 5 which means normal
+    #: before create/drop actions. Default is below which means normal
+    #: priority
     priority = 12
 
     def __init__(self, document_type: str, *, dummy_action: bool = False, **kwargs):
@@ -630,7 +631,7 @@ class BaseIndexAction(BaseAction):
         if not name:  # Discard bad values in 'name' (if any): '', None, etc.
             name = self._find_index_name_by_spec(fields, self._run_ctx['collection'])
         if name is None:
-            log.warning("Could not drop index for spec %s since it not found, ignore", fields)
+            log.warning("Index %s not found, ignoring", fields)
             return
 
         self._run_ctx['collection'].drop_index(name)

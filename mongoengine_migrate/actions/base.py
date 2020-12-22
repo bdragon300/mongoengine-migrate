@@ -65,7 +65,7 @@ class BaseAction(metaclass=BaseActionMeta):
     #: This flag is suitable for rename actions which should get tested
     #: before create/drop actions. Default is below which means normal
     #: priority
-    priority = 12
+    priority = 100
 
     def __init__(self, document_type: str, *, dummy_action: bool = False, **kwargs):
         """

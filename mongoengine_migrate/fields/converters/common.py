@@ -379,7 +379,7 @@ def to_url_string(updater: DocumentUpdater, check_only=False):
 
 def to_email_string(updater: DocumentUpdater):
     def by_path(ctx: ByPathContext):
-        email_regex = r"\A[^\W][A-Z0-9._%+-]+@[A-Z0-9.-]+\.\p{L}+\Z"
+        email_regex = r"\A[^\W][A-Z0-9._%+-]+@[\p{L}0-9.-]+\.\p{L}+\Z"
         fltr = {ctx.filter_dotpath: {'$not': {'$regex': email_regex, '$options': 'i'}, '$ne': None}, **ctx.extra_filter}
         check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 

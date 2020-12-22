@@ -7,8 +7,15 @@ from .base import BaseIndexAction
 
 
 class CreateIndex(BaseIndexAction):
-    """Create index in given document"""
-    priority = 16  # FIXME: set correct priority
+    """
+    Create index in given document
+
+    CreateIndex should go after DropIndex in order to avoid situation
+    when user added explicit name for the index, but didn't change
+    fields spec. MongoDB will raise duplicate index error in this case.
+    Also the such index can be created by hand.
+    """
+    priority = 130
 
     @classmethod
     def build_object(cls,
@@ -41,8 +48,15 @@ class CreateIndex(BaseIndexAction):
 
 
 class DropIndex(BaseIndexAction):
-    """Drop index in given document"""
-    priority = 16  # FIXME: set correct priority
+    """
+    Drop index in given document
+
+    CreateIndex should go after DropIndex in order to avoid situation
+    when user added explicit name for the index, but didn't change
+    fields spec. MongoDB will raise duplicate index error in this case.
+    Also the such index can be created by hand.
+    """
+    priority = 120
 
     @classmethod
     def build_object(cls,
@@ -78,7 +92,7 @@ class AlterIndex(BaseIndexAction):
     """Alter index parameters. Actually drop the existing index
     and create a new one with new parameters
     """
-    priority = 16  # FIXME: set correct priority
+    priority = 110
 
     @classmethod
     def build_object(cls,

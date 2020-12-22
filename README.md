@@ -72,7 +72,7 @@ Such changes should be reflected in database. The following command creates migr
 (`myproject.db` is a python module with mongoengine document declarations):
 
 ```shell script
-mongoengine-migrate makemigrations -m myproject.db 
+mongoengine_migrate makemigrations -m myproject.db 
 ```
 
 New migration file will be created:
@@ -108,13 +108,13 @@ actions = [
 Next, upgrade the database to the latest version:
 
 ```shell script
-mongoengine-migrate migrate
+mongoengine_migrate migrate
 ```
 
 Or to the certain migration:
 
 ```shell script
-mongoengine-migrate migrate previous_migration
+mongoengine_migrate migrate previous_migration
 ```
 
 ### Actual db changes 

@@ -594,6 +594,14 @@ class BaseIndexAction(BaseAction):
         if self.dummy_action:
             parameters['dummy_action'] = True
 
+        if 'fields' in parameters:  # DropIndex has no 'fields'
+            index_types = (
+                'ASCENDING', 'DESCENDING', 'GEO2D', 'GEOHAYSTACK', 'GEOSPHERE', 'HASHED', 'TEXT'
+            )
+            index_type_map = {getattr(pymongo, name): f'pymongo.{name}' for name in index_types}
+            parameters['fields'] = [(field, index_type_map.get(typ, typ))
+                                    for field, typ in parameters.get('fields', ())]
+
         kwargs_str = ''.join(f", {name!s}={val!s}" for name, val in sorted(parameters.items()))
         return f'{self.__class__.__name__}({self.document_type!r}, {self.name!r}{kwargs_str})'
 

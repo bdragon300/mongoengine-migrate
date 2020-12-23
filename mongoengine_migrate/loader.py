@@ -26,6 +26,7 @@ from pymongo import MongoClient
 
 import mongoengine_migrate.flags as runtime_flags
 from mongoengine_migrate.actions.factory import build_actions_chain
+from mongoengine_migrate.actions.base import BaseIndexAction
 from mongoengine_migrate.exceptions import MongoengineMigrateError, ActionError, MigrationGraphError
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.graph import Migration, MigrationsGraph, MigrationPolicy
@@ -576,7 +577,11 @@ class MongoengineMigrate:
             # If `regex` is set in action, then we probably need 're'
             if isinstance(action.parameters.get('regex'), re.Pattern):
                 import_expressions.add('import re')
-                break
+
+            # *Index actions use index type pymongo.* constants
+            # in fields spec
+            if isinstance(action, BaseIndexAction):
+                import_expressions.add('import pymongo')
 
         log.debug('Writing migrations file...')
         env = Environment()

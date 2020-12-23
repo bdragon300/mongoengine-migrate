@@ -43,4 +43,5 @@ BULK_BUFFER_LENGTH = 10000
 INDEX_NAME_SEPARATOR = '_'
 
 #: Default field index type if no type explicitly set
+#: See mongoengine code
 DEFAULT_INDEX_TYPE = pymongo.ASCENDING

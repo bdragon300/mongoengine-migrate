@@ -58,6 +58,11 @@ class DropIndex(BaseIndexAction):
     """
     priority = 120
 
+    def __init__(self, document_type: str, name: str, **kwargs):
+        super().__init__(document_type, **kwargs)
+
+        self.name = name
+
     @classmethod
     def build_object(cls,
                      document_type: str,
@@ -82,7 +87,7 @@ class DropIndex(BaseIndexAction):
         return [('change', self.document_type, (left_item, right_item))]
 
     def run_forward(self):
-        self._drop_index(self.parameters)
+        self._drop_index(self._run_ctx['left_index_schema'])
 
     def run_backward(self):
         self._create_index(self._run_ctx['left_index_schema'])

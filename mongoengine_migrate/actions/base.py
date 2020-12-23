@@ -19,9 +19,10 @@ from typing import Dict, Type, Optional, Mapping, Any, Iterable, Sequence
 
 from bson import SON
 from pymongo.database import Database, Collection
+import pymongo.errors
 
 import mongoengine_migrate.flags as flags
-from mongoengine_migrate.exceptions import ActionError, SchemaError
+from mongoengine_migrate.exceptions import ActionError, SchemaError, MigrationError
 from mongoengine_migrate.fields.registry import type_key_registry
 from mongoengine_migrate.graph import MigrationPolicy
 from mongoengine_migrate.schema import Schema
@@ -628,10 +629,10 @@ class BaseIndexAction(BaseAction):
         # Drop all indexes by name since some of index types
         # (text ones, for instance) are require to be dropped by name
         name = left_index_schema.get('name')
-        if not name:  # Discard bad values in 'name' (if any): '', None, etc.
+        if not name:  # Discard bad values (if any): '', None, 0, etc.
             name = self._find_index_name_by_spec(fields, self._run_ctx['collection'])
         if name is None:
-            log.warning("Index %s not found, ignoring", fields)
+            log.warning("Index %s was already dropped, ignoring", fields)
             return
 
         self._run_ctx['collection'].drop_index(name)
@@ -645,4 +646,8 @@ class BaseIndexAction(BaseAction):
         left_index_schema = deepcopy(parameters)
         fields = left_index_schema.pop('fields')  # Key must be present
 
-        self._run_ctx['collection'].create_index(fields, **left_index_schema)
+        index_name = left_index_schema.get('name', fields)
+        try:
+            self._run_ctx['collection'].create_index(fields, **left_index_schema)
+        except pymongo.errors.OperationFailure as e:
+            raise MigrationError('Could not create index {}'.format(index_name)) from e

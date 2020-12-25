@@ -36,11 +36,8 @@ class Schema(SchemaAccessMixin, dict):
             pass
 
         def __init__(self, *args, **kwargs):
-            # FIXME: Schema.Document(a=1, b=2, parameters=3) sets both key and parameters
-            #        Schema.Document({'a': 1, 'b': 2}, parameters=3) does the same
-            #        Bear in mind that user can have "parameters" field
-            super().__init__(*args, **kwargs)
             self.__parameters = kwargs.pop('parameters', Schema.Document.Parameters())
+            super().__init__(*args, **kwargs)
 
         @property
         def parameters(self) -> dict:

@@ -105,8 +105,7 @@ class TestRenameEmbedded:
                 'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
             })
         })
-        del left_schema['~EmbeddedDocument1']['parameters']  # TODO: remove after Schema.Document parameters issue will be resolved
-        del left_schema['Document2']['parameters']           #
+        
         right_schema = Schema({
             '~EmbeddedDocument11': Schema.Document({
                 'field11': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
@@ -123,9 +122,7 @@ class TestRenameEmbedded:
                 'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
             })
         })
-        del right_schema['~EmbeddedDocument11']['parameters']  # TODO: remove after Schema.Document parameters issue will be resolved
-        del right_schema['Document2']['parameters']            #
-
+        
         res = RenameEmbedded.build_object('~EmbeddedDocument1', left_schema, right_schema)
 
         assert isinstance(res, RenameEmbedded)
@@ -150,8 +147,7 @@ class TestRenameEmbedded:
                 'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
             })
         })
-        del left_schema['~EmbeddedDocument1']['parameters']  # TODO: remove after Schema.Document parameters issue will be resolved
-        del left_schema['Document2']['parameters']           #
+        
         right_schema = Schema({
             '~EmbeddedDocument11': Schema.Document({
                 'field_changed': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
@@ -175,10 +171,7 @@ class TestRenameEmbedded:
                 'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
             }),
         })
-        del right_schema['~EmbeddedDocument11']['parameters']   # TODO: remove after Schema.Document parameters issue will be resolved
-        del right_schema['~EmbeddedDocument111']['parameters']  #
-        del right_schema['Document2']['parameters']             #
-
+        
         res = RenameEmbedded.build_object('~EmbeddedDocument1', left_schema, right_schema)
 
         assert res is None

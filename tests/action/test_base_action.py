@@ -763,8 +763,7 @@ class TestBaseRenameDocument:
                 'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
             })
         })
-        del left_schema['Document1']['parameters']  # TODO: remove after Schema.Document parameters issue will be resolved
-        del left_schema['Document2']['parameters']  #
+        
         right_schema = Schema({
             'Document11': Schema.Document({
                 'field11': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
@@ -781,8 +780,6 @@ class TestBaseRenameDocument:
                 'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
             })
         })
-        del right_schema['Document11']['parameters']  # TODO: remove after Schema.Document parameters issue will be resolved
-        del right_schema['Document2']['parameters']   #
 
         res = baserenamedocumentaction_stub.build_object('Document1', left_schema, right_schema)
 
@@ -810,8 +807,7 @@ class TestBaseRenameDocument:
                 'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
             })
         })
-        del left_schema['Document1']['parameters']  # TODO: remove after Schema.Document parameters issue will be resolved
-        del left_schema['Document2']['parameters']  #
+        
         right_schema = Schema({
             'Document11': Schema.Document({
                 'field_changed': {'param11': 'schemavalue11', 'param12': 'schemavalue21'},
@@ -835,10 +831,7 @@ class TestBaseRenameDocument:
                 'field14': {'param41': 'schemavalue41', 'param42': 'schemavalue42'},
             }),
         })
-        del right_schema['Document11']['parameters']   # TODO: remove after Schema.Document parameters issue will be resolved
-        del right_schema['Document111']['parameters']  #
-        del right_schema['Document2']['parameters']    #
-
+        
         res = baserenamedocumentaction_stub.build_object('Document1', left_schema, right_schema)
 
         assert res is None

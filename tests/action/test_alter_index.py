@@ -20,7 +20,7 @@ def left_schema():
             indexes={
                 'index1': {'fields': [('field1', pymongo.ASCENDING)]},
                 'index2': {
-                    'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK)),
+                    'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)),
                     'name': 'index2',
                     'sparse': True
                 }
@@ -40,14 +40,13 @@ class TestAlterIndex:
     def test_forward__if_name_is_set_and_not_changed_and_field_spec_the_same__should_recreate_index(
             self, test_db, left_schema
     ):
-        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK))
+        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING))
         test_db['document1'].create_index(fields, name='index2', sparse=False)
         action = AlterIndex('Document1', 'index2', fields=fields, name='index2', sparse=True)
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
 
         action.run_forward()
 
-        assert len(list(test_db['document1'].list_indexes())) == 1
         indexes = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields)]
         assert len(indexes) == 1
         assert indexes[0]['name'] == 'index2'
@@ -56,14 +55,13 @@ class TestAlterIndex:
     def test_forward__if_name_is_set_and_changed_and_field_spec_is_the_same__should_recreate_index(
             self, test_db, left_schema
     ):
-        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK))
+        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING))
         test_db['document1'].create_index(fields, name='index_old', sparse=False)
         action = AlterIndex('Document1', 'index2', fields=fields, name='index2', sparse=True)
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
 
         action.run_forward()
 
-        assert len(list(test_db['document1'].list_indexes())) == 1
         indexes = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields)]
         assert len(indexes) == 1
         assert indexes[0]['name'] == 'index2'
@@ -72,19 +70,20 @@ class TestAlterIndex:
     def test_forward__if_name_is_set_and_changed_and_field_spec_also_changed__should_create_index(
             self, test_db, left_schema
     ):
-        fields1 = (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK))
-        fields2 = (('field2', pymongo.ASCENDING), )
+        fields1 = (('field2', pymongo.ASCENDING), )
+        fields2 = (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING))
         test_db['document1'].create_index(fields1, name='index_old', sparse=False)
         action = AlterIndex('Document1', 'index2', fields=fields2, name='index2', sparse=True)
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
 
         action.run_forward()
 
-        assert len(list(test_db['document1'].list_indexes())) == 2
-        indexes = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields2)]
-        assert len(indexes) == 1
-        assert indexes[0]['name'] == 'index2'
-        assert indexes[0]['sparse'] is True
+        indexes1 = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields1)]
+        assert len(indexes1) == 1
+        indexes2 = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields2)]
+        assert len(indexes2) == 1
+        assert indexes2[0]['name'] == 'index2'
+        assert indexes2[0]['sparse'] is True
 
     def test_forward__if_name_is_not_set_and_field_spec_is_the_same__should_recreate_index(
             self, test_db, left_schema
@@ -96,7 +95,6 @@ class TestAlterIndex:
 
         action.run_forward()
 
-        assert len(list(test_db['document1'].list_indexes())) == 1
         indexes = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields)]
         assert len(indexes) == 1
         assert indexes[0]['sparse'] is True
@@ -104,71 +102,51 @@ class TestAlterIndex:
     def test_forward__if_name_is_not_set_and_field_spec_also_changed__should_create_new_index(
             self, test_db, left_schema
     ):
-        fields1 = [('field1', pymongo.ASCENDING)]
-        fields2 = (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK))
+        fields1 = (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING))
+        fields2 = [('field1', pymongo.ASCENDING)]
         test_db['document1'].create_index(fields1, sparse=False)
         action = AlterIndex('Document1', 'index1', fields=fields2, sparse=True)
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
 
         action.run_forward()
 
-        assert len(list(test_db['document1'].list_indexes())) == 2
-        indexes = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields2)]
-        assert len(indexes) == 1
-        assert indexes[0]['sparse'] is True
+        indexes1 = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields1)]
+        assert len(indexes1) == 1
+        indexes2 = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields2)]
+        assert len(indexes2) == 1
+        assert indexes2[0]['sparse'] is True
 
     def test_backward__if_name_is_set_and_not_changed_and_field_spec_the_same__should_undo_changes(
             self, test_db, left_schema
     ):
-        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK))
-        test_db['document1'].create_index(fields, name='index2', sparse=False)
-        action = AlterIndex('Document1', 'index2', fields=fields, name='index2', sparse=True)
+        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING))
+        test_db['document1'].create_index(fields, name='index2', sparse=True)
+        action = AlterIndex('Document1', 'index2', fields=fields, name='index2', sparse=False)
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
         action.run_forward()
 
         action.run_backward()
 
-        assert len(list(test_db['document1'].list_indexes())) == 1
         indexes = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields)]
         assert len(indexes) == 1
         assert indexes[0]['name'] == 'index2'
-        assert indexes[0]['sparse'] is False
+        assert indexes[0]['sparse'] is True  # See index2 schema
 
     def test_backward__if_name_is_set_and_changed_and_field_spec_is_the_same__should_undo_changes(
             self, test_db, left_schema
     ):
-        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK))
-        test_db['document1'].create_index(fields, name='index_old', sparse=False)
-        action = AlterIndex('Document1', 'index2', fields=fields, name='index2', sparse=True)
+        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING))
+        test_db['document1'].create_index(fields, name='index_old', sparse=True)
+        action = AlterIndex('Document1', 'index2', fields=fields, name='index2', sparse=False)
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
         action.run_forward()
 
         action.run_backward()
 
-        assert len(list(test_db['document1'].list_indexes())) == 1
         indexes = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields)]
         assert len(indexes) == 1
-        assert indexes[0]['name'] == 'index_old'
-        assert indexes[0]['sparse'] is False
-
-    def test_backward__if_name_is_set_and_changed_and_field_spec_also_changed__should_drop_new_index_and_raise_error(
-            self, test_db, left_schema
-    ):
-        fields1 = (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK))
-        fields2 = (('field2', pymongo.ASCENDING), )
-        test_db['document1'].create_index(fields1, name='index_old', sparse=False)
-        action = AlterIndex('Document1', 'index2', fields=fields2, name='index2', sparse=True)
-        action.prepare(test_db, left_schema, MigrationPolicy.strict)
-        action.run_forward()
-
-        with pytest.raises(MigrationError):
-            action.run_backward()
-
-        assert len(list(test_db['document1'].list_indexes())) == 1
-        indexes = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields1)]
-        assert len(indexes) == 1
-        assert indexes[0]['name'] == 'index_old'
-        assert indexes[0]['sparse'] is False
+        assert indexes[0]['name'] == 'index2'
+        assert indexes[0]['sparse'] is True  # See index2 schema
 
     def test_backward__if_name_is_not_set_and_field_spec_is_the_same__should_undo_changes(
             self, test_db, left_schema
@@ -181,28 +159,9 @@ class TestAlterIndex:
 
         action.run_backward()
 
-        assert len(list(test_db['document1'].list_indexes())) == 1
         indexes = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields)]
         assert len(indexes) == 1
-        assert indexes[0]['sparse'] is False
-
-    def test_backward__if_name_is_not_set_and_field_spec_also_changed__should_drop_new_index_and_raise_error(
-            self, test_db, left_schema
-    ):
-        fields1 = [('field1', pymongo.ASCENDING)]
-        fields2 = (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK))
-        test_db['document1'].create_index(fields1, sparse=False)
-        action = AlterIndex('Document1', 'index1', fields=fields2, sparse=True)
-        action.prepare(test_db, left_schema, MigrationPolicy.strict)
-        action.run_forward()
-
-        with pytest.raises(MigrationError):
-            action.run_backward()
-
-        assert len(list(test_db['document1'].list_indexes())) == 2
-        indexes = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields2)]
-        assert len(indexes) == 1
-        assert indexes[0]['sparse'] is False
+        assert 'sparse' not in indexes[0]  # See index1 schema
 
     def test_prepare__if_document_not_in_schema__should_raise_error(self, test_db, left_schema):
         action = AlterIndex('UnknownDocument', 'index1', fields=[('field1', pymongo.ASCENDING)])
@@ -227,7 +186,7 @@ class TestAlterIndex:
                 indexes={
                     'index1': {'fields': [('field1', pymongo.ASCENDING)]},
                     'index2': {
-                        'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK)),
+                        'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)),
                         'name': 'index2',
                         'sparse': False
                     }
@@ -243,9 +202,9 @@ class TestAlterIndex:
 
         assert isinstance(res, AlterIndex)
         assert res.document_type == 'Document1'
-        assert res.name == 'index2'
+        assert res.index_name == 'index2'
         assert res.parameters == {
-            'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK)),
+            'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)),
             'name': 'index2',
             'sparse': False,
         }
@@ -265,7 +224,7 @@ class TestAlterIndex:
                 indexes={
                     'index1': {'fields': [('field1', pymongo.ASCENDING)]},
                     'index2': {
-                        'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK)),
+                        'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)),
                         'name': 'index2',
                         'sparse': False
                     }
@@ -281,7 +240,7 @@ class TestAlterIndex:
 
         assert res is None
 
-    @pytest.mark.parametrize('index_name', ('index1', 'index3', 'index2', 'unknown_index'))
+    @pytest.mark.parametrize('index_name', ('index3', 'index2', 'unknown_index'))
     def test_build_object__if_index_does_not_in_both_schemas__should_return_none(
             self, left_schema, index_name
     ):
@@ -341,14 +300,22 @@ class TestAlterIndex:
                     'field2': {'param21': 'schemavalue21', 'param22': 'schemavalue22'},
                 },
                 parameters={'collection': 'document1'},
-                indexes={'index1': {'fields': [('field1', pymongo.ASCENDING)]}}
+                indexes={
+                    'index1': {'fields': [('field1', pymongo.ASCENDING)]},
+                    'index2': {
+                        'fields': [('field1', pymongo.ASCENDING)],
+                        'name': 'index2'
+                    }
+                }
             ),
             '~EmbeddedDocument2': Schema.Document({
                 'field1': {'param3': 'schemavalue3'},
                 'field2': {'param4': 'schemavalue4'},
             })
         })
-        action = AlterIndex('Document1', 'index2', fields=[('field1', pymongo.ASCENDING)])
+        action = AlterIndex(
+            'Document1', 'index2', name='index2', fields=[('field1', pymongo.ASCENDING)]
+        )
         expect = [('change', 'Document1', (left_schema['Document1'], right_schema['Document1']))]
 
         res = action.to_schema_patch(left_schema)

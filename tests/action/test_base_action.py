@@ -144,10 +144,10 @@ def baseindexaction_stub() -> Type[BaseIndexAction]:
             pass
 
         def build_object(cls,
-                     document_type: str,
-                     name: str,
-                     left_schema: Schema,
-                     right_schema: Schema) -> Optional['BaseIndexAction']:
+                         document_type: str,
+                         index_name: str,
+                         left_schema: Schema,
+                         right_schema: Schema) -> Optional['BaseIndexAction']:
             pass
 
     return StubIndexAction
@@ -697,15 +697,18 @@ class TestBaseDropDocument:
             self, left_schema, basedropdocumentaction_stub
     ):
         obj = basedropdocumentaction_stub('Document1',
-                                           collection='document1',
-                                           param1='value1')
+                                          collection='document1',
+                                          param1='value1')
         expect = [(
             'remove',
             '',
             [(
                 'Document1',
-                Schema.Document({'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'}},
-                                parameters=dict(collection='document1'))
+                Schema.Document(
+                    {'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'}},
+                    parameters=dict(collection='document1'),
+                    indexes={'index1': {'fields': [('field1', pymongo.DESCENDING)], 'sparse': True}}
+                )
             )]
         )]
 
@@ -916,7 +919,10 @@ class TestBaseRenameDocument:
                     'Document1',
                     Schema.Document(
                         {'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'}},
-                        parameters={'collection': 'document1'}
+                        parameters={'collection': 'document1'},
+                        indexes={
+                            'index1': {'fields': [('field1', pymongo.DESCENDING)], 'sparse': True}
+                        }
                     )
                 )]
             ),
@@ -925,7 +931,10 @@ class TestBaseRenameDocument:
                     'Document11',
                     Schema.Document(
                         {'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'}},
-                        parameters={'collection': 'document1'}
+                        parameters={'collection': 'document1'},
+                        indexes={
+                            'index1': {'fields': [('field1', pymongo.DESCENDING)], 'sparse': True}
+                        }
                     )
                 )]
             )
@@ -995,9 +1004,11 @@ class TestBaseAlterDocument:
     ):
         obj = basealterdocumentaction_stub('Document1', param1='new_value1', param2='new_param2')
         expect_left_docschema = left_schema['Document1']
-        expect_right_docschema = Schema.Document({
-            'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'},
-        }, parameters={'param1': 'new_value1', 'param2': 'new_param2'})
+        expect_right_docschema = Schema.Document(
+            {'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'}},
+            parameters={'param1': 'new_value1', 'param2': 'new_param2'},
+            indexes={'index1': {'fields': [('field1', pymongo.DESCENDING)], 'sparse': True}}
+        )
         expect = [(
             'change',
             'Document1',
@@ -1047,7 +1058,7 @@ class TestBaseIndex:
         )  # type: BaseIndexAction
 
         assert obj.document_type == 'Document1'
-        assert obj.name == 'index1'
+        assert obj.index_name == 'index1'
         assert obj.dummy_action is False
         assert obj.parameters == {
             'param1': 'value1',
@@ -1079,7 +1090,7 @@ class TestBaseIndex:
         (
             ('Document1', 'index1'),
             {'param1': 'val1', 'param2': 4, 'fields': [('field1', pymongo.DESCENDING)]},
-            "StubIndexAction('Document1', 'field1', fields=[('field1', pymongo.DESCENDING)], param1='val1', param2=4)"
+            "StubIndexAction('Document1', 'index1', fields=[('field1', pymongo.DESCENDING)], param1='val1', param2=4)"
         ),
         (
             ('Document1', 'index1'),
@@ -1089,7 +1100,7 @@ class TestBaseIndex:
                 'dummy_action': True,
                 'fields': [('field1', pymongo.DESCENDING)]
             },
-            "StubIndexAction('Document1', 'field1', fields=[('field1', pymongo.DESCENDING)], dummy_action=True, param1='val1', param2=4)"
+            "StubIndexAction('Document1', 'index1', fields=[('field1', pymongo.DESCENDING)], dummy_action=True, param1='val1', param2=4)"
         ),
     ))
     def test_to_python_expr__should_return_python_expression_which_creates_action_object(
@@ -1109,7 +1120,7 @@ class TestBaseIndex:
         obj = baseindexaction_stub(
             'Document1', 'index1', fields=[('field1', pymongo.DESCENDING)], param1=param1
         )  # type: BaseIndexAction
-        expect = "StubIndexAction('Document1', 'field1', fields=[('field1', pymongo.DESCENDING)], param1='param1_repr')"
+        expect = "StubIndexAction('Document1', 'index1', fields=[('field1', pymongo.DESCENDING)], param1='param1_repr')"
 
         res = obj.to_python_expr()
 

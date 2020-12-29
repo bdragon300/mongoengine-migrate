@@ -20,7 +20,7 @@ def left_schema():
             indexes={
                 'index1': {'fields': [('field1', pymongo.ASCENDING)]},
                 'index2': {
-                    'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK)),
+                    'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)),
                     'name': 'index2',
                     'sparse': True
                 }
@@ -35,7 +35,7 @@ def left_schema():
 
 class TestDropIndex:
     def test_forward__if_index_name_is_in_params__should_drop_index(self, test_db, left_schema):
-        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK))
+        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING))
         test_db['document1'].create_index(fields, name='index2')
         action = DropIndex('Document1', 'index2')
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
@@ -59,7 +59,7 @@ class TestDropIndex:
         assert len(indexes) == 0
 
     def test_forward__if_index_already_dropped__should_ignore_this(self, test_db, left_schema):
-        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK))
+        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING))
         action = DropIndex('Document1', 'index2')
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
 
@@ -72,8 +72,8 @@ class TestDropIndex:
     def test_backward__if_index_name_is_in_params__should_create_index(
             self, test_db, left_schema
     ):
-        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK))
-        test_db['document1'].create_index(fields)
+        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING))
+        test_db['document1'].create_index(fields, name='index2', sparse=True)
         action = DropIndex('Document1', 'index2')
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
         action.run_forward()
@@ -134,9 +134,9 @@ class TestDropIndex:
 
         assert isinstance(res, DropIndex)
         assert res.document_type == 'Document1'
-        assert res.name == 'index2'
+        assert res.index_name == 'index2'
         assert res.parameters == {
-            'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.GEOHAYSTACK)),
+            'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)),
             'name': 'index2',
             'sparse': True,
         }
@@ -225,7 +225,7 @@ class TestDropIndex:
                     'field2': {'param21': 'schemavalue21', 'param22': 'schemavalue22'},
                 },
                 parameters={'collection': 'document1'},
-                indexes={}
+                indexes={'index1': {'fields': [('field1', pymongo.ASCENDING)]}}
             ),
             '~EmbeddedDocument2': Schema.Document({
                 'field1': {'param3': 'schemavalue3'},

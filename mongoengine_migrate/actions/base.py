@@ -15,7 +15,7 @@ import logging
 import weakref
 from abc import ABCMeta, abstractmethod
 from copy import deepcopy
-from typing import Dict, Type, Optional, Mapping, Any, Iterable, Sequence
+from typing import Dict, Type, Optional, Mapping, Any, Iterable
 
 from bson import SON
 from pymongo.database import Database, Collection
@@ -530,16 +530,16 @@ class BaseAlterDocument(BaseDocumentAction):
 
 
 class BaseIndexAction(BaseAction):
-    def __init__(self, document_type: str, name: str, *, fields: Sequence, **kwargs):
-        super().__init__(document_type, fields=fields, **kwargs)
+    def __init__(self, document_type: str, index_name: str, **kwargs):
+        super().__init__(document_type, **kwargs)
 
-        self.name = name
+        self.index_name = index_name
 
     @classmethod
     @abstractmethod
     def build_object(cls,
                      document_type: str,
-                     name: str,
+                     index_name: str,
                      left_schema: Schema,
                      right_schema: Schema) -> Optional['BaseIndexAction']:
         """
@@ -559,7 +559,7 @@ class BaseIndexAction(BaseAction):
         fields)
 
         :param document_type: document type in schema to consider
-        :param name: index name
+        :param index_name: index name
         :param left_schema: database schema before a migration
          would get applied (left side)
         :param right_schema: database schema after a migration
@@ -571,7 +571,7 @@ class BaseIndexAction(BaseAction):
         self._prepare(db, left_schema, migration_policy, True)
 
         self._run_ctx['left_index_schema'] = \
-            left_schema[self.document_type].indexes.get(self.name, {})
+            left_schema[self.document_type].indexes.get(self.index_name, {})
 
     def _prepare(self,
                  db: Database,
@@ -580,10 +580,10 @@ class BaseIndexAction(BaseAction):
                  ensure_existence: bool):
         super()._prepare(db, left_schema, migration_policy, True)
 
-        if ensure_existence and self.name not in left_schema[self.document_type].indexes:
-            raise SchemaError(f'Index {self.name} does not exist in schema of {self.document_type}')
-        elif not ensure_existence and self.name in left_schema[self.document_type].indexes:
-            raise SchemaError(f'Index {self.name} already exists in schema of {self.document_type}')
+        if ensure_existence and self.index_name not in left_schema[self.document_type].indexes:
+            raise SchemaError(f'Index {self.index_name} does not exist in schema of {self.document_type}')
+        elif not ensure_existence and self.index_name in left_schema[self.document_type].indexes:
+            raise SchemaError(f'Index {self.index_name} already exists in schema of {self.document_type}')
 
     def to_python_expr(self) -> str:
         # `to_python_expr` must return repr() string
@@ -594,16 +594,25 @@ class BaseIndexAction(BaseAction):
         if self.dummy_action:
             parameters['dummy_action'] = True
 
-        if 'fields' in parameters:  # DropIndex has no 'fields'
+        fields_str = ''
+        if 'fields' in self.parameters:  # DropIndex has no 'fields'
+            class ReprStr(str):
+                """str type with repr() without single quotes"""
+                def __repr__(self): return self.__str__()
+
+            del parameters['fields']
             index_types = (
                 'ASCENDING', 'DESCENDING', 'GEO2D', 'GEOHAYSTACK', 'GEOSPHERE', 'HASHED', 'TEXT'
             )
-            index_type_map = {getattr(pymongo, name): f'pymongo.{name}' for name in index_types}
-            parameters['fields'] = [(field, index_type_map.get(typ, typ))
-                                    for field, typ in parameters.get('fields', ())]
+            index_type_map = {getattr(pymongo, name): ReprStr(f'pymongo.{name}')
+                              for name in index_types}
+            fields = [(field, index_type_map.get(typ, typ))
+                      for field, typ in self.parameters.get('fields', ())]
+            fields_str = f', fields={str(fields)}'
 
         kwargs_str = ''.join(f", {name!s}={val!s}" for name, val in sorted(parameters.items()))
-        return f'{self.__class__.__name__}({self.document_type!r}, {self.name!r}{kwargs_str})'
+        return f'{self.__class__.__name__}({self.document_type!r}, {self.index_name!r}' \
+               f'{fields_str}{kwargs_str})'
 
     @staticmethod
     def _find_index_name_by_spec(fields_spec: Iterable[Iterable[Any]],
@@ -637,8 +646,18 @@ class BaseIndexAction(BaseAction):
         # Drop all indexes by name since some of index types
         # (text ones, for instance) are require to be dropped by name
         name = left_index_schema.get('name')
-        if not name:  # Discard bad values (if any): '', None, 0, etc.
+        if name:
+            # Find index by name for cases when fields_spec has
+            # changed but name is not
+            indexes = self._run_ctx['collection'].list_indexes()
+            if all(index['name'] != name for index in indexes):
+                name = None  # Index with this name has not found
+
+        if not name:
+            # Find index by fields_spec for cases when name has
+            # changed\added\removed but fields_spec is not
             name = self._find_index_name_by_spec(fields, self._run_ctx['collection'])
+
         if name is None:
             log.warning("Index %s was already dropped, ignoring", fields)
             return

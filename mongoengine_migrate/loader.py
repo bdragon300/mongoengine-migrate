@@ -13,7 +13,7 @@ import string
 from datetime import timezone, datetime
 from pathlib import Path
 from types import ModuleType
-from typing import Tuple, Iterable, Optional, Dict, List
+from typing import Tuple, Dict, List, Type, Optional, Iterable
 
 import pymongo.database
 import pymongo.errors
@@ -21,7 +21,7 @@ from bson import CodecOptions
 from dictdiffer import patch, swap
 from jinja2 import Environment
 from mongoengine.base import _document_registry
-from mongoengine.document import Document
+from mongoengine.document import Document, BaseDocument
 from pymongo import MongoClient
 
 import mongoengine_migrate.flags as runtime_flags
@@ -169,14 +169,14 @@ def collect_models_schema() -> Schema:
     return schema
 
 
-def _extract_indexes(model_cls) -> Dict[str, dict]:
+def _extract_indexes(model_cls: Type[BaseDocument]) -> Dict[str, dict]:
     """
     Extract index declarations from a Document. Return dict
     {index_name: params_dict}. `params_dict` contains:
 
     - `create_index()` keyword arguments
     - | `fields` - fields specification list, e.g.
-      | (('db_field1, 1), ('db_field2', 'geoHaystack')) or ['field1']
+      | [('db_field1, 1), ('db_field2', 'geoHaystack')]
 
     See: https://docs.mongoengine.org/guide/defining-documents.html#indexes
 

@@ -1,15 +1,17 @@
 __all__ = ['Schema']
 
 from mongoengine_migrate.exceptions import SchemaError
+from mongoengine_migrate.utils import normalize_index_fields_spec
+from typing import Sequence
 
 
 class SchemaAccessMixin:
     """Replace possible KeyError exceptions to SchemaError in dict key
     access methods
     """
-    def __access(self, method, item):
+    def __access(self, method, item, *args, **kwargs):
         try:
-            return method(item)
+            return method(item, *args, **kwargs)
         except KeyError as e:
             raise SchemaError(f'Unknown key {item!r}') from e
 
@@ -19,8 +21,8 @@ class SchemaAccessMixin:
     def __delitem__(self, key):
         return self.__access(super().__delitem__, key)
 
-    def pop(self, key):
-        return self.__access(super().pop, key)
+    def pop(self, key, *args):
+        return self.__access(super().pop, key, *args)
 
     def popitem(self):
         try:

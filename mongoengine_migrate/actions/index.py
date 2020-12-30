@@ -1,3 +1,9 @@
+__all__ = [
+    'CreateIndex',
+    'DropIndex',
+    'AlterIndex'
+]
+
 from copy import deepcopy
 from typing import Optional, Sequence
 

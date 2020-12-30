@@ -1,8 +1,9 @@
 __all__ = ['Schema']
 
+from typing import Sequence
+
 from mongoengine_migrate.exceptions import SchemaError
 from mongoengine_migrate.utils import normalize_index_fields_spec
-from typing import Sequence
 
 
 class SchemaAccessMixin:
@@ -38,7 +39,11 @@ class Schema(SchemaAccessMixin, dict):
             pass
 
         class Indexes(SchemaAccessMixin, dict):
-            pass
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                for name, spec in self.items():
+                    if isinstance(spec.get('fields'), Sequence):
+                        self[name]['fields'] = list(normalize_index_fields_spec(spec['fields']))
 
         def __init__(self, *args, **kwargs):
             # FIXME: Schema.Document(a=1, b=2, parameters=3) sets both key and parameters

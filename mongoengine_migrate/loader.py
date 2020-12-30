@@ -133,7 +133,7 @@ def collect_models_schema() -> Schema:
         if model_cls._dynamic:
             schema[document_type].parameters['dynamic'] = True
 
-        if isinstance(model_cls, Document):
+        if issubclass(model_cls, Document):
             schema[document_type].indexes.update(_extract_indexes(model_cls))
 
         # {field_cls: TypeKeyRegistryItem}
@@ -199,7 +199,7 @@ def _extract_indexes(model_cls) -> Dict[str, dict]:
     for spec in field_specs:
         spec = {**global_spec, **spec}
         fields = spec.pop('fields')  # Key must present, otherwise this is fatal anyway
-        fields = [list(normalize_index_fields_spec(s)) for s in fields]
+        fields = list(normalize_index_fields_spec(fields))
         cls_indexed = cls_indexed or any(s[0] == '_cls' for s in fields)
 
         # Discard bad values in 'name' (if any): '', None, etc.

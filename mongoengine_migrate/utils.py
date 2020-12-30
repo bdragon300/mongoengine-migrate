@@ -4,11 +4,13 @@ __all__ = [
     'Slotinit',
     'get_closest_parent',
     'get_document_type',
-    'document_type_to_class_name'
+    'document_type_to_class_name',
+    'get_index_name',
+    'normalize_index_fields_spec'
 ]
 
 import inspect
-from typing import Type, Iterable, Optional, NamedTuple, Any, Union, List, Iterator
+from typing import Type, Iterable, Optional, NamedTuple, Any, Union, Iterator, Tuple
 
 from mongoengine import EmbeddedDocument
 from mongoengine.base import BaseDocument
@@ -164,17 +166,17 @@ def get_index_name(fields_spec: Iterable[Iterable[Any]]) -> str:
     if an index has changed/dropped/created.
 
     E.g. (('db_field1, 1), ('db_field2', 'geoHaystack')) converts to
-    'db_field1;1;db_field2;geoHaystack'
+    'db_field1_1_db_field2_geoHaystack'
     :param fields_spec: index fields specification
     :return: index id
     """
     return INDEX_NAME_SEPARATOR.join(
-        INDEX_NAME_SEPARATOR.join(str(field), str(typ)) for field, typ in fields_spec
+        INDEX_NAME_SEPARATOR.join((str(field), str(typ))) for field, typ in fields_spec
     )
 
 
 def normalize_index_fields_spec(
-        fields_spec: Iterable[Union[str, Iterable[Any]]]) -> Iterator[List[Any]]:
+        fields_spec: Iterable[Union[str, Iterable[Any]]]) -> Iterator[Tuple[Any]]:
     """
     Normalize index fields specification.
 
@@ -189,7 +191,7 @@ def normalize_index_fields_spec(
     """
     for spec in fields_spec:
         if isinstance(spec, str):
-            spec = [spec, DEFAULT_INDEX_TYPE]
-        elif isinstance(spec, tuple):
-            spec = [*spec]
+            spec = (spec, DEFAULT_INDEX_TYPE)
+        elif isinstance(spec, list):
+            spec = tuple(spec)
         yield spec

@@ -653,7 +653,8 @@ class BaseIndexAction(BaseAction):
             return
 
         iname, idesc = found_index
-        self._run_ctx['collection'].drop_index(iname)
+        if not self._is_my_index_used_by_other_documents():
+            self._run_ctx['collection'].drop_index(iname)
 
     def _create_index(self, parameters: dict) -> None:
         """
@@ -685,3 +686,26 @@ class BaseIndexAction(BaseAction):
         except pymongo.errors.OperationFailure as e:
             index_id = left_index_schema.get('name', fields)
             raise MigrationError('Could not create index {}'.format(index_id)) from e
+
+    def _is_my_index_used_by_other_documents(self) -> bool:
+        """
+        Return True if current index is declared in another document
+        for the same collection
+        :return:
+        """
+        my_document = self._run_ctx['left_schema'].get(self.document_type)  # type: Schema.Document
+        my_collection = my_document.parameters.get('collection')
+        if my_collection is None:
+            raise SchemaError(
+                f'No collection name in {self.document_type} schema parameters. Schema is corrupted'
+            )
+
+        for name, schema in self._run_ctx['left_schema'].items():
+            if name == self.document_type or name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
+                continue
+
+            col = schema.parameters.get('collection')
+            if col == my_collection and self.index_name in schema.indexes:
+                return True
+
+        return False

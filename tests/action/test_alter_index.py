@@ -20,7 +20,7 @@ def left_schema():
             indexes={
                 'index1': {'fields': [('field1', pymongo.ASCENDING)]},
                 'index2': {
-                    'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)),
+                    'fields': [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)],
                     'name': 'index2',
                     'sparse': True
                 }
@@ -40,7 +40,7 @@ class TestAlterIndex:
     def test_forward__if_name_is_set_and_not_changed_and_field_spec_the_same__should_recreate_index(
             self, test_db, left_schema
     ):
-        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING))
+        fields = [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)]
         test_db['document1'].create_index(fields, name='index2', sparse=False)
         action = AlterIndex('Document1', 'index2', fields=fields, name='index2', sparse=True)
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
@@ -55,7 +55,7 @@ class TestAlterIndex:
     def test_forward__if_name_is_set_and_changed_and_field_spec_is_the_same__should_recreate_index(
             self, test_db, left_schema
     ):
-        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING))
+        fields = [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)]
         test_db['document1'].create_index(fields, name='index_old', sparse=False)
         action = AlterIndex('Document1', 'index2', fields=fields, name='index2', sparse=True)
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
@@ -70,8 +70,8 @@ class TestAlterIndex:
     def test_forward__if_name_is_set_and_changed_and_field_spec_also_changed__should_create_index(
             self, test_db, left_schema
     ):
-        fields1 = (('field2', pymongo.ASCENDING), )
-        fields2 = (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING))
+        fields1 = [('field2', pymongo.ASCENDING)]
+        fields2 = [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)]
         test_db['document1'].create_index(fields1, name='index_old', sparse=False)
         action = AlterIndex('Document1', 'index2', fields=fields2, name='index2', sparse=True)
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
@@ -80,6 +80,8 @@ class TestAlterIndex:
 
         indexes1 = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields1)]
         assert len(indexes1) == 1
+        assert indexes1[0]['sparse'] is False
+        assert indexes1[0]['name'] == 'index_old'
         indexes2 = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields2)]
         assert len(indexes2) == 1
         assert indexes2[0]['name'] == 'index2'
@@ -102,7 +104,7 @@ class TestAlterIndex:
     def test_forward__if_name_is_not_set_and_field_spec_also_changed__should_create_new_index(
             self, test_db, left_schema
     ):
-        fields1 = (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING))
+        fields1 = [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)]
         fields2 = [('field1', pymongo.ASCENDING)]
         test_db['document1'].create_index(fields1, sparse=False)
         action = AlterIndex('Document1', 'index1', fields=fields2, sparse=True)
@@ -112,6 +114,7 @@ class TestAlterIndex:
 
         indexes1 = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields1)]
         assert len(indexes1) == 1
+        assert indexes1[0]['sparse'] is False
         indexes2 = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields2)]
         assert len(indexes2) == 1
         assert indexes2[0]['sparse'] is True
@@ -119,7 +122,7 @@ class TestAlterIndex:
     def test_backward__if_name_is_set_and_not_changed_and_field_spec_the_same__should_undo_changes(
             self, test_db, left_schema
     ):
-        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING))
+        fields = [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)]
         test_db['document1'].create_index(fields, name='index2', sparse=True)
         action = AlterIndex('Document1', 'index2', fields=fields, name='index2', sparse=False)
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
@@ -135,7 +138,7 @@ class TestAlterIndex:
     def test_backward__if_name_is_set_and_changed_and_field_spec_is_the_same__should_undo_changes(
             self, test_db, left_schema
     ):
-        fields = (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING))
+        fields = [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)]
         test_db['document1'].create_index(fields, name='index_old', sparse=True)
         action = AlterIndex('Document1', 'index2', fields=fields, name='index2', sparse=False)
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
@@ -186,7 +189,7 @@ class TestAlterIndex:
                 indexes={
                     'index1': {'fields': [('field1', pymongo.ASCENDING)]},
                     'index2': {
-                        'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)),
+                        'fields': [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)],
                         'name': 'index2',
                         'sparse': False
                     }
@@ -204,7 +207,7 @@ class TestAlterIndex:
         assert res.document_type == 'Document1'
         assert res.index_name == 'index2'
         assert res.parameters == {
-            'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)),
+            'fields': [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)],
             'name': 'index2',
             'sparse': False,
         }
@@ -224,7 +227,7 @@ class TestAlterIndex:
                 indexes={
                     'index1': {'fields': [('field1', pymongo.ASCENDING)]},
                     'index2': {
-                        'fields': (('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)),
+                        'fields': [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)],
                         'name': 'index2',
                         'sparse': False
                     }

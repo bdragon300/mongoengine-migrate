@@ -15,7 +15,7 @@ import logging
 import weakref
 from abc import ABCMeta, abstractmethod
 from copy import deepcopy
-from typing import Dict, Type, Optional, Mapping, Any, Iterable
+from typing import Dict, Type, Optional, Mapping, Any, Iterable, Tuple
 
 from bson import SON
 from pymongo.database import Database, Collection
@@ -615,19 +615,20 @@ class BaseIndexAction(BaseAction):
                f'{fields_str}{kwargs_str})'
 
     @staticmethod
-    def _find_index_name_by_spec(fields_spec: Iterable[Iterable[Any]],
-                                 collection: Collection) -> Optional[str]:
+    def _find_index(collection: Collection,
+                    name: str,
+                    fields_spec: Iterable[Iterable[Any]]) -> Optional[Tuple[str, dict]]:
         """
-        Search existing MongoDB actual index name with given fields
-        spec in a collection
-        :param fields_spec: fields spec
+        Find index in db which has either given name or fields spec
+        (key).
         :param collection: pymongo.Collection object
-        :return: name of found index or None if nothing found
+        :param name: name to search
+        :param fields_spec: fields spec to search
+        :return: index name and description tuple or None if not found
         """
-        fields_spec = SON(fields_spec)
-        for index in collection.list_indexes():
-            if index['key'] == fields_spec:
-                return index['name']
+        for iname, ispec in collection.index_information().items():
+            if iname == name or ispec['key'] == fields_spec:
+                return iname, ispec
 
     def _drop_index(self, parameters: dict) -> None:
         """
@@ -646,23 +647,13 @@ class BaseIndexAction(BaseAction):
         # Drop all indexes by name since some of index types
         # (text ones, for instance) are require to be dropped by name
         name = left_index_schema.get('name')
-        if name:
-            # Find index by name for cases when fields_spec has
-            # changed but name is not
-            indexes = self._run_ctx['collection'].list_indexes()
-            if all(index['name'] != name for index in indexes):
-                name = None  # Index with this name has not found
-
-        if not name:
-            # Find index by fields_spec for cases when name has
-            # changed\added\removed but fields_spec is not
-            name = self._find_index_name_by_spec(fields, self._run_ctx['collection'])
-
-        if name is None:
+        found_index = self._find_index(self._run_ctx['collection'], name, fields)
+        if found_index is None:
             log.warning("Index %s was already dropped, ignoring", fields)
             return
 
-        self._run_ctx['collection'].drop_index(name)
+        iname, idesc = found_index
+        self._run_ctx['collection'].drop_index(iname)
 
     def _create_index(self, parameters: dict) -> None:
         """
@@ -672,9 +663,25 @@ class BaseIndexAction(BaseAction):
         """
         left_index_schema = deepcopy(parameters)
         fields = left_index_schema.pop('fields')  # Key must be present
+        name = left_index_schema.get('name')
 
-        index_name = left_index_schema.get('name', fields)
+        # Check if index with such name\parameters exists in db
+        found_index = self._find_index(self._run_ctx['collection'], name, fields)
+        if found_index:
+            iname, ispec = found_index
+            # Exclude index desc keys which does not get to index schema
+            compare_keys = (ispec.keys() | left_index_schema.keys()) - {'v', 'ns', 'key'}
+            if all(ispec.get(k) == left_index_schema.get(k) for k in compare_keys):
+                log.warning('Index %s already exists, ignore', fields)
+                return
+            else:
+                raise MigrationError(
+                    'Index {} already exists with other parameters. Please drop it before '
+                    'applying the migration'.format(fields)
+                )
+
         try:
             self._run_ctx['collection'].create_index(fields, **left_index_schema)
         except pymongo.errors.OperationFailure as e:
-            raise MigrationError('Could not create index {}'.format(index_name)) from e
+            index_id = left_index_schema.get('name', fields)
+            raise MigrationError('Could not create index {}'.format(index_id)) from e

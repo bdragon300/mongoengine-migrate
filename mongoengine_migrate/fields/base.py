@@ -214,11 +214,15 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
         pass
 
     def change_unique(self, updater: DocumentUpdater, diff: Diff):
-        # TODO
+        """This parameter is about indexes. Handled by index actions
+        No need to do anything here.
+        """
         pass
 
     def change_unique_with(self, updater: DocumentUpdater, diff: Diff):
-        # TODO
+        """This parameter is about indexes. Handled by index actions
+        No need to do anything here.
+        """
         pass
 
     def change_primary_key(self, updater: DocumentUpdater, diff: Diff):
@@ -238,7 +242,6 @@ class CommonFieldHandler(metaclass=FieldHandlerMeta):
             raise SchemaError(f'Embedded document {updater.document_type} cannot have primary key')
         if self.migration_policy.name == 'strict':
             updater.update_by_path(by_path)
-        # self.change_unique([], []) or []  # TODO
 
     # TODO: consider Document, EmbeddedDocument as choices
     def change_choices(self, updater: DocumentUpdater, diff: Diff):

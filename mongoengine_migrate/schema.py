@@ -50,9 +50,9 @@ class Schema(SchemaAccessMixin, dict):
             #        Schema.Document({'a': 1, 'b': 2}, parameters=3) does the same
             #        Bear in mind that user can have "parameters" field
             #        The same for indexes
-            super().__init__(*args, **kwargs)
             self.__parameters = kwargs.pop('parameters', Schema.Document.Parameters())
             self.__indexes = kwargs.pop('indexes', Schema.Document.Indexes())
+            super().__init__(*args, **kwargs)
 
         @property
         def parameters(self) -> Parameters:

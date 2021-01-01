@@ -709,3 +709,26 @@ class BaseIndexAction(BaseAction):
                 return True
 
         return False
+
+    def __repr__(self):
+        args_str = f'{self.document_type!r}, {self.index_name!r}'
+
+        fields_str = ''
+        if 'fields' in self.parameters:
+            fields_str = f'fields={self.parameters["fields"]!r}'
+        params_str = ', '.join(f'{k!s}={v!r}' for k, v in self.parameters.items() if k != 'fields')
+        if self.dummy_action:
+            params_str += f', dummy_action={self.dummy_action}'
+
+        return f'{self.__class__.__name__}({args_str}, {fields_str}, {params_str})'
+
+    def __str__(self):
+        args_str = f'{self.document_type!r}, {self.index_name!r}'
+
+        fields_str = ''
+        if 'fields' in self.parameters:
+            fields_str = f'fields={self.parameters["fields"]!r}'
+        if self.dummy_action:
+            args_str += f', dummy_action={self.dummy_action}'
+
+        return f'{self.__class__.__name__}({args_str}, {fields_str} ...)'

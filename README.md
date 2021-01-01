@@ -33,6 +33,9 @@ pip3 install mongoengine-migrate
 * Altering fields in document and embedded documents
   * Changing of init parameters such as `db_field`, `required`, etc.
   * Convertion between field types (if possible)
+* Indexes
+  * Creating, dropping, renaming
+  * Handling fields constraints such as `unique` and `unique_with`
 * Automatic select a query or a python loop to perform an update depending on MongoDB version
 * Two policies of how to work with existing data which does not meet to mongoengine schema
 

@@ -68,7 +68,6 @@ class CreateField(BaseFieldAction):
         If field is defined as required then force create it with
         default value. Otherwise do nothing since mongoengine creates
         fields automatically on value set
-        FIXME: parameters (indexes, acl, etc.)
         """
         def by_path(ctx: ByPathContext):
             # Update documents only
@@ -345,7 +344,7 @@ class AlterField(BaseFieldAction):
 
 class RenameField(BaseFieldAction):
     """Rename field"""
-    priority = 10
+    priority = 80
 
     #: How much percent of items in schema diff of two fields in the
     #: same collection should be equal to consider such change as

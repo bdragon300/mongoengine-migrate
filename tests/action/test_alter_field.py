@@ -385,11 +385,65 @@ class TestAlterFieldCommonDefault:
 
 
 class TestAlterFieldCommonUnique:
-    pass  # TODO
+    def test_forward__should_do_nothing(
+            self, load_fixture, test_db, dump_db
+    ):
+        schema = load_fixture('schema1').get_schema()
+
+        dump = dump_db()
+
+        action = AlterField('Schema1Doc1', 'doc1_str', unique=True)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_forward()
+
+        assert dump_db() == dump
+
+    def test_forward_backward__should_do_nothing(self, load_fixture, test_db, dump_db):
+        schema = load_fixture('schema1').get_schema()
+
+        dump = dump_db()
+
+        action = AlterField('Schema1Doc1', 'doc1_str', unique=True)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+        action.run_forward()
+        action.cleanup()
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_backward()
+
+        assert dump_db() == dump
 
 
 class TestAlterFieldCommonUniqueWith:
-    pass  # TODO
+    def test_forward__should_do_nothing(
+            self, load_fixture, test_db, dump_db
+    ):
+        schema = load_fixture('schema1').get_schema()
+
+        dump = dump_db()
+
+        action = AlterField('Schema1Doc1', 'doc1_str', unique_with=['doc1_int'])
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_forward()
+
+        assert dump_db() == dump
+
+    def test_forward_backward__should_do_nothing(self, load_fixture, test_db, dump_db):
+        schema = load_fixture('schema1').get_schema()
+
+        dump = dump_db()
+
+        action = AlterField('Schema1Doc1', 'doc1_str', unique_with=['doc1_int'])
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+        action.run_forward()
+        action.cleanup()
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_backward()
+
+        assert dump_db() == dump
 
 
 class TestAlterFieldCommonPrimaryKey:

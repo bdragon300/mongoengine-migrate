@@ -23,7 +23,7 @@ class CreateEmbedded(BaseCreateDocument):
     since fields actions could refer to this document and its schema
     representation.
     """
-    priority = 4
+    priority = 30
 
     @classmethod
     def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
@@ -47,7 +47,7 @@ class DropEmbedded(BaseDropDocument):
     since fields actions could refer to this document and its schema
     representation.
     """
-    priority = 18
+    priority = 150
 
     @classmethod
     def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
@@ -69,7 +69,7 @@ class RenameEmbedded(BaseRenameDocument):
     Rename embedded document
     Should be checked before CreateEmbedded in order to detect renaming
     """
-    priority = 2
+    priority = 20
 
     @classmethod
     def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
@@ -88,7 +88,7 @@ class RenameEmbedded(BaseRenameDocument):
 
 class AlterEmbedded(BaseAlterDocument):
     """Alter whole embedded document changes"""
-    priority = 5
+    priority = 40
 
     @classmethod
     def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):

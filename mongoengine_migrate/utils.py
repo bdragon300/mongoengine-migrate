@@ -4,16 +4,23 @@ __all__ = [
     'Slotinit',
     'get_closest_parent',
     'get_document_type',
-    'document_type_to_class_name'
+    'document_type_to_class_name',
+    'get_index_name',
+    'normalize_index_fields_spec'
 ]
 
 import inspect
-from typing import Type, Iterable, Optional, NamedTuple, Any
+from typing import Type, Iterable, Optional, NamedTuple, Any, Union, Iterator, Tuple
 
 from mongoengine import EmbeddedDocument
 from mongoengine.base import BaseDocument
 
-from .flags import EMBEDDED_DOCUMENT_NAME_PREFIX, DOCUMENT_NAME_SEPARATOR
+from .flags import (
+    EMBEDDED_DOCUMENT_NAME_PREFIX,
+    DOCUMENT_NAME_SEPARATOR,
+    INDEX_NAME_SEPARATOR,
+    DEFAULT_INDEX_TYPE
+)
 
 
 class _Unset:
@@ -144,3 +151,49 @@ def document_type_to_class_name(document_type: str) -> str:
         cls_name = cls_name[len(emb_prefix):]
 
     return cls_name
+
+
+def get_index_name(fields_spec: Iterable[Iterable[Any]]) -> str:
+    """
+    Build index name from its fields spec
+
+    Since MongoDB indexes does not require name during creation then
+    it's unlikely than user will set index name in Document declaration.
+    But index is needed to be identified.
+
+    This function takes fields spec and builds our own id from it. This
+    id is not used somewhere in db, only in schema in order to track
+    if an index has changed/dropped/created.
+
+    E.g. (('db_field1, 1), ('db_field2', 'geoHaystack')) converts to
+    'db_field1_1_db_field2_geoHaystack'
+    :param fields_spec: index fields specification
+    :return: index id
+    """
+    return INDEX_NAME_SEPARATOR.join(
+        INDEX_NAME_SEPARATOR.join((str(field), str(typ))) for field, typ in fields_spec
+    )
+
+
+def normalize_index_fields_spec(
+        fields_spec: Iterable[Union[str, Iterable[Any]]]) -> Iterator[Tuple[Any]]:
+    """
+    Normalize index fields specification.
+
+    Fields spec can be declared either as strings collection or
+    (field, type) pairs collection. Strings should be also normalized
+    as pair with default type.
+
+    Also cast collections type to list for more convenient compares on
+    any migration step (because mongodb stores lists as arrays)
+    :param fields_spec: fields spec as strings or (field, type) collection
+    :return: (field, type) collections
+    """
+    for spec in fields_spec:
+        if isinstance(spec, str):
+            spec = (spec, DEFAULT_INDEX_TYPE)
+        elif isinstance(spec, Iterable):
+            spec = tuple(spec)
+        else:
+            raise TypeError(f'Index spec item must contain either str or iterable: {spec!r}')
+        yield spec

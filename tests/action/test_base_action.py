@@ -1,6 +1,7 @@
 from typing import Type, Optional
 from unittest import mock
 
+import pymongo
 import pytest
 
 from mongoengine_migrate.actions import base as actions_base
@@ -11,7 +12,8 @@ from mongoengine_migrate.actions.base import (
     BaseCreateDocument,
     BaseDropDocument,
     BaseRenameDocument,
-    BaseAlterDocument
+    BaseAlterDocument,
+    BaseIndexAction
 )
 from mongoengine_migrate.exceptions import SchemaError, ActionError
 from mongoengine_migrate.graph import MigrationPolicy
@@ -130,11 +132,35 @@ def basealterdocumentaction_stub() -> Type[BaseAlterDocument]:
 
 
 @pytest.fixture
+def baseindexaction_stub() -> Type[BaseIndexAction]:
+    class StubIndexAction(BaseIndexAction):
+        def run_forward(self):
+            pass
+
+        def run_backward(self):
+            pass
+
+        def to_schema_patch(self, left_schema: Schema):
+            pass
+
+        def build_object(cls,
+                         document_type: str,
+                         index_name: str,
+                         left_schema: Schema,
+                         right_schema: Schema) -> Optional['BaseIndexAction']:
+            pass
+
+    return StubIndexAction
+
+
+@pytest.fixture
 def left_schema():
     return Schema({
-        'Document1': Schema.Document({
-            'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'},
-        }, parameters={'collection': 'document1'}),
+        'Document1': Schema.Document(
+            {'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'}},
+            parameters={'collection': 'document1'},
+            indexes={'index1': {'fields': [('field1', pymongo.DESCENDING)], 'sparse': True}}
+        ),
         '~Document2': Schema.Document({
             'field1': {'param3': 'schemavalue3'},
             'field2': {'param4': 'schemavalue4'},
@@ -671,15 +697,18 @@ class TestBaseDropDocument:
             self, left_schema, basedropdocumentaction_stub
     ):
         obj = basedropdocumentaction_stub('Document1',
-                                           collection='document1',
-                                           param1='value1')
+                                          collection='document1',
+                                          param1='value1')
         expect = [(
             'remove',
             '',
             [(
                 'Document1',
-                Schema.Document({'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'}},
-                                parameters=dict(collection='document1'))
+                Schema.Document(
+                    {'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'}},
+                    parameters=dict(collection='document1'),
+                    indexes={'index1': {'fields': [('field1', pymongo.DESCENDING)], 'sparse': True}}
+                )
             )]
         )]
 
@@ -883,7 +912,10 @@ class TestBaseRenameDocument:
                     'Document1',
                     Schema.Document(
                         {'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'}},
-                        parameters={'collection': 'document1'}
+                        parameters={'collection': 'document1'},
+                        indexes={
+                            'index1': {'fields': [('field1', pymongo.DESCENDING)], 'sparse': True}
+                        }
                     )
                 )]
             ),
@@ -892,7 +924,10 @@ class TestBaseRenameDocument:
                     'Document11',
                     Schema.Document(
                         {'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'}},
-                        parameters={'collection': 'document1'}
+                        parameters={'collection': 'document1'},
+                        indexes={
+                            'index1': {'fields': [('field1', pymongo.DESCENDING)], 'sparse': True}
+                        }
                     )
                 )]
             )
@@ -962,9 +997,11 @@ class TestBaseAlterDocument:
     ):
         obj = basealterdocumentaction_stub('Document1', param1='new_value1', param2='new_param2')
         expect_left_docschema = left_schema['Document1']
-        expect_right_docschema = Schema.Document({
-            'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'},
-        }, parameters={'param1': 'new_value1', 'param2': 'new_param2'})
+        expect_right_docschema = Schema.Document(
+            {'field1': {'param1': 'schemavalue1', 'param2': 'schemavalue2'}},
+            parameters={'param1': 'new_value1', 'param2': 'new_param2'},
+            indexes={'index1': {'fields': [('field1', pymongo.DESCENDING)], 'sparse': True}}
+        )
         expect = [(
             'change',
             'Document1',
@@ -1004,3 +1041,80 @@ class TestBaseAlterDocument:
     ):
         with pytest.raises(SchemaError):
             res = basealterdocumentaction_stub._check_diff(diff, can_be_none, check_type)
+
+
+class TestBaseIndex:
+    def test_init__should_set_attributes(self, baseindexaction_stub):
+        obj = baseindexaction_stub(
+            'Document1', 'index1', fields=[('field1', pymongo.DESCENDING)], dummy_action=False,
+            param1='value1', param2=123
+        )  # type: BaseIndexAction
+
+        assert obj.document_type == 'Document1'
+        assert obj.index_name == 'index1'
+        assert obj.dummy_action is False
+        assert obj.parameters == {
+            'param1': 'value1',
+            'param2': 123,
+            'fields': [('field1', pymongo.DESCENDING)]
+        }
+        assert obj._run_ctx is None
+
+    def test_prepare__if_collection_in_left_schema__should_prepare_run_context(
+            self, test_db, left_schema, baseindexaction_stub
+    ):
+        obj = baseindexaction_stub(
+            'Document1', 'index1', fields=[('field1', pymongo.DESCENDING)],
+            param1='value1', param2=123
+        )  # type: BaseIndexAction
+        policy = MigrationPolicy.relaxed
+
+        obj.prepare(test_db, left_schema, policy)
+
+        assert obj._run_ctx == {
+            'left_schema': left_schema,
+            'db': test_db,
+            'collection': test_db['document1'],
+            'migration_policy': policy,
+            'left_index_schema': {'fields': [('field1', pymongo.DESCENDING)], 'sparse': True}
+        }
+
+    @pytest.mark.parametrize('args,kwargs,expect', (
+        (
+            ('Document1', 'index1'),
+            {'param1': 'val1', 'param2': 4, 'fields': [('field1', pymongo.DESCENDING)]},
+            "StubIndexAction('Document1', 'index1', fields=[('field1', pymongo.DESCENDING)], param1='val1', param2=4)"
+        ),
+        (
+            ('Document1', 'index1'),
+            {
+                'param1': 'val1',
+                'param2': 4,
+                'dummy_action': True,
+                'fields': [('field1', pymongo.DESCENDING)]
+            },
+            "StubIndexAction('Document1', 'index1', fields=[('field1', pymongo.DESCENDING)], dummy_action=True, param1='val1', param2=4)"
+        ),
+    ))
+    def test_to_python_expr__should_return_python_expression_which_creates_action_object(
+            self, baseindexaction_stub, args, kwargs, expect
+    ):
+        obj = baseindexaction_stub(*args, **kwargs)  # type: BaseIndexAction
+
+        res = obj.to_python_expr()
+
+        assert res == expect
+
+    def test_to_python_expr__if_parameter_has_its_own_to_python_expr__should_call_it(
+            self, baseindexaction_stub
+    ):
+        param1 = mock.Mock()
+        param1.to_python_expr.return_value = "'param1_repr'"
+        obj = baseindexaction_stub(
+            'Document1', 'index1', fields=[('field1', pymongo.DESCENDING)], param1=param1
+        )  # type: BaseIndexAction
+        expect = "StubIndexAction('Document1', 'index1', fields=[('field1', pymongo.DESCENDING)], param1='param1_repr')"
+
+        res = obj.to_python_expr()
+
+        assert res == expect

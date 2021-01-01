@@ -17,10 +17,8 @@ log = logging.getLogger('mongoengine-migrate')
 
 
 class CreateDocument(BaseCreateDocument):
-    """Create new document in db
-    # FIXME: parameters (indexes, acl, etc.)
-    """
-    priority = 8
+    """Create new document in db"""
+    priority = 60
 
     @classmethod
     def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
@@ -34,7 +32,6 @@ class CreateDocument(BaseCreateDocument):
         """
         Mongodb automatically creates collection on the first insert
         So, do nothing
-        FIXME: parameters (indexes, acl, etc.)
         """
 
     def run_backward(self):
@@ -50,7 +47,7 @@ class CreateDocument(BaseCreateDocument):
 
 class DropDocument(BaseDropDocument):
     """Drop a document"""
-    priority = 16
+    priority = 140
 
     @classmethod
     def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
@@ -77,13 +74,12 @@ class DropDocument(BaseDropDocument):
         """
         Mongodb automatically creates collection on the first insert
         So, do nothing
-        FIXME: parameters (indexes, acl, etc.)
         """
 
 
 class RenameDocument(BaseRenameDocument):
     """Rename document"""
-    priority = 6
+    priority = 50
 
     @classmethod
     def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
@@ -101,7 +97,7 @@ class RenameDocument(BaseRenameDocument):
 
 
 class AlterDocument(BaseAlterDocument):
-    priority = 9
+    priority = 70
 
     @classmethod
     def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):

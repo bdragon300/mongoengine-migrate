@@ -17,9 +17,7 @@ log = logging.getLogger('mongoengine-migrate')
 
 
 class CreateDocument(BaseCreateDocument):
-    """Create new document in db
-    # FIXME: parameters (indexes, acl, etc.)
-    """
+    """Create new document in db"""
     priority = 60
 
     @classmethod
@@ -34,7 +32,6 @@ class CreateDocument(BaseCreateDocument):
         """
         Mongodb automatically creates collection on the first insert
         So, do nothing
-        FIXME: parameters (indexes, acl, etc.)
         """
 
     def run_backward(self):
@@ -77,7 +74,6 @@ class DropDocument(BaseDropDocument):
         """
         Mongodb automatically creates collection on the first insert
         So, do nothing
-        FIXME: parameters (indexes, acl, etc.)
         """
 
 

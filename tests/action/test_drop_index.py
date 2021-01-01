@@ -69,7 +69,7 @@ class TestDropIndex:
                    if x['key'] == SON(fields)]
         assert len(indexes) == 0
 
-    def test_backward__if_index_name_is_in_params__should_create_index(
+    def test_forward_backward__if_index_name_is_in_params__should_create_index(
             self, test_db, left_schema
     ):
         fields = [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)]
@@ -77,6 +77,8 @@ class TestDropIndex:
         action = DropIndex('Document1', 'index2')
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
         action.run_forward()
+        action.cleanup()
+        action.prepare(test_db, left_schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -86,7 +88,7 @@ class TestDropIndex:
         assert indexes[0]['name'] == 'index2'
         assert indexes[0]['sparse'] is True
 
-    def test_backward__if_index_name_is_not_in_params__should_create_index(
+    def test_forward_backward__if_index_name_is_not_in_params__should_create_index(
             self, test_db, left_schema
     ):
         fields = [('field1', pymongo.DESCENDING)]
@@ -94,6 +96,8 @@ class TestDropIndex:
         action = DropIndex('Document1', 'index1')
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
         action.run_forward()
+        action.cleanup()
+        action.prepare(test_db, left_schema, MigrationPolicy.strict)
 
         action.run_backward()
 

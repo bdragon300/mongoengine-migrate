@@ -119,7 +119,7 @@ class TestAlterIndex:
         assert len(indexes2) == 1
         assert indexes2[0]['sparse'] is True
 
-    def test_backward__if_name_is_set_and_not_changed_and_field_spec_the_same__should_undo_changes(
+    def test_forward_backward__if_name_is_set_and_not_changed_and_field_spec_the_same__should_undo_changes(
             self, test_db, left_schema
     ):
         fields = [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)]
@@ -127,6 +127,8 @@ class TestAlterIndex:
         action = AlterIndex('Document1', 'index2', fields=fields, name='index2', sparse=False)
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
         action.run_forward()
+        action.cleanup()
+        action.prepare(test_db, left_schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -135,7 +137,7 @@ class TestAlterIndex:
         assert indexes[0]['name'] == 'index2'
         assert indexes[0]['sparse'] is True  # See index2 schema
 
-    def test_backward__if_name_is_set_and_changed_and_field_spec_is_the_same__should_undo_changes(
+    def test_forward_backward__if_name_is_set_and_changed_and_field_spec_is_the_same__should_undo_changes(
             self, test_db, left_schema
     ):
         fields = [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)]
@@ -143,6 +145,8 @@ class TestAlterIndex:
         action = AlterIndex('Document1', 'index2', fields=fields, name='index2', sparse=False)
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
         action.run_forward()
+        action.cleanup()
+        action.prepare(test_db, left_schema, MigrationPolicy.strict)
 
         action.run_backward()
 
@@ -151,7 +155,7 @@ class TestAlterIndex:
         assert indexes[0]['name'] == 'index2'
         assert indexes[0]['sparse'] is True  # See index2 schema
 
-    def test_backward__if_name_is_not_set_and_field_spec_is_the_same__should_undo_changes(
+    def test_forward_backward__if_name_is_not_set_and_field_spec_is_the_same__should_undo_changes(
             self, test_db, left_schema
     ):
         fields = [('field1', pymongo.ASCENDING)]
@@ -159,6 +163,8 @@ class TestAlterIndex:
         action = AlterIndex('Document1', 'index1', fields=fields, sparse=True)
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
         action.run_forward()
+        action.cleanup()
+        action.prepare(test_db, left_schema, MigrationPolicy.strict)
 
         action.run_backward()
 

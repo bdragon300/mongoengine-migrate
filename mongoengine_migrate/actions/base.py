@@ -381,7 +381,7 @@ class BaseDropDocument(BaseDocumentAction):
     @classmethod
     def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
         if document_type in left_schema and document_type not in right_schema:
-            return cls(document_type=document_type)  # FIXME: parameters (indexes, acl, etc.)
+            return cls(document_type=document_type)
 
     def to_schema_patch(self, left_schema: Schema):
         item = left_schema[self.document_type]

@@ -80,43 +80,52 @@ class TestCreateIndex:
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
 
         action.run_forward()
+
         indexes = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields)]
         assert len(indexes) == 1
 
-    def test_backward__should_drop_index(self, test_db, left_schema):
+    def test_forward_backward__should_drop_index(self, test_db, left_schema):
         fields = [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)]
         action = CreateIndex(
             'Document1', 'test_index', fields=fields, name='test_index', sparse=False
         )
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
         action.run_forward()
+        action.cleanup()
+        action.prepare(test_db, left_schema, MigrationPolicy.strict)
 
         action.run_backward()
 
         indexes = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields)]
         assert len(indexes) == 0
 
-    def test_backward__if_name_param_does_not_specified__should_drop_by_fields_spec(
+    def test_forward_backward__if_name_param_does_not_specified__should_drop_by_fields_spec(
             self, test_db, left_schema
     ):
         fields = [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)]
         action = CreateIndex('Document1', 'test_index', fields=fields, sparse=True)
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
         action.run_forward()
+        action.cleanup()
+        action.prepare(test_db, left_schema, MigrationPolicy.strict)
 
         action.run_backward()
 
         indexes = [x for x in test_db['document1'].list_indexes() if x['key'] == SON(fields)]
         assert len(indexes) == 0
 
-    def test_backward__if_index_already_dropped__should_ignore_this(self, test_db, left_schema):
+    def test_forward_backward__if_index_already_dropped__should_ignore_this(
+            self, test_db, left_schema
+    ):
         fields = [('field1', pymongo.ASCENDING), ('field2', pymongo.DESCENDING)]
         action = CreateIndex(
             'Document1', 'test_index', fields=fields, name='test_index', sparse=False
         )
         action.prepare(test_db, left_schema, MigrationPolicy.strict)
         action.run_forward()
+        action.cleanup()
         test_db['document1'].drop_index('test_index')
+        action.prepare(test_db, left_schema, MigrationPolicy.strict)
 
         action.run_backward()
 

@@ -46,10 +46,6 @@ class Schema(SchemaAccessMixin, dict):
                         self[name]['fields'] = list(normalize_index_fields_spec(spec['fields']))
 
         def __init__(self, *args, **kwargs):
-            # FIXME: Schema.Document(a=1, b=2, parameters=3) sets both key and parameters
-            #        Schema.Document({'a': 1, 'b': 2}, parameters=3) does the same
-            #        Bear in mind that user can have "parameters" field
-            #        The same for indexes
             self.__parameters = kwargs.pop('parameters', Schema.Document.Parameters())
             self.__indexes = kwargs.pop('indexes', Schema.Document.Indexes())
             super().__init__(*args, **kwargs)

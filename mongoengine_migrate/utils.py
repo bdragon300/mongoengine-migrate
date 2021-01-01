@@ -192,6 +192,8 @@ def normalize_index_fields_spec(
     for spec in fields_spec:
         if isinstance(spec, str):
             spec = (spec, DEFAULT_INDEX_TYPE)
-        elif isinstance(spec, list):
+        elif isinstance(spec, Iterable):
             spec = tuple(spec)
+        else:
+            raise TypeError(f'Index spec item must contain either str or iterable: {spec!r}')
         yield spec

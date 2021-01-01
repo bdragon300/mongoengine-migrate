@@ -157,8 +157,8 @@ def build_index_action_chain(action_cls: Type[BaseIndexAction],
     """
     for document_type in document_types:
         # Take all indexes to detect if they created, altered, dropped
-        all_indexes = left_schema.get(document_type, {}).indexes.keys() | \
-                      right_schema.get(document_type, {}).indexes.keys()
+        all_indexes = left_schema.get(document_type, Schema.Document()).indexes.keys() | \
+                      right_schema.get(document_type, Schema.Document()).indexes.keys()
         for index_name in all_indexes:
             action_obj = action_cls.build_object(document_type,
                                                  index_name,

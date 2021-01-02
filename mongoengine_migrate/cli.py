@@ -165,6 +165,7 @@ def migrate(migration, dry_run, schema_only):
     show_default=True,
 )
 def makemigrations(models_module):
+    sys.path.append('.')  # Import modules relative to the current dir
     import_module(models_module)
     mongoengine_migrate.makemigrations()
 

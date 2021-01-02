@@ -84,7 +84,7 @@ def import_module(path: str) -> Tuple[ModuleType, str]:
             try:
                 path, attr = path.rsplit('.', 1)
             except ValueError:
-                raise e
+                raise MongoengineMigrateError(f"Cannot find module '{path}'") from e
             attrs.append(attr)
 
 

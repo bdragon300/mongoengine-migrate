@@ -204,11 +204,16 @@ class AlterField(BaseFieldAction):
                 and field_name in right_schema[document_type] \
                 and left_schema[document_type][field_name] != right_schema[document_type][field_name]
         if match:
-            # Consider items which was changed and added, skip those
-            # ones which was unchanged or was removed
             right_field_schema = right_schema[document_type][field_name]
             left_field_schema = left_schema[document_type][field_name]
-            action_params = dict(right_field_schema.items() - left_field_schema.items())
+            # Consider items which was changed or added, skip those
+            # ones which was unchanged or was removed
+            # NOTE: `r.items() - l.items()` doesn't work since this
+            # requires dict values to be hashable
+            action_params = {
+                k: right_field_schema[k] for k in right_field_schema.keys()
+                if k not in left_field_schema or left_field_schema[k] != right_field_schema[k]
+            }
             # FIXME: use function below
             # field_params = cls._fix_field_params(document_type,
             #                                      field_name,

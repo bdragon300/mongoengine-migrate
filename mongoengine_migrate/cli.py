@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import functools
 import logging
 import sys
 from typing import Optional
@@ -6,8 +7,8 @@ from typing import Optional
 import click
 
 import mongoengine_migrate.flags as flags
-from mongoengine_migrate.loader import MongoengineMigrate, import_module
 from mongoengine_migrate.exceptions import MongoengineMigrateError
+from mongoengine_migrate.loader import MongoengineMigrate, import_module
 
 mongoengine_migrate: Optional[MongoengineMigrate] = None
 
@@ -24,22 +25,24 @@ def setup_logger(log_level: str):
     log.setLevel(log_level.upper())
 
 
-def error_handler(exception: MongoengineMigrateError) -> None:
+def error_handler(func):
+    """Function decorator which handles MongoengineMigrateError
+    exception. Depending on current log level either reraise those
+    exception or print error to logger and exit with error code
     """
-    MongoengineMigrateError and derived errors handler. Depending on
-    current log level either reraise those exception or print error
-    to logger and exit with error code
-    :param exception:
-    :return:
-    """
-    if log.level == logging.DEBUG:
-        raise exception
+    @functools.wraps(func)
+    def w(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except MongoengineMigrateError as e:
+            if log.level == logging.DEBUG:
+                raise
 
-    log.error('The following error has occured during executing (use `--log-level=debug` '
-              'argument to get more info): %s: %s',
-              exception.__class__.__name__,
-              str(exception))
-    sys.exit(1)
+            log.error('%s: %s (use `--log-level=debug` argument to get more info)',
+                      e.__class__.__name__,
+                      str(e))
+            sys.exit(1)
+    return w
 
 
 def cli_options(f):
@@ -115,11 +118,11 @@ def migration_options(f):
 
 @click.group()
 @cli_options
+@error_handler
 def cli(uri, directory, collection, **kwargs):
     global mongoengine_migrate
     setup_logger(kwargs['log_level'])
     flags.mongo_version = kwargs.get('mongo_version')
-
     mongoengine_migrate = MongoengineMigrate(mongo_uri=uri,
                                              collection_name=collection,
                                              migrations_dir=directory)
@@ -129,6 +132,7 @@ def cli(uri, directory, collection, **kwargs):
 @click.command(short_help='Upgrade db to the given migration')
 @click.argument('migration', required=True)
 @migration_options
+@error_handler
 def upgrade(migration, dry_run, schema_only):
     flags.dry_run = dry_run
     flags.schema_only = schema_only
@@ -139,6 +143,7 @@ def upgrade(migration, dry_run, schema_only):
 @click.command(short_help='Downgrade db to the given migration')
 @click.argument('migration', required=True)
 @migration_options
+@error_handler
 def downgrade(migration, dry_run, schema_only):
     flags.dry_run = dry_run
     flags.schema_only = schema_only
@@ -148,6 +153,7 @@ def downgrade(migration, dry_run, schema_only):
 @click.command(short_help='Migrate db to the given migration. By default is to the last one')
 @click.argument('migration', required=False)
 @migration_options
+@error_handler
 def migrate(migration, dry_run, schema_only):
     flags.dry_run = dry_run
     flags.schema_only = schema_only
@@ -164,7 +170,9 @@ def migrate(migration, dry_run, schema_only):
     help="Python module where mongoengine models are loaded from",
     show_default=True,
 )
+@error_handler
 def makemigrations(models_module):
+    sys.path.append('.')  # Import modules relative to the current dir
     import_module(models_module)
     mongoengine_migrate.makemigrations()
 
@@ -176,7 +184,4 @@ cli.add_command(migrate)
 
 
 if __name__ == '__main__':
-    try:
-        cli()
-    except MongoengineMigrateError as e:
-        error_handler(e)
+    cli()

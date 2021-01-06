@@ -44,7 +44,7 @@ pip3 install mongoengine-migrate
 All mongoengine field types are supported, including simple types, lists, dicts, references, 
 GridFS, geo types, generic types.
 
-Typical migration file:
+## Typical migration file
 
 ```python
 from mongoengine_migrate.actions import *

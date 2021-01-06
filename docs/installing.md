@@ -12,4 +12,8 @@ Requirements:
 * wrapt
 * jsonpath_rw
 
-You can install this package using pip: `pip install mongoengine_migrate`
+You can install this package using pip: 
+
+```
+pip install mongoengine_migrate
+```

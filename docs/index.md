@@ -1,10 +1,10 @@
-**Navigation**
+#### Table of contents
 
-* [Mongoengine-migrate](#mongoengine-migrate)
-* [Installing](#installing)
-* [Overview](#overview)
-* [Migrations](#migrations)
-* [Command-line interface](#command-line-interface)
+[Mongoengine-migrate](#mongoengine-migrate)  
+[Installing](#installing)  
+[Command-line interface](#command-line-interface)  
+[Overview](#overview)  
+[Migrations](#migrations)  
 
 # Mongoengine-migrate
 

@@ -1,6 +1,6 @@
 **Navigation**
 
-* [Mongoengine-migrate](/)
+* [Mongoengine-migrate](.)
 * [Installing](installing.md)
 * [Overview](overview.md)
 * [Migrations](migrations.md)

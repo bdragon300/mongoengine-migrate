@@ -67,7 +67,7 @@ class Book(Document):
 Such changes should be reflected in database. The following command creates migration file
 (`myproject.db` is a python module with mongoengine document declarations):
 
-```
+```console
 mongoengine_migrate makemigrations -m myproject.db 
 ```
 

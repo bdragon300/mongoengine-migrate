@@ -24,4 +24,5 @@ Framework-agnostic schema migrations for Mongoengine ODM. Inspired by Django mig
 * Automatic select a query or a python loop to perform an update depending on MongoDB version
 * Two policies of how to work with existing data which does not meet to mongoengine schema
 
-All mongoengine field types are supported, including simple types, lists, dicts, references, GridFS, geo types, generic types.
+All mongoengine field types are supported, including simple types, lists, dicts, references, 
+GridFS, geo types, generic types.

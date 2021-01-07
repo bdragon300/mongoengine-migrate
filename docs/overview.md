@@ -1,10 +1,12 @@
 # Overview
 
 **Mongoengine-migrate** is database schema migration tool for 
-[Mongoengine](http://mongoengine.org/) ODM. When you make changes in mongoengine documents 
-declarations (remove a field, for instance), these changes should be reflected in the database
-(this field should be actually removed from documents). This tool detects such changes,
-creates migration file and performs needed changes in db. If you worked with migration systems 
+[Mongoengine](http://mongoengine.org/) ODM.
+
+When you make changes in mongoengine documents 
+declarations (remove a field, for instance), it should be reflected in the database
+(this field should be actually removed from records). This tool detects such changes,
+creates migration file and makes needed changes in db. If you worked with migration systems 
 for SQL databases, you should get the idea.
 
 ### How it works
@@ -13,19 +15,21 @@ Unlike SQL databases the MongoDB is schemaless database, therefore in order to t
 schema changes we're needed to keep it somewhere. *Mongoengine-migrate* keeps current schema 
 and migrations tree in a separate collection. By default it is "mongoengine_migrate".
 
-*Mongoengine_migrate* tries to apply changes by using the fastest way as possible. Usually it
-means using MongoDB update commands or pipelines. But sometimes it not possible because of too
+#### MongoDB commands
+
+*Mongoengine_migrate* tries to make changes by using the fastest way as possible. Usually it
+is MongoDB update commands or pipelines. But sometimes this not possible because of too
 old version of MongoDB server.
 
-For this case each modification command has its "manual" counterpart. It updates documents 
-by iterating on documents in python code and performs manual update. This variant could be
+For this case each modification command has its "manual" counterpart. It updates records 
+by iterating on them in python code and makes manual update. This variant could be
 slower especially for big collections. It will be used automatically if MongoDB version is
 lower than required to execute a certain command.
 
-The common workflow is:
+#### Common workflow
 
 1. After you made changes in documents schema, run `mongoengine_migrate makemigrations`.
-Your documents schema will be scanned and compared to the versions currently contained in your 
+Your documents will be scanned and compared to the versions currently contained in your 
 migration files, and a new migration file will be created if changes was detected.
 1. In order to apply the last migration you run `mongoengine_migrate migrate`.
 1. Once the migration is applied, commit the migration and the models change to your version 
@@ -48,7 +52,7 @@ class Book(Document):
     isbn = fields.StringField()
 ```
 
-Then we make some changes:
+Then we made some changes:
 
 ```python
 from mongoengine import Document, fields
@@ -107,7 +111,7 @@ Next, upgrade the database to the latest version:
 $ mongoengine_migrate migrate
 ```
 
-Or to the certain migration:
+You can rollback changes by downgrading to the previous migration:
 
 ```console
 $ mongoengine_migrate migrate previous_migration
@@ -117,19 +121,19 @@ $ mongoengine_migrate migrate previous_migration
 
 During the running forward the migration created above the following changes will be made:
 * "author" collection
-  1. Nothing to do
+  * Nothing to do
 * "book" collection
-  1. Existing fields "name" will be renamed to "caption"
-  1. All unset "caption" fields will be set to default value `'?'`
+  * Existing fields "name" will be renamed to "caption"
+  * All unset "caption" fields will be set to default value `'?'`
      (because this field was defined as "required")
-  1. Existing fields "year" with string values will be casted to integer value
-  1. "isbn" field will be dropped
+  * Existing fields "year" with string values will be casted to integer value
+  * "isbn" field will be dropped
 
 On backward direction the following changes will be made:
 * "book" collection
-  1. "author" field will be dropped
-  1. All integer values in "year" field will be casted back to string
-  1. Existing "caption" fields will be renamed back to "name"
+  * "author" field will be dropped
+  * All integer values in "year" field will be casted back to string
+  * Existing "caption" fields will be renamed back to "name"
 * "author" collection
-  1. "name" field will be dropped
-  1. whole "author" collection will be dropped
+  * "name" field will be dropped
+  * whole "author" collection will be dropped

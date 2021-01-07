@@ -1,8 +1,5 @@
 # Overview
 
-**Mongoengine-migrate** is database schema migration tool for 
-[Mongoengine](http://mongoengine.org/) ODM.
-
 When you make changes in mongoengine documents 
 declarations (remove a field, for instance), it should be reflected in the database
 (this field should be actually removed from records). This tool detects such changes,

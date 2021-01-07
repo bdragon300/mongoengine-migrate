@@ -1,7 +1,7 @@
 **Navigation**
 
-* [Mongoengine-migrate](.)
-* [Installing](installing.md)
-* [Overview](overview.md)
-* [Migrations](migrations.md)
-* [Command-line interface](cli.md)
+* [Mongoengine-migrate]({{ site.baseurl }})
+* [Installing](installing)
+* [Overview](overview)
+* [Migrations](migrations)
+* [Command-line interface](cli)

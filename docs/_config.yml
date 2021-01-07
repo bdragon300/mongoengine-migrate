@@ -1,6 +1,5 @@
 theme: jekyll-theme-minimal
-
-# jekyll-sitemap
+baseurl: 'mongoengine-migrate'
 url: 'https://bdragon300.github.io'
 plugins:
   - jekyll-sitemap

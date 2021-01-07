@@ -118,5 +118,3 @@ Callback functions parameters are:
 1. `pymongo.Collection` object of collection of given mongoengine document. If document is 
 embedded (its name starts with "~" symbol) then this parameter will be None.
 1. This parameter contains the Schema object modified by previous actions in chain.
-
-{% include_relative navigation.md %}

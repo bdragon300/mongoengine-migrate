@@ -17,5 +17,3 @@ You can install this package using pip:
 ```console
 $ pip install mongoengine_migrate
 ```
-
-{% include_relative navigation.md %}

@@ -64,5 +64,3 @@ This mode is equivalent to temporarily making all actions as "dummy".
 Usually the version of MongoDB determines automatically. But this process requires right to
 run "buildinfo" command on server. If it not possible, you can specify version manually using 
 `--mongo-version` argument.
-
-{% include_relative navigation.md %}

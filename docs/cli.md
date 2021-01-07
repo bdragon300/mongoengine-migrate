@@ -1,6 +1,6 @@
 # Command-line interface
 
-```
+```console
 $ mongoengine_migrate --help
 Usage: mongoengine_migrate [OPTIONS] COMMAND [ARGS]...
 

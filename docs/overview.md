@@ -68,7 +68,7 @@ Such changes should be reflected in database. The following command creates migr
 (`myproject.db` is a python module with mongoengine document declarations):
 
 ```console
-mongoengine_migrate makemigrations -m myproject.db 
+$ mongoengine_migrate makemigrations -m myproject.db 
 ```
 
 New migration file will be created:
@@ -103,14 +103,14 @@ actions = [
 
 Next, upgrade the database to the latest version:
 
-```
-mongoengine_migrate migrate
+```console
+$ mongoengine_migrate migrate
 ```
 
 Or to the certain migration:
 
-```
-mongoengine_migrate migrate previous_migration
+```console
+$ mongoengine_migrate migrate previous_migration
 ```
 
 #### Actual db changes 

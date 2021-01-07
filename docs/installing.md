@@ -14,6 +14,6 @@ Requirements:
 
 You can install this package using pip: 
 
-```
-pip install mongoengine_migrate
+```console
+$ pip install mongoengine_migrate
 ```

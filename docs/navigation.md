@@ -1,6 +1,6 @@
 **Navigation**
 
-* [Mongoengine-migrate]({{ site.baseurl }})
+* [Mongoengine-migrate]({{ "/" | relative_url }})
 * [Installing](installing)
 * [Overview](overview)
 * [Migrations](migrations)

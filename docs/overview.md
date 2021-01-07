@@ -137,3 +137,5 @@ On backward direction the following changes will be made:
 * "author" collection
   * "name" field will be dropped
   * whole "author" collection will be dropped
+
+{% include_relative navigation.md %}

@@ -1,12 +1,9 @@
-#### Table of contents
+# Mongoengine-migrate
 
-[Mongoengine-migrate](#mongoengine-migrate)  
 [Installing](#installing)  
 [Command-line interface](#command-line-interface)  
 [Overview](#overview)  
 [Migrations](#migrations)  
-
-# Mongoengine-migrate
 
 Framework-agnostic schema migrations for Mongoengine ODM. Inspired by Django migrations system.
 

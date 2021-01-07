@@ -12,6 +12,12 @@ Inspired by Django migrations system.
 
 **WARNING:** *this is an unstable version of software. Please backup your data before migrating*
 
+## Installation
+
+```shell script
+pip3 install mongoengine-migrate
+```
+
 ## Features
 
 * Documents
@@ -37,3 +43,33 @@ Inspired by Django migrations system.
 
 All mongoengine field types are supported, including simple types, lists, dicts, references, 
 GridFS, geo types, generic types.
+
+## Typical migration file
+
+```python
+from mongoengine_migrate.actions import *
+
+# Existing data processing policy
+# Possible values are: strict, relaxed
+policy = "strict"
+
+# Names of migrations which the current one is dependent by
+dependencies = [
+    'previous_migration'
+]
+
+# Action chain
+actions = [
+    CreateDocument('Author', collection='author'),
+    CreateField('Author', 'name', choices=None, db_field='name', default=None, max_length=None,
+        min_length=None, null=False, primary_key=False, regex=None, required=False,
+        sparse=False, type_key='StringField', unique=False, unique_with=None),
+    RenameField('Book', 'name', new_name='caption'),
+    AlterField('Book', 'caption', required=True, db_field='caption'),
+    AlterField('Book', 'year', type_key='IntField', min_value=None, max_value=None),
+    DropField('Book', 'isbn'),
+    CreateField('Book', 'author', choices=None, db_field='author', dbref=False, default=None,
+        target_doctype='Author', null=False, primary_key=False, required=False, sparse=False,
+        type_key='ReferenceField', unique=False, unique_with=None),
+]
+```

@@ -1,16 +1,10 @@
 **Navigation**
 
-* [Mongoengine-migrate](#Mongoengine-migrate)
+* [Mongoengine-migrate](#mongoengine-migrate)
 * [Installing](#installing)
 * [Overview](#overview)
 * [Migrations](#migrations)
 * [Command-line interface](#command-line-interface)
-
-{% include_relative README.md %}
-{% include_relative installing.md %}
-{% include_relative cli.md %}
-{% include_relative overview.md %}
-{% include_relative migrations.md %}
 
 # Mongoengine-migrate
 
@@ -40,3 +34,8 @@ Framework-agnostic schema migrations for Mongoengine ODM. Inspired by Django mig
 
 All mongoengine field types are supported, including simple types, lists, dicts, references, 
 GridFS, geo types, generic types.
+
+{% include_relative installing.md %}
+{% include_relative cli.md %}
+{% include_relative overview.md %}
+{% include_relative migrations.md %}

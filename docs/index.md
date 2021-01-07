@@ -1,5 +1,3 @@
-{:toc}
-
 # Mongoengine-migrate
 
 Framework-agnostic schema migrations for Mongoengine ODM. Inspired by Django migrations system.

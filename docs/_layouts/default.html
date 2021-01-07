@@ -40,9 +40,11 @@
       </header>
       <section>
         {% assign sorted_pages = site.pages | sort:"order" %}
+          <ul>
         {% for node in sorted_pages %}
-          <li><a href="{{node.url}}">{{node.title}}</a></li>
+          <li><a href="{{node.path}}">{{node.title}}</a></li>
         {% endfor %}
+          </ul>
       {{ content }}
 
       </section>

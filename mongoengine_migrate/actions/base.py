@@ -409,16 +409,22 @@ class BaseRenameDocument(BaseDocumentAction):
         if not match:
             return
 
+        is_left_embedded = document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
         left_document_schema = left_schema[document_type]
         candidates = []
         for right_document_type, right_document_schema in right_schema.items():
-            # FIXME: exclude embedded documents in order to prevent
-            #  document->embedded renaming
             matches = 0
             compares = 0
 
             # Skip collections which apparently was not renamed
             if right_document_type in left_schema:
+                continue
+
+            # Prevent adding to 'candidates' a right document, which
+            # could have same/similar schema but has another type
+            # (embedded and usual and vice versa)
+            is_right_embedded = right_document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
+            if is_left_embedded != is_right_embedded:
                 continue
 
             # Exact match, collection was just renamed. We found it

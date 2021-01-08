@@ -30,7 +30,6 @@ class TestRenameEmbedded:
 
         assert res is None
 
-    @pytest.mark.xfail
     def test_build_object__if_document_is_similar_with_other_document__should_return_none(self):
         left_schema = Schema({
             '~EmbeddedDocument1': Schema.Document({

@@ -31,7 +31,6 @@ class TestRenameDocument:
 
         assert res is None
 
-    @pytest.mark.xfail
     def test_build_object__if_document_is_similar_with_other_embedded_document__should_return_none(
             self
     ):

@@ -1,4 +1,4 @@
-SCRIPT_DIR=$(dirname "$0")
-SCRIPT_DIR="${PWD}/$SCRIPT_DIR"
+script_dir=$(dirname "$0")
+script_dir="${PWD}/$script_dir"
 
-ln -rfs "$SCRIPT_DIR/pre-push.sh" "$SCRIPT_DIR/../.git/hooks/pre-push"
+ln -rfs "$script_dir/pre-push.sh" "$script_dir/../.git/hooks/pre-push"

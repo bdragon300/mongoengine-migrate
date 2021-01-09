@@ -1,16 +1,190 @@
 import itertools
 import re
 from copy import deepcopy
+from unittest.mock import patch
 
+import bson
 import jsonpath_rw
 import mongoengine
 import pytest
-import bson
 from bson import ObjectId
 
 from mongoengine_migrate.actions import AlterField
-from mongoengine_migrate.exceptions import SchemaError, MigrationError, InconsistencyError
+from mongoengine_migrate.exceptions import SchemaError, InconsistencyError
 from mongoengine_migrate.graph import MigrationPolicy
+from mongoengine_migrate.schema import Schema
+
+
+@pytest.fixture
+def left_schema():
+    return Schema({
+        'Document1': Schema.Document({
+            'field1': {'param11': 'value11', 'param12': 'value12', 'param13': 'value13'},
+            'field2': {'param21': 'value21', 'param22': 'value22', 'param23': 'value23'},
+        }, parameters={'collection': 'document1'}),
+        '~EmbeddedDocument2': Schema.Document({
+            'field1': {'param3': 'value3'},
+            'field2': {'param4': 'value4'},
+        })
+    })
+
+
+class TestAlterField:
+    def test_build_object__should_return_object(self, left_schema):
+        right_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param11': 'value11', 'param12': 'value12'},
+                'field2': {'param21': 'value21_new', 'param_new': 'value_new',
+                           'param23': 'value23'},
+            }, parameters={'collection': 'document1'}),
+            '~EmbeddedDocument2': Schema.Document({
+                'field1': {'param3': 'value3'},
+                'field2': {'param4': 'value4'},
+            })
+        })
+
+        res = AlterField.build_object('Document1', 'field2', left_schema, right_schema)
+
+        assert isinstance(res, AlterField)
+        assert res.document_type == 'Document1'
+        assert res.field_name == 'field2'
+        assert res.parameters == {'param21': 'value21_new', 'param_new': 'value_new'}
+
+    @pytest.mark.parametrize('document_type', ('Document1', 'Document_new', 'Document_unknown'))
+    def test_build_object__if_document_not_in_both_schemas__should_return_none(
+            self, left_schema, document_type
+    ):
+        right_schema = Schema({
+            'Document_new': Schema.Document({
+                'field1': {'param11': 'value11', 'param12': 'value12', 'param13': 'value13'},
+                'field2': {'param21': 'value21_new', 'param_new': 'value_new',
+                           'param23': 'value23'},
+            }, parameters={'collection': 'document1'}),
+            '~EmbeddedDocument2': Schema.Document({
+                'field1': {'param3': 'value3'},
+                'field2': {'param4': 'value4'},
+            })
+        })
+
+        res = AlterField.build_object(document_type, 'field2', left_schema, right_schema)
+
+        assert res is None
+
+    @pytest.mark.parametrize('field_name', ('field2', 'field3', 'field_unknown'))
+    def test_build_object__if_field_not_in_both_schemas__should_return_none(
+            self, left_schema, field_name
+    ):
+        right_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param11': 'value11', 'param12': 'value12', 'param13': 'value13'},
+                'field3': {'param31': 'value31_new', 'param_new': 'value_new',
+                           'param33': 'value33'},
+            }, parameters={'collection': 'document1'}),
+            '~EmbeddedDocument2': Schema.Document({
+                'field1': {'param3': 'value3'},
+                'field2': {'param4': 'value4'},
+            })
+        })
+
+        res = AlterField.build_object('Document1', field_name, left_schema, right_schema)
+
+        assert res is None
+
+    def test_build_object__if_field_schema_has_not_changed__should_return_none(self, left_schema):
+        right_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param11': 'value11', 'param12': 'value12', 'param13': 'value13'},
+                'field2': {'param21': 'value21', 'param22': 'value22', 'param23': 'value23'},
+            }, parameters={'collection': 'document1'}),
+            '~EmbeddedDocument2': Schema.Document({
+                'field1': {'param3': 'value3'},
+                'field2': {'param4': 'value4'},
+            })
+        })
+
+        res = AlterField.build_object('Document1', 'field2', left_schema, right_schema)
+
+        assert res is None
+
+    def test_to_schema_patch__should_return_dictdiffer_object(self):
+        left_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param11': 'value11', 'param12': 'value12', 'param13': 'value13'},
+                'field2': {'type_key': 'StringField', 'db_field': 'field2', 'param22': 'value22',
+                           'param23': 'value23'},
+            }, parameters={'collection': 'document1'}),
+            '~EmbeddedDocument2': Schema.Document({
+                'field1': {'param3': 'value3'},
+                'field2': {'param4': 'value4'},
+            })
+        })
+        test_schema_skel = {'type_key': None, 'db_field': None, 'param24': None}
+        expect = [
+            ('remove', 'Document1.field2', [('param22', ())]),
+            ('remove', 'Document1.field2', [('param23', ())]),
+            ('add', 'Document1.field2', [('param24', 'value24')]),
+            ('change', 'Document1.field2.type_key', ('StringField', 'IntField'))
+        ]
+        action = AlterField('Document1', 'field2', type_key='IntField', param24='value24')
+
+        patcher = patch.object(action, 'get_field_handler_cls')
+        with patcher as get_field_handler_cls_mock:
+            get_field_handler_cls_mock().schema_skel.return_value = test_schema_skel
+
+            res = action.to_schema_patch(left_schema)
+
+        assert res == expect
+
+    @pytest.mark.parametrize('document_type,field_name', (
+            ('Document_unknown', 'field2'),
+            ('Document1', 'field_unknown'),
+    ))
+    def test_to_schema_patch__if_document_or_field_does_not_exist_should_raise_error(
+            self, document_type, field_name
+    ):
+        left_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param11': 'value11', 'param12': 'value12', 'param13': 'value13'},
+                'field2': {'type_key': 'StringField', 'db_field': 'field2', 'param22': 'value22',
+                           'param23': 'value23'},
+            }, parameters={'collection': 'document1'}),
+            '~EmbeddedDocument2': Schema.Document({
+                'field1': {'param3': 'value3'},
+                'field2': {'param4': 'value4'},
+            })
+        })
+
+        action = AlterField(document_type, field_name, type_key='IntField', param24='value24')
+        test_schema_skel = {'param21': None, 'param22': None, 'param23': None}
+
+        patcher = patch.object(action, 'get_field_handler_cls')
+        with patcher as get_field_handler_cls_mock:
+            get_field_handler_cls_mock.schema_skel.return_value = test_schema_skel
+
+            with pytest.raises(SchemaError):
+                action.to_schema_patch(left_schema)
+
+    def test_to_schema_patch__if_parameters_not_in_schema__should_raise_error(self):
+        left_schema = Schema({
+            'Document1': Schema.Document({
+                'field1': {'param11': 'value11', 'param12': 'value12', 'param13': 'value13'},
+                'field2': {'type_key': 'StringField', 'db_field': 'field2', 'param22': 'value22',
+                           'param23': 'value23'},
+            }, parameters={'collection': 'document1'}),
+            '~EmbeddedDocument2': Schema.Document({
+                'field1': {'param3': 'value3'},
+                'field2': {'param4': 'value4'},
+            })
+        })
+        test_schema_skel = {'type_key': None, 'db_field': None, 'param24': None}
+        action = AlterField('Document1', 'field2', type_key='IntField', param_unknown='value')
+
+        patcher = patch.object(action, 'get_field_handler_cls')
+        with patcher as get_field_handler_cls_mock:
+            get_field_handler_cls_mock.schema_skel.return_value = test_schema_skel
+
+            with pytest.raises(SchemaError):
+                res = action.to_schema_patch(left_schema)
 
 
 class TestAlterFieldCommonDbField:
@@ -211,11 +385,65 @@ class TestAlterFieldCommonDefault:
 
 
 class TestAlterFieldCommonUnique:
-    pass  # TODO
+    def test_forward__should_do_nothing(
+            self, load_fixture, test_db, dump_db
+    ):
+        schema = load_fixture('schema1').get_schema()
+
+        dump = dump_db()
+
+        action = AlterField('Schema1Doc1', 'doc1_str', unique=True)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_forward()
+
+        assert dump_db() == dump
+
+    def test_forward_backward__should_do_nothing(self, load_fixture, test_db, dump_db):
+        schema = load_fixture('schema1').get_schema()
+
+        dump = dump_db()
+
+        action = AlterField('Schema1Doc1', 'doc1_str', unique=True)
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+        action.run_forward()
+        action.cleanup()
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_backward()
+
+        assert dump_db() == dump
 
 
 class TestAlterFieldCommonUniqueWith:
-    pass  # TODO
+    def test_forward__should_do_nothing(
+            self, load_fixture, test_db, dump_db
+    ):
+        schema = load_fixture('schema1').get_schema()
+
+        dump = dump_db()
+
+        action = AlterField('Schema1Doc1', 'doc1_str', unique_with=['doc1_int'])
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_forward()
+
+        assert dump_db() == dump
+
+    def test_forward_backward__should_do_nothing(self, load_fixture, test_db, dump_db):
+        schema = load_fixture('schema1').get_schema()
+
+        dump = dump_db()
+
+        action = AlterField('Schema1Doc1', 'doc1_str', unique_with=['doc1_int'])
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+        action.run_forward()
+        action.cleanup()
+        action.prepare(test_db, schema, MigrationPolicy.strict)
+
+        action.run_backward()
+
+        assert dump_db() == dump
 
 
 class TestAlterFieldCommonPrimaryKey:

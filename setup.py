@@ -12,7 +12,7 @@ setuptools.setup(
     url='https://github.com/bdragon300/mongoengine-migrate',
     license='Apache-2.0',
     python_requires='>=3.6',
-    packages=setuptools.find_packages(exclude=['tests']),
+    packages=setuptools.find_packages(exclude=['tests', 'docs', 'githooks', 'install']),
     package_data={'mongoengine_migrate': ['migration_template.tpl']},
     long_description=long_description,
     long_description_content_type='text/markdown',

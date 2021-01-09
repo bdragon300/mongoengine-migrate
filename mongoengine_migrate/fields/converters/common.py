@@ -379,15 +379,12 @@ def to_url_string(updater: DocumentUpdater, check_only=False):
 
 def to_email_string(updater: DocumentUpdater):
     def by_path(ctx: ByPathContext):
-        fltr = {ctx.filter_dotpath: {'$not': email_regex, '$ne': None}, **ctx.extra_filter}
+        email_regex = r"\A[^\W][A-Z0-9._%+-]+@[\p{L}0-9.-]+\.\p{L}+\Z"
+        fltr = {ctx.filter_dotpath: {'$not': {'$regex': email_regex, '$options': 'i'}, '$ne': None}, **ctx.extra_filter}
         check_empty_result(ctx.collection, ctx.filter_dotpath, fltr)
 
     to_string(updater)
 
-    email_regex = re.compile(
-        r"\A.*\Z",  # TODO: insert email validation regex here
-        re.IGNORECASE
-    )
     if updater.migration_policy.name == 'strict':
         updater.update_by_path(by_path)
 

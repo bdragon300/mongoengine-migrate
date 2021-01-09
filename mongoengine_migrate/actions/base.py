@@ -7,24 +7,27 @@ __all__ = [
     'BaseCreateDocument',
     'BaseDropDocument',
     'BaseRenameDocument',
-    'BaseAlterDocument'
+    'BaseAlterDocument',
+    'BaseIndexAction'
 ]
 
 import logging
 import weakref
 from abc import ABCMeta, abstractmethod
 from copy import deepcopy
-from typing import Dict, Type, Optional, Mapping, Any
+from typing import Dict, Type, Optional, Mapping, Any, Iterable, Tuple
 
-from pymongo.database import Database
+from bson import SON
+from pymongo.database import Database, Collection
+import pymongo.errors
 
 import mongoengine_migrate.flags as flags
-from mongoengine_migrate.exceptions import ActionError, SchemaError
+from mongoengine_migrate.exceptions import ActionError, SchemaError, MigrationError
 from mongoengine_migrate.fields.registry import type_key_registry
-from mongoengine_migrate.schema import Schema
-from mongoengine_migrate.utils import Diff, UNSET, document_type_to_class_name
 from mongoengine_migrate.graph import MigrationPolicy
+from mongoengine_migrate.schema import Schema
 from mongoengine_migrate.updater import DocumentUpdater
+from mongoengine_migrate.utils import Diff, UNSET, document_type_to_class_name
 
 #: Migration Actions registry. Mapping of class name and its class
 actions_registry: Dict[str, Type['BaseAction']] = {}
@@ -61,8 +64,9 @@ class BaseAction(metaclass=BaseActionMeta):
     #: Priority which this action will be tested with. The smaller
     #: priority number, the higher priority this action has.
     #: This flag is suitable for rename actions which should get tested
-    #: before create/drop actions. Default is 5 which means normal
-    priority = 12
+    #: before create/drop actions. Default is below which means normal
+    #: priority
+    priority = 100
 
     def __init__(self, document_type: str, *, dummy_action: bool = False, **kwargs):
         """
@@ -158,7 +162,7 @@ class BaseAction(metaclass=BaseActionMeta):
         """
 
     def __repr__(self):
-        params_str = ', '.join(f'{k!r}={v!r}' for k, v in self.parameters.items())
+        params_str = ', '.join(f'{k!s}={v!r}' for k, v in sorted(self.parameters.items()))
         args_str = repr(self.document_type)
         if self.dummy_action:
             params_str += f', dummy_action={self.dummy_action}'
@@ -214,7 +218,7 @@ class BaseFieldAction(BaseAction):
         reflect schema change. It's called for several times for each
         field which was modified by a user in mongoengine documents.
 
-        For example, on field deleting the method defined in
+        For example, on field deletion the method defined in
         CreateField action should return None, but those one in
         DropField action should return DeleteField object with
         filled out parameters of change (type of field, required flag,
@@ -251,6 +255,7 @@ class BaseFieldAction(BaseAction):
                               f'already exists in schema')
 
     def to_python_expr(self) -> str:
+        # `to_python_expr` must return repr() string
         parameters = {
             name: getattr(val, 'to_python_expr', lambda: repr(val))()
             for name, val in self.parameters.items()
@@ -258,7 +263,7 @@ class BaseFieldAction(BaseAction):
         if self.dummy_action:
             parameters['dummy_action'] = True
 
-        kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
+        kwargs_str = ''.join(f", {name!s}={val!s}" for name, val in sorted(parameters.items()))
         return f'{self.__class__.__name__}({self.document_type!r}, {self.field_name!r}' \
                f'{kwargs_str})'
 
@@ -282,7 +287,7 @@ class BaseFieldAction(BaseAction):
         return handler
 
     def __repr__(self):
-        params_str = ', '.join(f'{k!r}={v!r}' for k, v in self.parameters.items())
+        params_str = ', '.join(f'{k!s}={v!r}' for k, v in self.parameters.items())
         args_str = f'{self.document_type!r}, {self.field_name!r}'
         if self.dummy_action:
             params_str += f', dummy_action={self.dummy_action}'
@@ -317,7 +322,7 @@ class BaseDocumentAction(BaseAction):
         collection which was modified by a user in mongoengine
         documents.
 
-        For example, on collection deleting the method defined in
+        For example, on collection deletion the method defined in
         CreateCollection action should return None, but those one in
         DropCollection action should return DropCollection object with
         filled out parameters of change (collection name, indexes, etc.)
@@ -339,7 +344,7 @@ class BaseDocumentAction(BaseAction):
         if self.dummy_action:
             parameters['dummy_action'] = True
 
-        kwargs_str = ''.join(f", {name}={val}" for name, val in sorted(parameters.items()))
+        kwargs_str = ''.join(f", {name!s}={val!s}" for name, val in sorted(parameters.items()))
         return f'{self.__class__.__name__}({self.document_type!r}{kwargs_str})'
 
     def _is_my_collection_used_by_other_documents(self) -> bool:
@@ -376,7 +381,7 @@ class BaseDropDocument(BaseDocumentAction):
     @classmethod
     def build_object(cls, document_type: str, left_schema: Schema, right_schema: Schema):
         if document_type in left_schema and document_type not in right_schema:
-            return cls(document_type=document_type)  # FIXME: parameters (indexes, acl, etc.)
+            return cls(document_type=document_type)
 
     def to_schema_patch(self, left_schema: Schema):
         item = left_schema[self.document_type]
@@ -390,7 +395,7 @@ class BaseRenameDocument(BaseDocumentAction):
     similarity_threshold = 70
 
     def __init__(self, document_type: str, *, new_name, **kwargs):
-        super().__init__(document_type, new_name=new_name, **kwargs)
+        super().__init__(document_type, **kwargs)
         self.new_name = new_name
 
     @classmethod
@@ -404,32 +409,39 @@ class BaseRenameDocument(BaseDocumentAction):
         if not match:
             return
 
+        is_left_embedded = document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
         left_document_schema = left_schema[document_type]
         candidates = []
-        matches = 0
-        compares = 0
         for right_document_type, right_document_schema in right_schema.items():
-            # Skip collections which was not renamed
+            matches = 0
+            compares = 0
+
+            # Skip collections which apparently was not renamed
             if right_document_type in left_schema:
                 continue
 
-            # Exact match, collection was just renamed
+            # Prevent adding to 'candidates' a right document, which
+            # could have same/similar schema but has another type
+            # (embedded and usual and vice versa)
+            is_right_embedded = right_document_type.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX)
+            if is_left_embedded != is_right_embedded:
+                continue
+
+            # Exact match, collection was just renamed. We found it
             if left_document_schema == right_document_schema:
                 candidates = [(right_document_type, right_document_schema)]
                 break
 
-            # Try to find collection by its schema similarity
-            # Compares are counted as every field schema comparing
-            common_fields = left_document_schema.keys() | right_document_schema.keys()
-            for field_name in common_fields:
-                left_field_schema = left_document_schema.get(field_name, {})
-                right_field_schema = right_document_schema.get(field_name, {})
-                common_keys = left_field_schema.keys() & right_field_schema.keys()
-                compares += len(common_keys)
-                matches += sum(
-                    left_field_schema[k] == right_field_schema[k]
-                    for k in common_keys
-                )
+            # Count of equal fields and parameters items and then
+            # divide it on whole compared fields/parameters count
+            items = ((left_document_schema, right_document_schema),
+                     (left_document_schema.parameters, right_document_schema.parameters))
+            for left, right in items:
+                all_keys = left.keys() | right.keys()
+                compares += len(all_keys)
+                # FIXME: keys can be functions (default for instance)
+                #        they will not be equal then dispite they hasn't change
+                matches += sum(left.get(k) == right.get(k) for k in all_keys)
 
             if compares > 0 and (matches / compares * 100) >= cls.similarity_threshold:
                 candidates.append((right_document_type, right_document_schema))
@@ -508,7 +520,8 @@ class BaseAlterDocument(BaseDocumentAction):
 
             method(updater, diff)
 
-    def _check_diff(self, diff: Diff, can_be_none=True, check_type=None):
+    @staticmethod
+    def _check_diff(diff: Diff, can_be_none=True, check_type=None):
         if diff.new == diff.old:
             raise SchemaError(f'Parameter {diff.key} does not changed from previous Action')
 
@@ -520,3 +533,208 @@ class BaseAlterDocument(BaseDocumentAction):
         if not can_be_none:
             if diff.old is None or diff.new is None:
                 raise SchemaError(f'{diff.key} could not be None')
+
+
+class BaseIndexAction(BaseAction):
+    def __init__(self, document_type: str, index_name: str, **kwargs):
+        super().__init__(document_type, **kwargs)
+
+        self.index_name = index_name
+
+    @classmethod
+    @abstractmethod
+    def build_object(cls,
+                     document_type: str,
+                     index_name: str,
+                     left_schema: Schema,
+                     right_schema: Schema) -> Optional['BaseIndexAction']:
+        """
+        Factory method which tests if current action type could process
+        schema changes for a given collection and fields. If yes then
+        it produces object of current action type with filled out
+        perameters. If no then it returns None.
+
+        This method is used to guess which action is suitable to
+        reflect schema change. It's called for several times for each
+        field which was modified by a user in mongoengine documents.
+
+        For example, on index of particular fields deletion, the
+        method defined in CreateIndex action should return None, but
+        those one in DropIndex action should return DropIndex object
+        with filled out parameters of change (document type, indexed
+        fields)
+
+        :param document_type: document type in schema to consider
+        :param index_name: index name
+        :param left_schema: database schema before a migration
+         would get applied (left side)
+        :param right_schema: database schema after a migration
+         would get applied (right side)
+        :return: object of self type or None
+        """
+
+    def prepare(self, db: Database, left_schema: Schema, migration_policy: MigrationPolicy):
+        self._prepare(db, left_schema, migration_policy, True)
+
+        self._run_ctx['left_index_schema'] = \
+            left_schema[self.document_type].indexes.get(self.index_name, {})
+
+    def _prepare(self,
+                 db: Database,
+                 left_schema: Schema,
+                 migration_policy: MigrationPolicy,
+                 ensure_existence: bool):
+        super()._prepare(db, left_schema, migration_policy, True)
+
+        if ensure_existence and self.index_name not in left_schema[self.document_type].indexes:
+            raise SchemaError(f'Index {self.index_name} does not exist in schema of {self.document_type}')
+        elif not ensure_existence and self.index_name in left_schema[self.document_type].indexes:
+            raise SchemaError(f'Index {self.index_name} already exists in schema of {self.document_type}')
+
+    def to_python_expr(self) -> str:
+        # `to_python_expr` must return repr() string
+        parameters = {
+            name: getattr(val, 'to_python_expr', lambda: repr(val))()
+            for name, val in self.parameters.items()
+        }
+        if self.dummy_action:
+            parameters['dummy_action'] = True
+
+        fields_str = ''
+        if 'fields' in self.parameters:  # DropIndex has no 'fields'
+            class ReprStr(str):
+                """str type with repr() without single quotes"""
+                def __repr__(self): return self.__str__()
+
+            del parameters['fields']
+            index_types = (
+                'ASCENDING', 'DESCENDING', 'GEO2D', 'GEOHAYSTACK', 'GEOSPHERE', 'HASHED', 'TEXT'
+            )
+            index_type_map = {getattr(pymongo, name): ReprStr(f'pymongo.{name}')
+                              for name in index_types}
+            fields = [(field, index_type_map.get(typ, typ))
+                      for field, typ in self.parameters.get('fields', ())]
+            fields_str = f', fields={str(fields)}'
+
+        kwargs_str = ''.join(f", {name!s}={val!s}" for name, val in sorted(parameters.items()))
+        return f'{self.__class__.__name__}({self.document_type!r}, {self.index_name!r}' \
+               f'{fields_str}{kwargs_str})'
+
+    @staticmethod
+    def _find_index(collection: Collection,
+                    name: str,
+                    fields_spec: Iterable[Iterable[Any]]) -> Optional[Tuple[str, dict]]:
+        """
+        Find index in db which has either given name or fields spec
+        (key).
+        :param collection: pymongo.Collection object
+        :param name: name to search
+        :param fields_spec: fields spec to search
+        :return: index name and description tuple or None if not found
+        """
+        for iname, ispec in collection.index_information().items():
+            if iname == name or ispec['key'] == fields_spec:
+                return iname, ispec
+
+    def _drop_index(self, parameters: dict) -> None:
+        """
+        Drop current index by name.
+
+        If name was not specified in parameters (the most often
+        scenario), we search for an index with given fields, obtain
+        its name and drop by name
+
+        :param parameters: index parameters
+        :return:
+        """
+        left_index_schema = deepcopy(parameters)
+        fields = left_index_schema.pop('fields')  # Key must be present
+
+        # Drop all indexes by name since some of index types
+        # (text ones, for instance) are require to be dropped by name
+        name = left_index_schema.get('name')
+        found_index = self._find_index(self._run_ctx['collection'], name, fields)
+        if found_index is None:
+            log.warning("Index %s was already dropped, ignoring", fields)
+            return
+
+        iname, idesc = found_index
+        if not self._is_my_index_used_by_other_documents():
+            self._run_ctx['collection'].drop_index(iname)
+
+    def _create_index(self, parameters: dict) -> None:
+        """
+        Create index with given parameters
+        :param parameters:
+        :return:
+        """
+        left_index_schema = deepcopy(parameters)
+        fields = left_index_schema.pop('fields')  # Key must be present
+        name = left_index_schema.get('name')
+
+        # Check if index with such name\parameters exists in db
+        found_index = self._find_index(self._run_ctx['collection'], name, fields)
+        if found_index:
+            iname, ispec = found_index
+            # Exclude index desc keys which does not get to index schema
+            compare_keys = (ispec.keys() | left_index_schema.keys()) - {'v', 'ns', 'key'}
+            if all(ispec.get(k) == left_index_schema.get(k) for k in compare_keys):
+                log.warning('Index %s already exists, ignore', fields)
+                return
+            else:
+                raise MigrationError(
+                    'Index {} already exists with other parameters. Please drop it before '
+                    'applying the migration'.format(fields)
+                )
+
+        try:
+            self._run_ctx['collection'].create_index(fields, **left_index_schema)
+        except pymongo.errors.OperationFailure as e:
+            index_id = left_index_schema.get('name', fields)
+            raise MigrationError('Could not create index {}'.format(index_id)) from e
+
+    def _is_my_index_used_by_other_documents(self) -> bool:
+        """
+        Return True if current index is declared in another document
+        for the same collection
+        :return:
+        """
+        my_document = self._run_ctx['left_schema'].get(self.document_type)  # type: Schema.Document
+        my_collection = my_document.parameters.get('collection')
+        if my_collection is None:
+            raise SchemaError(
+                f'No collection name in {self.document_type} schema parameters. Schema is corrupted'
+            )
+
+        for name, schema in self._run_ctx['left_schema'].items():
+            if name == self.document_type or name.startswith(flags.EMBEDDED_DOCUMENT_NAME_PREFIX):
+                continue
+
+            col = schema.parameters.get('collection')
+            if col == my_collection and self.index_name in schema.indexes:
+                return True
+
+        return False
+
+    def __repr__(self):
+        args_str = f'{self.document_type!r}, {self.index_name!r}'
+
+        fields_str = ''
+        if 'fields' in self.parameters:
+            fields_str = f'fields={self.parameters["fields"]!r}'
+        params_str = ', '.join(f'{k!s}={v!r}' for k, v in self.parameters.items() if k != 'fields')
+        if self.dummy_action:
+            params_str += f', dummy_action={self.dummy_action}'
+
+        return f'{self.__class__.__name__}({args_str}, {fields_str}, {params_str})'
+
+    def __str__(self):
+        args_str = f'{self.document_type!r}, {self.index_name!r}'
+
+        fields_str = ''
+        if 'fields' in self.parameters:
+            fields_str = f'fields={self.parameters["fields"]!r}'
+        if self.dummy_action:
+            args_str += f', dummy_action={self.dummy_action}'
+
+        return f'{self.__class__.__name__}({args_str}, {fields_str} ...)'

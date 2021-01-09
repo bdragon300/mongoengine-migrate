@@ -68,7 +68,6 @@ class CreateField(BaseFieldAction):
         If field is defined as required then force create it with
         default value. Otherwise do nothing since mongoengine creates
         fields automatically on value set
-        FIXME: parameters (indexes, acl, etc.)
         """
         def by_path(ctx: ByPathContext):
             # Update documents only
@@ -205,11 +204,16 @@ class AlterField(BaseFieldAction):
                 and field_name in right_schema[document_type] \
                 and left_schema[document_type][field_name] != right_schema[document_type][field_name]
         if match:
-            # Consider items which was changed and added, skip those
-            # ones which was unchanged or was removed
             right_field_schema = right_schema[document_type][field_name]
             left_field_schema = left_schema[document_type][field_name]
-            action_params = dict(right_field_schema.items() - left_field_schema.items())
+            # Consider items which was changed or added, skip those
+            # ones which was unchanged or was removed
+            # NOTE: `r.items() - l.items()` doesn't work since this
+            # requires dict values to be hashable
+            action_params = {
+                k: right_field_schema[k] for k in right_field_schema.keys()
+                if k not in left_field_schema or left_field_schema[k] != right_field_schema[k]
+            }
             # FIXME: use function below
             # field_params = cls._fix_field_params(document_type,
             #                                      field_name,
@@ -242,15 +246,15 @@ class AlterField(BaseFieldAction):
 
         # Remove params
         d = [('remove', f'{self.document_type}.{self.field_name}', [(key, ())])
-             for key in left.keys() - right_schema_skel.keys()]
+             for key in sorted(left.keys() - right_schema_skel.keys())]
         # Add new params
         d += [('add', f'{self.document_type}.{self.field_name}', [(key, params[key])])
-              for key in params.keys() - left.keys()]
+              for key in sorted(params.keys() - left.keys())]
         # Change params if they are requested to be changed
         d += [('change',
                f'{self.document_type}.{self.field_name}.{key}',
                (left[key], params[key]))
-              for key in params.keys() & left.keys()
+              for key in sorted(params.keys() & left.keys())
               if left[key] != params[key]]
 
         return d
@@ -345,7 +349,7 @@ class AlterField(BaseFieldAction):
 
 class RenameField(BaseFieldAction):
     """Rename field"""
-    priority = 10
+    priority = 80
 
     #: How much percent of items in schema diff of two fields in the
     #: same collection should be equal to consider such change as
@@ -375,6 +379,7 @@ class RenameField(BaseFieldAction):
             return
 
         left_field_schema = left_schema[document_type][field_name]
+        db_field = left_field_schema.get('db_field')
         candidates = []
         for right_field_name, right_field_schema in right_schema[document_type].items():
             # Skip fields which was not renamed
@@ -383,8 +388,7 @@ class RenameField(BaseFieldAction):
                 continue
 
             # Model field renamed, but db field is the same
-            db_field = right_field_schema.get('db_field')
-            if db_field == right_field_name:
+            if db_field == right_field_schema.get('db_field') and db_field is not None:
                 candidates = [(right_field_name, right_field_schema)]
                 break
 

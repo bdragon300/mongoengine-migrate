@@ -8,6 +8,8 @@
 Framework-agnostic schema migrations for [Mongoengine](http://mongoengine.org/) ODM. 
 Inspired by Django migrations system.
 
+[Read documentation](https://bdragon300.github.io/mongoengine-migrate/)
+
 **WARNING:** *this is an unstable version of software. Please backup your data before migrating*
 
 ## Installation
@@ -33,49 +35,16 @@ pip3 install mongoengine-migrate
 * Altering fields in document and embedded documents
   * Changing of init parameters such as `db_field`, `required`, etc.
   * Convertion between field types (if possible)
+* Indexes
+  * Creating, dropping, renaming
+  * Handling fields constraints such as `unique` and `unique_with`
 * Automatic select a query or a python loop to perform an update depending on MongoDB version
 * Two policies of how to work with existing data which does not meet to mongoengine schema
 
 All mongoengine field types are supported, including simple types, lists, dicts, references, 
 GridFS, geo types, generic types.
 
-## Example
-
-Let's assume that we already have the following Document declaration:
-
-```python
-from mongoengine import Document, fields
-    
-class Book(Document):
-    name = fields.StringField(default='?')
-    year = fields.StringField(max_length=4)
-    isbn = fields.StringField()
-```
-
-Then we make some changes:
-
-```python
-from mongoengine import Document, fields
-
-# Add Author Document
-class Author(Document):
-    name = fields.StringField(required=True)
-
-class Book(Document):
-    caption = fields.StringField(required=True, default='?')  # Make required and rename
-    year = fields.IntField()  # Change type to IntField
-    # Removed field isbn
-    author = fields.ReferenceField(Author)  # Add field
-```
-
-Such changes should be reflected in database. The following command creates migration file
-(`myproject.db` is a python module with mongoengine document declarations):
-
-```shell script
-mongoengine-migrate makemigrations -m myproject.db 
-```
-
-New migration file will be created:
+## Typical migration file
 
 ```python
 from mongoengine_migrate.actions import *
@@ -104,36 +73,3 @@ actions = [
         type_key='ReferenceField', unique=False, unique_with=None),
 ]
 ```
-
-Next, upgrade the database to the latest version:
-
-```shell script
-mongoengine-migrate migrate
-```
-
-Or to the certain migration:
-
-```shell script
-mongoengine-migrate migrate previous_migration
-```
-
-### Actual db changes 
-
-During the running forward the migration created above the following changes will be made:
-* "author" collection
-  1. Nothing to do
-* "book" collection
-  1. Existing fields "name" will be renamed to "caption"
-  1. All unset "caption" fields will be set to default value `'?'`
-     (because this field was defined as "required")
-  1. Existing fields "year" with string values will be casted to integer value
-  1. "isbn" field will be dropped
-
-On backward direction the following changes will be made:
-* "book" collection
-  1. "author" field will be dropped
-  1. All integer values in "year" field will be casted back to string
-  1. Existing "caption" fields will be renamed back to "name"
-* "author" collection
-  1. "name" field will be dropped
-  1. whole "author" collection will be dropped

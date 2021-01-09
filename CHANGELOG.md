@@ -5,6 +5,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Python Versioning](https://www.python.org/dev/peps/pep-0440/#public-version-identifiers).
 
+## [0.0.2]
+### Added
+- Add additional functional tests for actions
+- Indexes support (#14)
+- Write documentation (#13)
+- Add pre-push githook
+
+### Changed
+- Fix command name in README by [@rightplace](https://github.com/rightplace)
+- Fix email check regex in EmailField (#24) by [@vmdhhh](https://github.com/vmdhhh)
+- Fix `parameters` constructor argument gets to schema in `Schema` object (#33) by [@vmdhhh](https://github.com/vmdhhh)
+- Seek module in current directory for `makemigrations` command (#21)
+- Fix "unhashable type" error in `AlterField` while making migrations (#37)
+- Prohibit renaming document to embedded document and back while making migrations (#22)
+- Fix `TypeError` raising in RunPython python expression printing method
+
+## [0.0.1a3]
+### Changed
+- Change parameter dummy_actions to schema_only (#1) by [@dameyerdave](https://github.com/dameyerdave)
+- Fix debug output if no last migration by [@dameyerdave](https://github.com/dameyerdave)
+
+## [0.0.1a2]
+### Changed
+- Fixed CI/CD and package building
+
 ## [0.0.1a1]
 ### Added
 - Implement FallbackDocumentUpdater for perform an action in python loop when MongoDB version

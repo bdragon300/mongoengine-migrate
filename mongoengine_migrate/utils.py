@@ -10,7 +10,7 @@ __all__ = [
 ]
 
 import inspect
-from typing import Type, Iterable, Optional, NamedTuple, Any, Union, Iterator, Tuple
+from typing import Type, Iterable, Optional, NamedTuple, Any, Union, Iterator, Tuple, Dict
 
 from mongoengine import EmbeddedDocument
 from mongoengine.base import BaseDocument
@@ -68,7 +68,7 @@ class Slotinit(object):
         my_car = Car(color='blue', engine_power='100hp')
     """
 
-    defaults = {}
+    defaults: Dict[str, Any] = {}
     __slots__ = ()
 
     def __init__(self, **kwargs):
@@ -94,7 +94,7 @@ class Slotinit(object):
         return not self.__eq__(other)
 
 
-def get_closest_parent(target: Type, classes: Iterable[Type]) -> Type:
+def get_closest_parent(target: Type, classes: Iterable[Type]) -> Optional[Type]:
     """
     Find which class in given list is the closest parent to
     a target class.
@@ -176,7 +176,7 @@ def get_index_name(fields_spec: Iterable[Iterable[Any]]) -> str:
 
 
 def normalize_index_fields_spec(
-        fields_spec: Iterable[Union[str, Iterable[Any]]]) -> Iterator[Tuple[Any]]:
+        fields_spec: Iterable[Union[str, Iterable[Any]]]) -> Iterator[Tuple[str, Any]]:
     """
     Normalize index fields specification.
 

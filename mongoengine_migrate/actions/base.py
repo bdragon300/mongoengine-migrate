@@ -608,8 +608,10 @@ class BaseIndexAction(BaseAction):
 
             del parameters['fields']
             index_types = (
-                'ASCENDING', 'DESCENDING', 'GEO2D', 'GEOHAYSTACK', 'GEOSPHERE', 'HASHED', 'TEXT'
+                'ASCENDING', 'DESCENDING', 'GEO2D', 'GEOSPHERE', 'HASHED', 'TEXT'
             )
+            if int(pymongo.__version__.split(".")[0]) < 4:
+                index_types += ('GEOHAYSTACK',)
             index_type_map = {getattr(pymongo, name): ReprStr(f'pymongo.{name}')
                               for name in index_types}
             fields = [(field, index_type_map.get(typ, typ))

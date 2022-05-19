@@ -206,7 +206,7 @@ def to_dbref(updater: DocumentUpdater):
             except bson.errors.BSONError:
                 pass
 
-        collection_name = ctx.collection.name if ctx.collection else None
+        collection_name = ctx.collection.name if ctx.collection is not None else None
         is_dict = isinstance(f, dict)
         if is_dict and isinstance(f.get('_id'), bson.ObjectId):  # manual ref
             doc[updater.field_name] = bson.DBRef(collection_name, f['_id'])
@@ -233,7 +233,7 @@ def to_dynamic_ref(updater: DocumentUpdater):
 
         f = doc[updater.field_name]
         is_dict = isinstance(f, dict)
-        collection_name = ctx.collection.name if ctx.collection else None
+        collection_name = ctx.collection.name if ctx.collection is not None else None
 
         if isinstance(f, str):  # ObjectId as string
             try:

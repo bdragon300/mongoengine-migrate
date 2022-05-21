@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Python Versioning](https://www.python.org/dev/peps/pep-0440/#public-version-identifiers).
 
+## [0.0.3]
+### Changed
+- Fix AttributeError: GEOHAYSTACK (#48) by [@Mohsen-Khodabakhshi](https://github.com/Mohsen-Khodabakhshi)
+- Fix Error when changing reference field to generic reference field (#50) by [@prihoda](https://github.com/prihoda)
+
 ## [0.0.2]
 ### Added
 - Add additional functional tests for actions
